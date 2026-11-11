@@ -1,0 +1,224 @@
+// Package session 提供 SessionManager：Agent 会话的异步执行、审批与配置热更新。
+//
+// 按职责拆分为多个文件：
+//   - session.go  类型定义、状态机、结构体、构造函数
+//   - lifecycle.go 会话生命周期（创建/查找/状态/事件）
+//   - message.go   消息收发（发送/取消/清空/删除）
+//   - approval.go  命令与计划的审批
+//   - graph.go     图构建与执行（run/ensureGraph）
+//   - input.go     模型输入组装（buildInput）
+package session
+
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	einomodel "github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/schema"
+
+	"nextopsx/internal/connector"
+	"nextopsx/internal/einoagent/checkpoint"
+	agentmodel "nextopsx/internal/einoagent/model"
+	agenttools "nextopsx/internal/einoagent/tools"
+	_ "nextopsx/internal/redis"    // 登记 Redis 连接器
+	_ "nextopsx/internal/register" // 登记内置命令型驱动（ssh/winrm），供协议分派
+	"nextopsx/internal/skill"
+	"nextopsx/internal/sshexec"
+	"nextopsx/internal/store"
+	configstore "nextopsx/internal/store/config"
+	convstore "nextopsx/internal/store/conversations"
+	logsstore "nextopsx/internal/store/logs"
+	memorystore "nextopsx/internal/store/memory"
+)
+
+// 前端可见的会话状态（session:state 事件载荷）。
+const (
+	StateIdle             = "Idle"
+	StateThinking         = "Thinking"
+	StateAwaitingApproval = "AwaitingApproval"
+	StateRunning          = "Running"
+)
+
+// maxHistoryMessages 注入模型的会话历史条数上限（超出省略早期，控制上下文）。
+const maxHistoryMessages = 30
+
+// runState 内部状态机。
+type runState int
+
+const (
+	stIdle runState = iota
+	stThinking
+	stAwaitingApproval
+	stRunning
+)
+
+func (s runState) String() string {
+	switch s {
+	case stThinking:
+		return StateThinking
+	case stAwaitingApproval:
+		return StateAwaitingApproval
+	case stRunning:
+		return StateRunning
+	default:
+		return StateIdle
+	}
+}
+
+// executorHolder 线程安全的 per-session SSH 执行器持有器。
+type executorHolder struct {
+	mu       sync.Mutex
+	executor sshexec.Exec
+}
+
+func (h *executorHolder) Set(exec sshexec.Exec) {
+	h.mu.Lock()
+	h.executor = exec
+	h.mu.Unlock()
+}
+
+// Exec 实现 sshexec.Exec，委托当前持有的执行器。
+func (h *executorHolder) Exec(ctx context.Context, command string) (<-chan sshexec.Line, error) {
+	h.mu.Lock()
+	ex := h.executor
+	h.mu.Unlock()
+	if ex == nil {
+		return nil, fmt.Errorf("执行器未配置")
+	}
+	return ex.Exec(ctx, command)
+}
+
+// agentSession 单个会话的运行时状态。
+type agentSession struct {
+	id     string
+	hostID string
+
+	mu          sync.Mutex
+	state       runState
+	graph       compose.Runnable[[]*schema.Message, []*schema.Message]
+	builtAt     int // 构建时的 configVersion
+	checkpoints *checkpoint.MemCheckpointStore
+	interruptID string
+	lastInput   []*schema.Message
+	cancel      context.CancelFunc
+	// 审批类型：等待审批时区分是"计划"（create_plan）还是"命令"（execute_command）
+	approvalType string // "" | "plan" | "command"
+
+	holder    *executorHolder
+	toolCalls *agenttools.ToolCallHolder
+}
+
+// SessionManager 管理所有 Agent 会话。
+type SessionManager struct {
+	app         *store.DB
+	convs       *convstore.ConvStore
+	mem         *memorystore.MemoryStore
+	cfg         *configstore.ConfigStore
+	executorFor func(hostID string) sshexec.Exec
+	hostNameFor func(hostID string) (string, error) // 解析资产名（注入系统提示词）
+	emit        func(sessionID, event string, data any)
+	logs        *logsstore.LogsStore // AI 调用审计日志
+
+	// modelFactory 构造基础模型；可注入以便测试。
+	// 默认走 einoagent.agentmodel.NewChatModel（eino-ext provider）。
+	modelFactory func(ctx context.Context, cfg configstore.AIConfig) (einomodel.ToolCallingChatModel, error)
+
+	// policyFor 按资产解析审批策略（enableAuto + 只读白名单）；nil 表示全量审批。
+	policyFor func(hostID string) (enableAuto bool, readOnlyWhitelist []string)
+
+	// terminalContextFor 按资产解析终端最近输出清洗文本（AI 上下文）；nil 表示不注入。
+	terminalContextFor func(hostID string) string
+
+	// skillCatalogFor 返回已启用技能的目录文本（无则空串）；skillFor 按名解析技能（供工具用）。nil 表示不启用技能。
+	skillCatalogFor func() string
+	skillFor        func(name string) (*skill.Skill, error)
+
+	// protocolFor 按资产解析协议（"ssh"/"winrm"/"mysql"...）；nil 表示默认 ssh。
+	protocolFor func(hostID string) string
+
+	// capabilityFor 按资产解析连接能力对象（已注册连接类型，供 execute_sql 工具）；nil 表示不启用。
+	capabilityFor func(hostID string) connector.Capability
+
+	mu            sync.Mutex
+	sessions      map[string]*agentSession
+	configVersion int
+}
+
+// NewSessionManager 构造会话管理器。hostNameFor 可为 nil（此时系统提示词不含资产名）。
+func NewSessionManager(
+	app *store.DB,
+	cfg *configstore.ConfigStore,
+	executorFor func(hostID string) sshexec.Exec,
+	hostNameFor func(hostID string) (string, error),
+	emit func(sessionID, event string, data any),
+) *SessionManager {
+	return &SessionManager{
+		app:         app,
+		convs:       convstore.NewConvStore(app),
+		mem:         memorystore.NewMemoryStore(app),
+		cfg:         cfg,
+		executorFor: executorFor,
+		hostNameFor: hostNameFor,
+		emit:        emit,
+		logs:        logsstore.NewLogsStore(app),
+		modelFactory: func(ctx context.Context, c configstore.AIConfig) (einomodel.ToolCallingChatModel, error) {
+			return agentmodel.NewChatModel(ctx, c)
+		},
+		sessions: map[string]*agentSession{},
+	}
+}
+
+// InvalidateConfig 使所有会话的模型缓存失效（AI 配置热更新入口）。
+// 进行中的轮次不受影响；下一轮 SendMessage/审批恢复时按新配置重建。
+func (m *SessionManager) InvalidateConfig() {
+	m.mu.Lock()
+	m.configVersion++
+	m.mu.Unlock()
+}
+
+// SetApprovalPolicyResolver 注入审批策略解析器（hostID → 自动放行开关 + 只读白名单）。
+// 注入同时使已构建的 Graph 失效（下一轮按新策略重建）。不注入则全部命令人工审批。
+func (m *SessionManager) SetApprovalPolicyResolver(fn func(hostID string) (bool, []string)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.policyFor = fn
+	m.configVersion++
+}
+
+// SetTerminalContextResolver 注入终端上下文解析器（hostID → 清洗后的终端输出文本）。
+// 不注入则 AI 上下文不含终端内容。
+func (m *SessionManager) SetTerminalContextResolver(fn func(hostID string) string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.terminalContextFor = fn
+}
+
+// SetSkillResolver 注入技能解析器（目录文本 + 按名解析）。不注入则系统提示词不含
+// 技能目录、不注册技能工具。注入同时使已构建 Graph 失效（技能工具列表随技能增删变化）。
+func (m *SessionManager) SetSkillResolver(catalog func() string, lookup func(name string) (*skill.Skill, error)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.skillCatalogFor = catalog
+	m.skillFor = lookup
+	m.configVersion++
+}
+
+// SetProtocolResolver 注入协议解析器（hostID → "ssh"/"winrm"/"mysql"...）。
+// 注入同时使已构建 Graph 失效（下一轮按新协议重建工具语义）。
+func (m *SessionManager) SetProtocolResolver(fn func(hostID string) string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.protocolFor = fn
+	m.configVersion++
+}
+
+// SetCapabilityResolver 注入连接能力解析器（hostID → connector.Capability，供 execute_sql 工具）。
+// 不注入则数据库资产无 execute_sql 工具。注入同时使已构建 Graph 失效。
+func (m *SessionManager) SetCapabilityResolver(fn func(hostID string) connector.Capability) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.capabilityFor = fn
+	m.configVersion++
+}

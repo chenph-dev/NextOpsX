@@ -44,7 +44,7 @@ func TestFolderContextMenu(t *testing.T) {
 	if err := tt.RightClick("prod"); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"在此新建主机", "在此新建目录", "-", "重命名", "移动", "-", "删除"}
+	want := []string{"在此新建资产", "在此新建目录", "-", "重命名", "移动", "-", "删除"}
 	if got := tt.Menu(); !slices.Equal(got, want) {
 		t.Fatalf("menu = %q, want %q", got, want)
 	}
@@ -82,11 +82,11 @@ func TestSidebarContextMenu(t *testing.T) {
 	a := &app.App{}
 	tt := ui.NewTester(Shell(a), 1000, 700)
 	tt.RightClickAt(100, 400)
-	want := []string{"新建主机", "新建目录", "-", "刷新"}
+	want := []string{"新建资产", "新建目录", "-", "刷新"}
 	if got := tt.Menu(); !slices.Equal(got, want) {
 		t.Fatalf("menu = %q, want %q", got, want)
 	}
-	if err := tt.ChooseMenuItem("新建主机"); err != nil {
+	if err := tt.ChooseMenuItem("新建资产"); err != nil {
 		t.Fatal(err)
 	}
 	if !a.Hosts.Form.Open || a.Hosts.Form.IsFolder {

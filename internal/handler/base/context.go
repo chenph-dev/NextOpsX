@@ -14,7 +14,12 @@ func SetCtx(c context.Context) {
 	ctx = c
 }
 
-// Ctx 返回当前 Wails 上下文，供 handler 内部使用。
+// Ctx 返回当前应用上下文，供 handler 内部使用。
+// 原生 UI 不经过 Wails OnStartup，未注入时回退到 Background，
+// 避免 context.WithTimeout(nil, …) panic。
 func Ctx() context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
 	return ctx
 }

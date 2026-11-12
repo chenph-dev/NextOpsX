@@ -24,12 +24,12 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 		t := c.Theme()
 		ui.Column(c).Width(620).Padding(20).Gap(12).Children(func() {
 			ui.Column(c).Gap(2).Children(func() {
-				title := "新建主机"
+				title := "新建资产"
 				switch {
 				case f.IsFolder:
 					title = "新建目录"
 				case f.EditingID != "":
-					title = "编辑主机"
+					title = "编辑资产"
 				}
 				ui.Text(c, title).FontSize(17).Bold()
 				ui.Text(c, "位置："+a.HostFormParentLabel()).
@@ -287,7 +287,7 @@ func deleteDialog(c *ui.Context, a *app.App) {
 	message := fmt.Sprintf("确定删除「%s」吗？此操作无法撤销。", a.Hosts.DeleteName)
 	if a.Hosts.DeleteIsFolder {
 		title = "删除目录"
-		message = fmt.Sprintf("确定删除目录「%s」吗？其中的主机和子目录也会一并删除，无法撤销。",
+		message = fmt.Sprintf("确定删除目录「%s」吗？其中的资产和子目录也会一并删除，无法撤销。",
 			a.Hosts.DeleteName)
 	}
 	if ui.AlertDialog(c, &a.Hosts.DeleteOpen, title, message, "取消", "确认删除") == 1 {

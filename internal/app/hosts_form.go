@@ -538,6 +538,13 @@ func (a *App) SaveHostForm() {
 			if current {
 				f.Open = false
 			}
+			if editingID != "" && a.DB.HostID == editingID {
+				if a.IsDBProtocol(in.Protocol) {
+					a.DB.HostName = in.Name
+					a.DB.Protocol = in.Protocol
+					a.RefreshDBSchema()
+				}
+			}
 			target := createdID
 			if target == "" {
 				target = editingID
@@ -657,9 +664,7 @@ func (a *App) refreshHosts(selectID string) {
 			if selectID != "" {
 				if n := findTreeNode(roots, selectID); n != nil {
 					a.Selected = n
-					if n.NodeType == "host" && n.ID != a.AI.HostID {
-						a.attachAI(n.ID)
-					}
+					a.attachAsset(n)
 				}
 				return
 			}
@@ -668,6 +673,7 @@ func (a *App) refreshHosts(selectID string) {
 			}
 			if n := findTreeNode(roots, a.Selected.ID); n != nil {
 				a.Selected = n
+				a.attachAsset(n)
 			} else {
 				a.Selected = nil
 			}

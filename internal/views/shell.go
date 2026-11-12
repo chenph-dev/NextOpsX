@@ -20,15 +20,15 @@ func Shell(a *app.App) func(*ui.Context) {
 			ui.Column(c).Width(280).FillHeight().Background(t.Surface).
 				Border(1, t.Border).Children(func() {
 				ui.Row(c).Padding(12).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, "Hosts").FontSize(16).Bold()
+					ui.Text(c, "资产").FontSize(16).Bold()
 					ui.Text(c, fmt.Sprintf("%d", countHosts(a.Roots))).TextColor(t.TextMuted)
 					ui.Spacer(c)
-					ui.Button(c, "＋主机").FontSize(11).OnClick(a.OpenNewHostForm)
+					ui.Button(c, "＋资产").FontSize(11).OnClick(a.OpenNewHostForm)
 					ui.Button(c, "＋目录").FontSize(11).OnClick(a.OpenNewFolderForm)
 				})
 				tree := ui.Scroll(c).Grow(1)
 				tree.ContextMenu(func(m *ui.Menu) {
-					if m.Item("新建主机").Chosen() {
+					if m.Item("新建资产").Chosen() {
 						a.Selected = nil
 						a.OpenNewHostForm()
 					}
@@ -46,7 +46,7 @@ func Shell(a *app.App) func(*ui.Context) {
 				})
 			})
 
-			ui.Column(c).Grow(1).FillHeight().Children(func() {
+			ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
 				if a.Selected == nil {
 					Welcome(c, a)
 					return
@@ -57,7 +57,11 @@ func Shell(a *app.App) func(*ui.Context) {
 						ui.Text(c, fmt.Sprintf("%s@%s:%d", a.Selected.User, a.Selected.Addr, a.Selected.Port)).
 							FontSize(12).TextColor(t.TextMuted)
 						ui.Spacer(c)
-						ui.Tabs(c, &a.RightTab, "终端", "AI 对话")
+						labels := []string{"终端", "AI 对话"}
+						if a.IsDBProtocol(a.Selected.Protocol) {
+							labels[0] = "数据库"
+						}
+						ui.Tabs(c, &a.RightTab, labels...)
 						return
 					}
 					ui.Text(c, "目录").FontSize(12).TextColor(t.TextMuted)
@@ -70,6 +74,10 @@ func Shell(a *app.App) func(*ui.Context) {
 				ui.Column(c).Grow(1).FillHeight().Children(func() {
 					if a.RightTab == 1 {
 						AIPanel(c, a)
+						return
+					}
+					if a.IsDBProtocol(a.Selected.Protocol) {
+						DBWorkbench(c, a)
 						return
 					}
 					if a.Term != nil && a.TermHostID == a.Selected.ID {

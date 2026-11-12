@@ -13,9 +13,29 @@ func IsQuery(sqlText string) bool {
 	return false
 }
 
-// firstKeyword 提取 SQL 的首个关键字（小写）。
+// firstKeyword 提取 SQL 的首个关键字（小写），跳过前置注释与括号。
 func firstKeyword(s string) string {
-	s = strings.TrimSpace(s)
+	for {
+		s = strings.TrimSpace(s)
+		switch {
+		case strings.HasPrefix(s, "--"), strings.HasPrefix(s, "#"):
+			if i := strings.IndexByte(s, '\n'); i >= 0 {
+				s = s[i+1:]
+				continue
+			}
+			return ""
+		case strings.HasPrefix(s, "/*"):
+			if i := strings.Index(s, "*/"); i >= 0 {
+				s = s[i+2:]
+				continue
+			}
+			return ""
+		case strings.HasPrefix(s, "("):
+			s = strings.TrimSpace(s[1:])
+			continue
+		}
+		break
+	}
 	if i := strings.IndexAny(s, " \t\r\n"); i >= 0 {
 		s = s[:i]
 	}

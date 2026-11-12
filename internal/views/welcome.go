@@ -19,10 +19,10 @@ func Welcome(c *ui.Context, a *app.App) {
 		n := a.Selected
 		if n == nil {
 			ui.Text(c, "选择左侧资产").FontSize(18).TextColor(t.TextMuted)
-			ui.Text(c, "还没有资产时，可以先新建主机或目录。").
+			ui.Text(c, "还没有资产时，可以先新建资产或目录。").
 				FontSize(12).TextColor(t.TextMuted)
 			ui.Row(c).Gap(8).Children(func() {
-				ui.PrimaryButton(c, "新建主机").OnClick(a.OpenNewHostForm)
+				ui.PrimaryButton(c, "新建资产").OnClick(a.OpenNewHostForm)
 				ui.Button(c, "新建目录").OnClick(a.OpenNewFolderForm)
 			})
 			backgroundTerminal(c, a, t)
@@ -34,7 +34,7 @@ func Welcome(c *ui.Context, a *app.App) {
 			ui.Text(c, fmt.Sprintf("目录 · %d 个直接子节点", len(n.Children))).
 				TextColor(t.TextMuted)
 			ui.Row(c).Gap(8).Children(func() {
-				ui.PrimaryButton(c, "在此新建主机").OnClick(a.OpenNewHostForm)
+				ui.PrimaryButton(c, "在此新建资产").OnClick(a.OpenNewHostForm)
 				ui.Button(c, "在此新建目录").OnClick(a.OpenNewFolderForm)
 				ui.Button(c, "重命名").OnClick(a.OpenRenameDialog)
 				ui.Button(c, "移动").OnClick(a.OpenMoveDialog)

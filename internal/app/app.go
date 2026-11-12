@@ -28,6 +28,7 @@ type App struct {
 	RightTab int
 	AI       AIState
 	Hosts    HostsState
+	DB       DBState
 
 	Term       *terminal.Terminal
 	TermHostID string
@@ -80,10 +81,24 @@ func (a *App) Post(fn func()) {
 	fn()
 }
 
-// Select marks an asset as selected and attaches its AI conversation.
+// Select marks an asset as selected and attaches its workbench and AI
+// conversation.
 func (a *App) Select(n *hoststore.TreeNode) {
 	a.Selected = n
-	if n != nil && n.NodeType == "host" && n.ID != a.AI.HostID {
+	a.attachAsset(n)
+}
+
+// attachAsset initializes per-asset state for a selected asset. It is used
+// both by tree clicks and by tree refreshes (create/edit), which set
+// Selected directly.
+func (a *App) attachAsset(n *hoststore.TreeNode) {
+	if n == nil || n.NodeType != "host" {
+		return
+	}
+	if a.IsDBProtocol(n.Protocol) {
+		a.attachDB(n)
+	}
+	if n.ID != a.AI.HostID {
 		a.attachAI(n.ID)
 	}
 }

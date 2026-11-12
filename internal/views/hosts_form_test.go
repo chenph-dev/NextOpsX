@@ -36,10 +36,10 @@ func pumpView(t *testing.T, u *viewUpdater, cond func() bool) {
 func TestHostFormDialogRenders(t *testing.T) {
 	a := &app.App{}
 	tt := ui.NewTester(Shell(a), 1000, 800)
-	if !tt.HasText("新建主机") {
+	if !tt.HasText("新建资产") {
 		t.Fatalf("empty state missing new-host action: %q", tt.Texts())
 	}
-	if err := tt.Click("新建主机"); err != nil {
+	if err := tt.Click("新建资产"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -92,7 +92,7 @@ func TestCreateHostThroughFormUI(t *testing.T) {
 	a.Attach(u)
 
 	tt := ui.NewTester(Shell(a), 1000, 900)
-	if err := tt.Click("新建主机"); err != nil {
+	if err := tt.Click("新建资产"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -182,7 +182,7 @@ func TestFolderActionsAndDialogs(t *testing.T) {
 	a.Roots = []hoststore.TreeNode{{ID: "f1", Name: "prod", NodeType: "folder"}}
 	tt := ui.NewTester(Shell(a), 1000, 800)
 
-	for _, want := range []string{"在此新建主机", "在此新建目录", "重命名", "移动", "删除"} {
+	for _, want := range []string{"在此新建资产", "在此新建目录", "重命名", "移动", "删除"} {
 		if !tt.HasText(want) {
 			t.Errorf("folder action %q missing: %q", want, tt.Texts())
 		}
@@ -214,7 +214,7 @@ func TestEditHostFormAndDeleteDialog(t *testing.T) {
 		t.Fatalf("edit form = %+v", a.Hosts.Form)
 	}
 	tt.Frame()
-	for _, want := range []string{"编辑主机", "web-01", "10.0.0.5", "保留原值"} {
+	for _, want := range []string{"编辑资产", "web-01", "10.0.0.5", "保留原值"} {
 		if !tt.HasText(want) {
 			t.Errorf("edit form missing %q in %q", want, tt.Texts())
 		}

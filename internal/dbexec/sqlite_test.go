@@ -94,3 +94,18 @@ func TestSQLiteDriverRegistered(t *testing.T) {
 		t.Fatalf("sqlite 应实现 QueryRunner, got %T", cap)
 	}
 }
+
+func TestSQLiteQueryRowCap(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "cap.db")
+	ex := NewExecutor(Host{Driver: "sqlite", Database: dbPath})
+	ctx := context.Background()
+	res, err := ex.Query(ctx, `WITH RECURSIVE cnt(x) AS (
+  SELECT 1 UNION ALL SELECT x+1 FROM cnt WHERE x < 10005
+) SELECT x FROM cnt`)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(res.Rows) != maxQueryRows || !res.Truncated {
+		t.Fatalf("rows=%d truncated=%v, want %d,true", len(res.Rows), res.Truncated, maxQueryRows)
+	}
+}

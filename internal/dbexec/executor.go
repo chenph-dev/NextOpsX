@@ -32,12 +32,19 @@ type Host struct {
 	Database string
 }
 
+// maxQueryRows caps how many rows a query loads into memory. The DB
+// driver streams rows; iteration stops here, so a runaway SELECT cannot
+// exhaust the app's memory.
+const maxQueryRows = 10000
+
 // Result SQL 执行结果。Rows 中的值为 JSON 友好类型
 // （string/int64/float64/bool/nil/base64 二进制）。
 type Result struct {
 	Columns      []string `json:"columns"`
 	Rows         [][]any  `json:"rows"`
 	RowsAffected int64    `json:"rowsAffected,omitempty"`
+	// Truncated is set when the query returned more than maxQueryRows.
+	Truncated bool `json:"truncated,omitempty"`
 }
 
 // Executor 数据库执行器（每次执行新建连接）。
@@ -167,6 +174,10 @@ func (e *Executor) Query(ctx context.Context, sqlText string) (*Result, error) {
 	}
 	result := &Result{Columns: cols}
 	for rows.Next() {
+		if len(result.Rows) >= maxQueryRows {
+			result.Truncated = true
+			break
+		}
 		vals := make([]any, len(cols))
 		ptrs := make([]any, len(cols))
 		for i := range vals {
@@ -260,11 +271,11 @@ WHERE t.database = currentDatabase() AND t.is_temporary = 0
 ORDER BY t.name, c.position`
 	}
 	if drv == "sqlserver" {
-		return `SELECT t.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE, c.IS_NULLABLE, '' AS key, t.TABLE_TYPE AS obj_type
+		return `SELECT t.TABLE_SCHEMA + '.' + t.TABLE_NAME AS table_name, c.COLUMN_NAME, c.DATA_TYPE, c.IS_NULLABLE, '' AS key, t.TABLE_TYPE AS obj_type
 FROM information_schema.TABLES t
 JOIN information_schema.COLUMNS c ON c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME
 WHERE t.TABLE_CATALOG = DB_NAME() AND t.TABLE_TYPE IN ('BASE TABLE','VIEW')
-ORDER BY t.TABLE_NAME, c.ORDINAL_POSITION`
+ORDER BY t.TABLE_SCHEMA, t.TABLE_NAME, c.ORDINAL_POSITION`
 	}
 	if drv == "postgres" {
 		return `SELECT t.table_name, c.column_name, c.data_type, c.is_nullable, '' AS key, t.table_type AS obj_type

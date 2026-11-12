@@ -5,6 +5,7 @@ import (
 
 	"nextopsx/internal/app"
 	hoststore "nextopsx/internal/store/hosts"
+	"nextopsx/resources"
 )
 
 // HostTree builds the folder/host tree and reports selection.
@@ -17,33 +18,53 @@ func HostTree(c *ui.Context, a *app.App) {
 func buildNodes(c *ui.Context, a *app.App, nodes []hoststore.TreeNode) {
 	for i := range nodes {
 		n := &nodes[i]
-		if n.NodeType == "folder" {
-			item := ui.TreeItem(c, n.Name, a.Open[n.ID], func() {
+		isFolder := n.NodeType == "folder"
+		label := n.Name
+
+		// TreeItem always appends its label after the arrow. Build it with
+		// an empty label and append the icon and text ourselves, so the
+		// icon leads the node name.
+		var item ui.Element
+		if isFolder {
+			item = ui.TreeItem(c, "", a.Open[n.ID], func() {
 				buildNodes(c, a, n.Children)
 			})
-			selected := a.Selected != nil && a.Selected.ID == n.ID
-			item = item.Selected(selected)
-			item.ContextMenu(func(m *ui.Menu) { folderMenu(m, a, n) })
-			if item.Clicked() {
-				a.Select(n)
-			}
-			continue
+		} else {
+			item = ui.TreeItem(c, "", nil, nil)
 		}
-		label := n.Name
-		if n.Protocol != "" && n.Protocol != "ssh" {
-			label = n.Name + "  (" + n.Protocol + ")"
-		}
+		item.Children(func() {
+			hostTreeIcon(c, n)
+			ui.Text(c, label).SingleLine()
+		})
+
 		selected := a.Selected != nil && a.Selected.ID == n.ID
-		item := ui.TreeItem(c, label, nil, nil).Selected(selected)
-		item.ContextMenu(func(m *ui.Menu) { hostMenu(m, a, n) })
+		item = item.Selected(selected)
+		if isFolder {
+			item.ContextMenu(func(m *ui.Menu) { folderMenu(m, a, n) })
+		} else {
+			item = item.Tooltip("协议：" + a.HostProtocolName(n.Protocol))
+			item.ContextMenu(func(m *ui.Menu) { hostMenu(m, a, n) })
+		}
 		if item.Clicked() {
 			a.Select(n)
 		}
 	}
 }
 
+func hostTreeIcon(c *ui.Context, n *hoststore.TreeNode) {
+	if n.NodeType == "folder" {
+		if s := resources.FolderSVG(); s != nil {
+			ui.Icon(c, s).Size(15, 15).TextColor(c.Theme().TextMuted)
+		}
+		return
+	}
+	if b := resources.ProtocolBitmap(n.Protocol); b != nil {
+		ui.Image(c, b).Size(16, 16)
+	}
+}
+
 func folderMenu(m *ui.Menu, a *app.App, n *hoststore.TreeNode) {
-	if m.Item("在此新建主机").Chosen() {
+	if m.Item("在此新建资产").Chosen() {
 		a.Select(n)
 		a.OpenNewHostForm()
 	}

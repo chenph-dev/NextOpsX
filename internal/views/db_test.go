@@ -113,16 +113,16 @@ func TestDBTableTabRenders(t *testing.T) {
 func TestDBEmptySchemaHint(t *testing.T) {
 	a := &app.App{RightTab: 0}
 	a.Selected = &hoststore.TreeNode{
-		ID: "e1", Name: "es-01", NodeType: "host", Protocol: "elasticsearch",
-		Addr: "10.0.0.11", Port: 9200, User: "",
+		ID: "s1", Name: "sqlite", NodeType: "host", Protocol: "sqlite",
+		Params: map[string]any{"filePath": "/tmp/empty.db"},
 	}
 	a.DB = app.DBState{
-		HostID: "e1", HostName: "es-01", Protocol: "elasticsearch",
+		HostID: "s1", HostName: "sqlite", Protocol: "sqlite",
 		Schema: &dbexec.Schema{}, Open: map[string]*bool{}, Split: 190,
 	}
 	a.NewDBQueryTab()
 	tt := ui.NewTester(Shell(a), 1200, 800)
-	if !tt.HasText("该连接类型没有关系表结构") {
+	if !tt.HasText("没有可浏览的表或视图") {
 		t.Fatalf("empty schema hint missing: %q", tt.Texts())
 	}
 }

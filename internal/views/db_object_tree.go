@@ -85,16 +85,11 @@ func dbSchemaGroups(schema *dbexec.Schema, filter string) (tables, views []dbexe
 	return tables, views
 }
 
-func dbEmptySchemaHint(a *app.App, protocol string) string {
-	switch protocol {
-	case "redis", "elasticsearch":
-		return "该连接类型没有关系表结构，请直接使用右侧查询编辑器。"
-	default:
-		if db := a.DBDatabaseLabel(); db != "" {
-			return "当前库 " + db + " 没有可浏览的表或视图。"
-		}
-		return "没有可浏览的表或视图；请确认资产已填写数据库名，或点击刷新结构。"
+func dbEmptySchemaHint(a *app.App, _ string) string {
+	if db := a.DBDatabaseLabel(); db != "" {
+		return "当前库 " + db + " 没有可浏览的表或视图。"
 	}
+	return "没有可浏览的表或视图；请确认资产已填写数据库名，或点击刷新结构。"
 }
 
 func dbTableGroup(c *ui.Context, a *app.App, label, key string, tables []dbexec.Table) {

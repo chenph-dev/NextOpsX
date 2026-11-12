@@ -55,6 +55,30 @@ type Backend struct {
 	// aiSink 接收 SessionManager 的 AI 事件（前台 UI 注入）。
 	aiMu   sync.Mutex
 	aiSink AIEventSink
+
+	// sftpSink 接收传输任务事件（前台 UI 注入）。
+	sftpMu   sync.Mutex
+	sftpSink SFTPEventSink
+}
+
+// SFTPEventSink receives transfer task events: "sftp:start" when a task is
+// created, "sftp:progress" on progress and final state.
+type SFTPEventSink func(event string, task sftppkg.TaskInfo)
+
+// SetSFTPEventSink installs the transfer event sink (nil removes it).
+func (b *Backend) SetSFTPEventSink(sink SFTPEventSink) {
+	b.sftpMu.Lock()
+	b.sftpSink = sink
+	b.sftpMu.Unlock()
+}
+
+func (b *Backend) emitSFTP(event string, t *sftppkg.Task) {
+	b.sftpMu.Lock()
+	sink := b.sftpSink
+	b.sftpMu.Unlock()
+	if sink != nil {
+		sink(event, t.Snapshot())
+	}
 }
 
 // AIEventSink 接收一条 AI 会话事件。sessionID 标识会话，event 为
@@ -132,7 +156,11 @@ func New() (*Backend, error) {
 	})
 	b.sm.SetCapabilityResolver(resolver.ConnFor)
 
-	b.sftp = sftppkg.NewManager(resolver.HostFor, nil, nil)
+	b.sftp = sftppkg.NewManager(
+		resolver.HostFor,
+		func(t *sftppkg.Task) { b.emitSFTP("sftp:progress", t) },
+		func(t *sftppkg.Task) { b.emitSFTP("sftp:start", t) },
+	)
 	b.aiConfig = aiconfig.NewAIConfigHandler(cfg, b.sm.InvalidateConfig)
 	b.approval = approvalpolicy.NewApprovalPolicyHandler(policy, b.sm.InvalidateConfig)
 	b.dbHandler = dbhandler.NewDbHandler(resolver)

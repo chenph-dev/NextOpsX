@@ -38,15 +38,21 @@ func Open() (*DB, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("mkdir data dir: %w", err)
 	}
+	// DSN pragmas apply to every pooled connection: WAL allows concurrent
+	// readers, and busy_timeout makes a writer wait instead of failing with
+	// SQLITE_BUSY.
+	dsn := filepath.Join(dir, "nextopsx.db") +
+		"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)"
 	gormDB, err := gorm.Open(sqlite.New(sqlite.Config{
-		DSN:        filepath.Join(dir, "nextopsx.db"),
+		DSN:        dsn,
 		DriverName: "sqlite", // 使用 modernc.org/sqlite（纯 Go，无需 CGO）
 	}), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("open gorm: %w", err)
 	}
-	if err := gormDB.Exec(`PRAGMA foreign_keys = ON;`).Error; err != nil {
-		return nil, err
+	if sqlDB, err := gormDB.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(4)
+		sqlDB.SetMaxIdleConns(4)
 	}
 	if err := runMigrations(gormDB); err != nil {
 		return nil, fmt.Errorf("run migrations: %w", err)

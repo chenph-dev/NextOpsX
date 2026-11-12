@@ -9,6 +9,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/pkg/sftp"
@@ -61,6 +63,7 @@ type Task struct {
 // TaskInfo 任务对外快照（handler 返回前端）。
 type TaskInfo struct {
 	ID         string `json:"id"`
+	HostID     string `json:"hostId"`
 	Direction  string `json:"direction"`
 	LocalPath  string `json:"localPath"`
 	RemotePath string `json:"remotePath"`
@@ -76,7 +79,6 @@ type progressEmit func(t *Task)
 // Manager 管理每资产的 SFTP 连接（懒建立、复用、随应用退出释放）与传输任务。
 type Manager struct {
 	mu       sync.Mutex
-	clients  map[string]*sftp.Client
 	tasks    map[string]*Task
 	taskSeq  int
 	hostFor  func(hostID string) (*sshexec.Host, error)
@@ -94,19 +96,16 @@ func NewManager(
 	start progressEmit,
 ) *Manager {
 	return &Manager{
-		clients: map[string]*sftp.Client{}, tasks: map[string]*Task{},
+		tasks:   map[string]*Task{},
 		hostFor: hostFor, progress: progress, start: start,
 		sem: make(chan struct{}, maxConcurrent),
 	}
 }
 
-// clientFor 获取（懒建立）资产的 SFTP 连接。
-func (m *Manager) clientFor(ctx context.Context, hostID string) (*sftp.Client, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if c, ok := m.clients[hostID]; ok && c != nil {
-		return c, nil
-	}
+// dial opens a fresh SFTP connection. Connections are not cached: a
+// dropped SSH session must not poison every later operation, and a desktop
+// browser does not need a long-lived idle connection per host.
+func (m *Manager) dial(ctx context.Context, hostID string) (*sftp.Client, error) {
 	host, err := m.hostFor(hostID)
 	if err != nil {
 		return nil, fmt.Errorf("获取资产凭据: %w", err)
@@ -120,16 +119,16 @@ func (m *Manager) clientFor(ctx context.Context, hostID string) (*sftp.Client, e
 		conn.Close()
 		return nil, fmt.Errorf("建立 SFTP: %w", err)
 	}
-	m.clients[hostID] = client
 	return client, nil
 }
 
 // List 列目录，返回排序后的条目。
 func (m *Manager) List(ctx context.Context, hostID, dir string) ([]Entry, error) {
-	c, err := m.clientFor(ctx, hostID)
+	c, err := m.dial(ctx, hostID)
 	if err != nil {
 		return nil, err
 	}
+	defer c.Close()
 	infos, err := c.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("列目录 %s: %w", dir, err)
@@ -141,15 +140,27 @@ func (m *Manager) List(ctx context.Context, hostID, dir string) ([]Entry, error)
 			Mode: fi.Mode().String(), ModTime: fi.ModTime().Unix(),
 		})
 	}
-	return entries, nil
+	return sortEntries(entries), nil
+}
+
+// sortEntries puts directories first, then names case-insensitively.
+func sortEntries(entries []Entry) []Entry {
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].IsDir != entries[j].IsDir {
+			return entries[i].IsDir
+		}
+		return strings.ToLower(entries[i].Name) < strings.ToLower(entries[j].Name)
+	})
+	return entries
 }
 
 // Mkdir 新建目录。
 func (m *Manager) Mkdir(ctx context.Context, hostID, dir string) error {
-	c, err := m.clientFor(ctx, hostID)
+	c, err := m.dial(ctx, hostID)
 	if err != nil {
 		return err
 	}
+	defer c.Close()
 	if err := c.Mkdir(dir); err != nil {
 		return fmt.Errorf("新建目录 %s: %w", dir, err)
 	}
@@ -158,10 +169,11 @@ func (m *Manager) Mkdir(ctx context.Context, hostID, dir string) error {
 
 // Remove 删除文件或空目录。
 func (m *Manager) Remove(ctx context.Context, hostID, p string) error {
-	c, err := m.clientFor(ctx, hostID)
+	c, err := m.dial(ctx, hostID)
 	if err != nil {
 		return err
 	}
+	defer c.Close()
 	if err := c.Remove(p); err != nil {
 		return fmt.Errorf("删除 %s: %w", p, err)
 	}
@@ -170,10 +182,11 @@ func (m *Manager) Remove(ctx context.Context, hostID, p string) error {
 
 // Rename 重命名/移动。
 func (m *Manager) Rename(ctx context.Context, hostID, oldPath, newPath string) error {
-	c, err := m.clientFor(ctx, hostID)
+	c, err := m.dial(ctx, hostID)
 	if err != nil {
 		return err
 	}
+	defer c.Close()
 	if err := c.Rename(oldPath, newPath); err != nil {
 		return fmt.Errorf("重命名 %s: %w", oldPath, err)
 	}
@@ -216,10 +229,11 @@ func (m *Manager) StartUpload(ctx context.Context, hostID, localPath, remoteDir 
 
 // StartDownload 启动下载任务：远端文件 → 本地路径，入队列等待执行。返回 taskID。
 func (m *Manager) StartDownload(ctx context.Context, hostID, remotePath, localPath string) (string, error) {
-	client, err := m.clientFor(ctx, hostID)
+	client, err := m.dial(ctx, hostID)
 	if err != nil {
 		return "", err
 	}
+	defer client.Close()
 	st, err := client.Stat(remotePath)
 	if err != nil {
 		return "", fmt.Errorf("stat 远端文件: %w", err)
@@ -263,6 +277,9 @@ func (m *Manager) startNext() {
 			t.Status = TaskRunning
 			t.mu.Unlock()
 			m.mu.Unlock()
+			if m.progress != nil {
+				m.progress(t)
+			}
 			go m.runTask(t)
 		default:
 			m.mu.Unlock()
@@ -274,6 +291,9 @@ func (m *Manager) startNext() {
 // runTask 执行任务并在结束时释放并发槽、调度下一个。
 func (m *Manager) runTask(t *Task) {
 	defer func() {
+		// Every path, including pre-copy errors and cancellation, reports
+		// its final state to the UI exactly once.
+		m.emitFinal(t)
 		<-m.sem
 		m.startNext()
 	}()
@@ -349,16 +369,21 @@ func (m *Manager) ListTasks() []TaskInfo {
 	defer m.mu.Unlock()
 	out := make([]TaskInfo, 0, len(m.tasks))
 	for _, t := range m.tasks {
-		t.mu.Lock()
-		out = append(out, TaskInfo{
-			ID: t.ID, Direction: t.Direction,
-			LocalPath: t.LocalPath, RemotePath: t.RemotePath,
-			Total: t.Total, Done: t.Done,
-			Status: string(t.Status), Error: t.ErrMsg,
-		})
-		t.mu.Unlock()
+		out = append(out, t.Snapshot())
 	}
 	return out
+}
+
+// Snapshot returns a consistent view of a task for the UI or an event.
+func (t *Task) Snapshot() TaskInfo {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return TaskInfo{
+		ID: t.ID, HostID: t.HostID, Direction: t.Direction,
+		LocalPath: t.LocalPath, RemotePath: t.RemotePath,
+		Total: t.Total, Done: t.Done,
+		Status: string(t.Status), Error: t.ErrMsg,
+	}
 }
 
 func (m *Manager) getTask(id string) *Task {
@@ -369,11 +394,12 @@ func (m *Manager) getTask(id string) *Task {
 
 // runUpload 上传任务主体。
 func (m *Manager) runUpload(t *Task) {
-	client, err := m.clientFor(context.Background(), t.HostID)
+	client, err := m.dial(context.Background(), t.HostID)
 	if err != nil {
 		t.finish(TaskError, err.Error())
 		return
 	}
+	defer client.Close()
 	local, err := os.Open(t.LocalPath)
 	if err != nil {
 		t.finish(TaskError, err.Error())
@@ -391,11 +417,12 @@ func (m *Manager) runUpload(t *Task) {
 
 // runDownload 下载任务主体。
 func (m *Manager) runDownload(t *Task) {
-	client, err := m.clientFor(context.Background(), t.HostID)
+	client, err := m.dial(context.Background(), t.HostID)
 	if err != nil {
 		t.finish(TaskError, err.Error())
 		return
 	}
+	defer client.Close()
 	remote, err := client.Open(t.RemotePath)
 	if err != nil {
 		t.finish(TaskError, err.Error())
@@ -429,7 +456,6 @@ func (m *Manager) copyLoop(t *Task, r io.Reader, w io.Writer) {
 		if n > 0 {
 			if _, werr := w.Write(buf[:n]); werr != nil {
 				t.finish(TaskError, werr.Error())
-				m.emitFinal(t)
 				return
 			}
 			t.mu.Lock()
@@ -447,12 +473,10 @@ func (m *Manager) copyLoop(t *Task, r io.Reader, w io.Writer) {
 		}
 		if rerr == io.EOF {
 			t.finish(TaskDone, "")
-			m.emitFinal(t)
 			return
 		}
 		if rerr != nil {
 			t.finish(TaskError, rerr.Error())
-			m.emitFinal(t)
 			return
 		}
 	}
@@ -480,9 +504,5 @@ func (t *Task) finish(s TaskStatus, errMsg string) {
 func (m *Manager) Close() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for id, c := range m.clients {
-		_ = c.Close()
-		delete(m.clients, id)
-	}
 	m.tasks = map[string]*Task{}
 }

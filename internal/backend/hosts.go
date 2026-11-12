@@ -31,6 +31,7 @@ func (b *Backend) UpdateHost(id string, in hoststore.HostInput) error {
 	if err := b.hosts.UpdateHost(id, in); err != nil {
 		return err
 	}
+	b.resolver.Invalidate(id)
 	b.sm.InvalidateConfig()
 	return nil
 }
@@ -63,6 +64,7 @@ func (b *Backend) DeleteNode(id string) error {
 	if err := b.hosts.DeleteNode(id); err != nil {
 		return err
 	}
+	b.resolver.InvalidateAll()
 	b.sm.InvalidateConfig()
 	return nil
 }

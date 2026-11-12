@@ -189,3 +189,27 @@ func TestExecutorForHost_UnknownProtocolNil(t *testing.T) {
 		t.Fatal("空协议（缺省 ssh）ExecutorForHost 应返回 ssh 执行器")
 	}
 }
+
+func TestResolverCachesAndInvalidatesCapabilities(t *testing.T) {
+	app := openTestApp(t)
+	hosts := hoststore.NewHostsStore(app)
+	id, err := hosts.SaveHost(hoststore.HostInput{
+		Name: "redis", Protocol: "redis", Addr: "127.0.0.1", Port: 6379,
+		Params: map[string]any{"db": "0"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := NewExecutorResolver(hosts)
+	first := r.ConnFor(id)
+	second := r.ConnFor(id)
+	if first == nil || first != second {
+		t.Fatalf("ConnFor should reuse a cached capability: %p %p", first, second)
+	}
+	r.Invalidate(id)
+	third := r.ConnFor(id)
+	if third == nil || third == first {
+		t.Fatalf("Invalidate should rebuild the capability: %p %p", first, third)
+	}
+	r.Close()
+}

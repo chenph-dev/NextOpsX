@@ -229,6 +229,9 @@ func (b *Backend) Close() {
 	if b.sftp != nil {
 		b.sftp.Close()
 	}
+	if b.resolver != nil {
+		b.resolver.Close()
+	}
 	if b.db != nil {
 		if sqlDB, err := b.db.GORM().DB(); err == nil {
 			_ = sqlDB.Close()

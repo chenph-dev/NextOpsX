@@ -30,6 +30,7 @@ type App struct {
 	Hosts    HostsState
 	DB       DBState
 	Redis    RedisState
+	ES       ESState
 	SFTP     SFTPState
 
 	Term       *terminal.Terminal
@@ -103,6 +104,11 @@ func (a *App) attachAsset(n *hoststore.TreeNode) {
 			a.RightTab = 0
 		}
 		a.AttachRedis(n)
+	} else if a.IsESProtocol(n.Protocol) {
+		if a.RightTab > 1 {
+			a.RightTab = 0
+		}
+		a.AttachES(n)
 	} else if a.IsDBProtocol(n.Protocol) {
 		if a.RightTab > 1 {
 			a.RightTab = 0

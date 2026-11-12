@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"nextopsx/internal/connector"
 	"nextopsx/internal/dbexec"
@@ -208,7 +209,13 @@ func (r *ExecutorResolver) ConnFor(hostID string) connector.Capability {
 	return cap
 }
 
-// Invalidate drops and closes a cached capability after its asset changes.
+// capabilityCloseDelay lets calls already using a capability finish before
+// it is closed. ExecuteSQL allows 30s; ES's HTTP client times out at 15s.
+const capabilityCloseDelay = 35 * time.Second
+
+// Invalidate drops a cached capability after its asset changes. The old
+// one is closed after a grace period because an in-flight panel or AI call
+// may still be using it.
 func (r *ExecutorResolver) Invalidate(hostID string) {
 	if r == nil {
 		return
@@ -217,7 +224,7 @@ func (r *ExecutorResolver) Invalidate(hostID string) {
 	cap := r.conns[hostID]
 	delete(r.conns, hostID)
 	r.mu.Unlock()
-	closeCapability(cap)
+	scheduleClose(cap)
 }
 
 // InvalidateAll drops every cached capability (asset tree changes).
@@ -230,12 +237,30 @@ func (r *ExecutorResolver) InvalidateAll() {
 	r.conns = map[string]connector.Capability{}
 	r.mu.Unlock()
 	for _, cap := range caps {
-		closeCapability(cap)
+		scheduleClose(cap)
 	}
 }
 
 // Close releases every cached capability (app exit).
-func (r *ExecutorResolver) Close() { r.InvalidateAll() }
+func (r *ExecutorResolver) Close() {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	caps := r.conns
+	r.conns = map[string]connector.Capability{}
+	r.mu.Unlock()
+	for _, cap := range caps {
+		closeCapability(cap)
+	}
+}
+
+func scheduleClose(cap connector.Capability) {
+	if cap == nil {
+		return
+	}
+	time.AfterFunc(capabilityCloseDelay, func() { closeCapability(cap) })
+}
 
 func closeCapability(cap connector.Capability) {
 	if c, ok := cap.(io.Closer); ok && c != nil {

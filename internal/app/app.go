@@ -24,9 +24,15 @@ type App struct {
 	Open     map[string]*bool
 	Selected *hoststore.TreeNode
 
-	Term   *terminal.Terminal
-	Busy   bool
-	ErrMsg string
+	// RightTab is the right pane's view: 0 terminal, 1 AI chat.
+	RightTab int
+	AI       AIState
+	Hosts    HostsState
+
+	Term       *terminal.Terminal
+	TermHostID string
+	Busy       bool
+	ErrMsg     string
 
 	conn io.Closer
 	up   Updater
@@ -40,6 +46,9 @@ func New(b *backend.Backend) (*App, error) {
 	}
 	a := &App{Backend: b, Roots: roots, Open: map[string]*bool{}}
 	a.initOpen(roots)
+	a.AI.Provider = "openai"
+	a.ensureHostConnectors()
+	b.SetAIEventSink(a.HandleAIEvent)
 	return a, nil
 }
 
@@ -49,8 +58,10 @@ func (a *App) initOpen(nodes []hoststore.TreeNode) {
 		if n.NodeType != "folder" {
 			continue
 		}
-		open := true
-		a.Open[n.ID] = &open
+		if _, ok := a.Open[n.ID]; !ok {
+			open := true
+			a.Open[n.ID] = &open
+		}
 		a.initOpen(n.Children)
 	}
 }
@@ -69,9 +80,12 @@ func (a *App) Post(fn func()) {
 	fn()
 }
 
-// Select marks an asset as selected.
+// Select marks an asset as selected and attaches its AI conversation.
 func (a *App) Select(n *hoststore.TreeNode) {
 	a.Selected = n
+	if n != nil && n.NodeType == "host" && n.ID != a.AI.HostID {
+		a.attachAI(n.ID)
+	}
 }
 
 // Connect opens an SSH terminal for n and closes the previous session.
@@ -99,6 +113,7 @@ func (a *App) Connect(n *hoststore.TreeNode) {
 				return
 			}
 			a.Term = term
+			a.TermHostID = n.ID
 			a.conn = conn
 			a.Busy = false
 		})
@@ -123,4 +138,5 @@ func (a *App) Disconnect() {
 		_ = a.conn.Close()
 		a.conn = nil
 	}
+	a.TermHostID = ""
 }

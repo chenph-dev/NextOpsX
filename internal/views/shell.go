@@ -12,7 +12,7 @@ import (
 )
 
 // Shell is the window layout: the asset tree on the left, the terminal or
-// welcome pane on the right.
+// AI chat on the right.
 func Shell(a *app.App) func(*ui.Context) {
 	return func(c *ui.Context) {
 		t := c.Theme()
@@ -22,19 +22,64 @@ func Shell(a *app.App) func(*ui.Context) {
 				ui.Row(c).Padding(12).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, "Hosts").FontSize(16).Bold()
 					ui.Text(c, fmt.Sprintf("%d", countHosts(a.Roots))).TextColor(t.TextMuted)
+					ui.Spacer(c)
+					ui.Button(c, "＋主机").FontSize(11).OnClick(a.OpenNewHostForm)
+					ui.Button(c, "＋目录").FontSize(11).OnClick(a.OpenNewFolderForm)
 				})
-				ui.Scroll(c).Grow(1).Children(func() {
+				tree := ui.Scroll(c).Grow(1)
+				tree.ContextMenu(func(m *ui.Menu) {
+					if m.Item("新建主机").Chosen() {
+						a.Selected = nil
+						a.OpenNewHostForm()
+					}
+					if m.Item("新建目录").Chosen() {
+						a.Selected = nil
+						a.OpenNewFolderForm()
+					}
+					m.Separator()
+					if m.Item("刷新").Chosen() {
+						a.RefreshHosts()
+					}
+				})
+				tree.Children(func() {
 					HostTree(c, a)
 				})
 			})
 
 			ui.Column(c).Grow(1).FillHeight().Children(func() {
-				if a.Term != nil {
-					terminal.View(c, a.Term).Fill()
+				if a.Selected == nil {
+					Welcome(c, a)
 					return
 				}
-				Welcome(c, a)
+				ui.Row(c).Padding(10, 16).Gap(12).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, a.Selected.Name).FontSize(15).Bold()
+					if a.Selected.NodeType == "host" {
+						ui.Text(c, fmt.Sprintf("%s@%s:%d", a.Selected.User, a.Selected.Addr, a.Selected.Port)).
+							FontSize(12).TextColor(t.TextMuted)
+						ui.Spacer(c)
+						ui.Tabs(c, &a.RightTab, "终端", "AI 对话")
+						return
+					}
+					ui.Text(c, "目录").FontSize(12).TextColor(t.TextMuted)
+				})
+				ui.Divider(c)
+				if a.Selected.NodeType != "host" {
+					Welcome(c, a)
+					return
+				}
+				ui.Column(c).Grow(1).FillHeight().Children(func() {
+					if a.RightTab == 1 {
+						AIPanel(c, a)
+						return
+					}
+					if a.Term != nil && a.TermHostID == a.Selected.ID {
+						terminal.View(c, a.Term).Fill()
+						return
+					}
+					Welcome(c, a)
+				})
 			})
 		})
+		HostsDialogs(c, a)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"nextopsx/internal/einoagent/session"
 	"nextopsx/internal/handler/aiconfig"
@@ -50,6 +51,22 @@ type Backend struct {
 	rdp        *rdphandler.RdpHandler
 	logsAPI    *logshandler.LogsHandler
 	sessions   *sessionshandler.SessionsHandler
+
+	// aiSink 接收 SessionManager 的 AI 事件（前台 UI 注入）。
+	aiMu   sync.Mutex
+	aiSink AIEventSink
+}
+
+// AIEventSink 接收一条 AI 会话事件。sessionID 标识会话，event 为
+// "ai:text"/"ai:command"/"ai:plan"/"run:*"/"session:state"/"ai:error"，
+// data 为对应载荷（结构体或 map）。实现方通常把事件切到 UI 线程处理。
+type AIEventSink func(sessionID, event string, data any)
+
+// SetAIEventSink 注入 AI 事件接收器（可传 nil 取消）。
+func (b *Backend) SetAIEventSink(sink AIEventSink) {
+	b.aiMu.Lock()
+	b.aiSink = sink
+	b.aiMu.Unlock()
 }
 
 // New opens the data store and wires every service.
@@ -191,6 +208,13 @@ func (b *Backend) Close() {
 	}
 }
 
-// emitAI is the SessionManager's event sink. The native AI panel consumes
-// these in Phase 3; until then they are deliberately dropped.
-func (b *Backend) emitAI(sessionID, event string, data any) {}
+// emitAI is the SessionManager's event sink. It forwards to the native AI
+// panel when one is attached, and drops events otherwise.
+func (b *Backend) emitAI(sessionID, event string, data any) {
+	b.aiMu.Lock()
+	sink := b.aiSink
+	b.aiMu.Unlock()
+	if sink != nil {
+		sink(sessionID, event, data)
+	}
+}

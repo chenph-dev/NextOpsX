@@ -23,16 +23,6 @@ func (m *SessionManager) SendMessage(sid, text string) error {
 	s.state = stThinking
 	s.mu.Unlock()
 
-	// 落库 user 消息
-	if err := m.convs.SaveMessage(convstore.Message{
-		SessionID: sid, Role: history.RoleUser, Content: text,
-	}); err != nil {
-		s.mu.Lock()
-		s.state = stIdle
-		s.mu.Unlock()
-		return fmt.Errorf("保存消息失败: %w", err)
-	}
-
 	// 执行器检查（提前失败，避免进入图执行才报错）。
 	// 已注册数据库驱动（IsDB）走连接能力解析（不实现 sshexec.Exec，无需写入 holder）；
 	// 其余（ssh/winrm 命令型）走命令执行器并写入 holder。
@@ -66,6 +56,17 @@ func (m *SessionManager) SendMessage(sid, text string) error {
 		s.mu.Unlock()
 		m.emitError(sid, "AI 后端不可用："+err.Error(), false)
 		return err
+	}
+
+	// 落库 user 消息放在所有预检之后：凭据缺失、配置错误等直接失败时
+	// 不留下一条“发送成功但从未执行”的用户消息。
+	if err := m.convs.SaveMessage(convstore.Message{
+		SessionID: sid, Role: history.RoleUser, Content: text,
+	}); err != nil {
+		s.mu.Lock()
+		s.state = stIdle
+		s.mu.Unlock()
+		return fmt.Errorf("保存消息失败: %w", err)
 	}
 
 	input, err := m.buildInput(s, text)

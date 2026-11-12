@@ -29,6 +29,7 @@ type App struct {
 	AI       AIState
 	Hosts    HostsState
 	DB       DBState
+	SFTP     SFTPState
 
 	Term       *terminal.Terminal
 	TermHostID string
@@ -50,6 +51,7 @@ func New(b *backend.Backend) (*App, error) {
 	a.AI.Provider = "openai"
 	a.ensureHostConnectors()
 	b.SetAIEventSink(a.HandleAIEvent)
+	b.SetSFTPEventSink(a.HandleSFTPEvent)
 	return a, nil
 }
 
@@ -96,7 +98,16 @@ func (a *App) attachAsset(n *hoststore.TreeNode) {
 		return
 	}
 	if a.IsDBProtocol(n.Protocol) {
+		if a.RightTab > 1 {
+			a.RightTab = 0
+		}
 		a.attachDB(n)
+	} else if !a.IsSSHProtocol(n.Protocol) {
+		if a.RightTab > 1 {
+			a.RightTab = 0
+		}
+	} else if a.RightTab == 2 {
+		a.AttachSFTPFor(n)
 	}
 	if n.ID != a.AI.HostID {
 		a.attachAI(n.ID)

@@ -58,10 +58,18 @@ func Shell(a *app.App) func(*ui.Context) {
 							FontSize(12).TextColor(t.TextMuted)
 						ui.Spacer(c)
 						labels := []string{"终端", "AI 对话"}
-						if a.IsDBProtocol(a.Selected.Protocol) {
-							labels[0] = "数据库"
+						switch {
+						case a.IsDBProtocol(a.Selected.Protocol):
+							labels = []string{"数据库", "AI 对话"}
+						case a.IsSSHProtocol(a.Selected.Protocol):
+							labels = []string{"终端", "AI 对话", "SFTP"}
+						default:
+							labels = []string{"概览", "AI 对话"}
 						}
-						ui.Tabs(c, &a.RightTab, labels...)
+						tabs := ui.Tabs(c, &a.RightTab, labels...)
+						if tabs.Changed() && a.RightTab == 2 {
+							a.EnsureSFTP()
+						}
 						return
 					}
 					ui.Text(c, "目录").FontSize(12).TextColor(t.TextMuted)
@@ -72,8 +80,12 @@ func Shell(a *app.App) func(*ui.Context) {
 					return
 				}
 				ui.Column(c).Grow(1).FillHeight().Children(func() {
-					if a.RightTab == 1 {
+					switch a.RightTab {
+					case 1:
 						AIPanel(c, a)
+						return
+					case 2:
+						SFTPPanel(c, a)
 						return
 					}
 					if a.IsDBProtocol(a.Selected.Protocol) {

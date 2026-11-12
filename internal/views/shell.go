@@ -59,6 +59,8 @@ func Shell(a *app.App) func(*ui.Context) {
 						ui.Spacer(c)
 						labels := []string{"终端", "AI 对话"}
 						switch {
+						case a.IsRedisProtocol(a.Selected.Protocol):
+							labels = []string{"Redis", "AI 对话"}
 						case a.IsDBProtocol(a.Selected.Protocol):
 							labels = []string{"数据库", "AI 对话"}
 						case a.IsSSHProtocol(a.Selected.Protocol):
@@ -67,8 +69,13 @@ func Shell(a *app.App) func(*ui.Context) {
 							labels = []string{"概览", "AI 对话"}
 						}
 						tabs := ui.Tabs(c, &a.RightTab, labels...)
-						if tabs.Changed() && a.RightTab == 2 {
-							a.EnsureSFTP()
+						if tabs.Changed() {
+							switch {
+							case a.RightTab == 2 && a.IsSSHProtocol(a.Selected.Protocol):
+								a.EnsureSFTP()
+							case a.RightTab == 0 && a.IsRedisProtocol(a.Selected.Protocol):
+								a.EnsureRedis()
+							}
 						}
 						return
 					}
@@ -86,6 +93,10 @@ func Shell(a *app.App) func(*ui.Context) {
 						return
 					case 2:
 						SFTPPanel(c, a)
+						return
+					}
+					if a.IsRedisProtocol(a.Selected.Protocol) {
+						RedisPanel(c, a)
 						return
 					}
 					if a.IsDBProtocol(a.Selected.Protocol) {

@@ -113,11 +113,11 @@ func TestDBTableTabRenders(t *testing.T) {
 func TestDBEmptySchemaHint(t *testing.T) {
 	a := &app.App{RightTab: 0}
 	a.Selected = &hoststore.TreeNode{
-		ID: "r1", Name: "redis-01", NodeType: "host", Protocol: "redis",
-		Addr: "10.0.0.10", Port: 6379, User: "",
+		ID: "e1", Name: "es-01", NodeType: "host", Protocol: "elasticsearch",
+		Addr: "10.0.0.11", Port: 9200, User: "",
 	}
 	a.DB = app.DBState{
-		HostID: "r1", HostName: "redis-01", Protocol: "redis",
+		HostID: "e1", HostName: "es-01", Protocol: "elasticsearch",
 		Schema: &dbexec.Schema{}, Open: map[string]*bool{}, Split: 190,
 	}
 	a.NewDBQueryTab()

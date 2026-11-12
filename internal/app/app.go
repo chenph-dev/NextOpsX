@@ -29,6 +29,7 @@ type App struct {
 	AI       AIState
 	Hosts    HostsState
 	DB       DBState
+	Redis    RedisState
 	SFTP     SFTPState
 
 	Term       *terminal.Terminal
@@ -97,7 +98,12 @@ func (a *App) attachAsset(n *hoststore.TreeNode) {
 	if n == nil || n.NodeType != "host" {
 		return
 	}
-	if a.IsDBProtocol(n.Protocol) {
+	if a.IsRedisProtocol(n.Protocol) {
+		if a.RightTab > 1 {
+			a.RightTab = 0
+		}
+		a.AttachRedis(n)
+	} else if a.IsDBProtocol(n.Protocol) {
 		if a.RightTab > 1 {
 			a.RightTab = 0
 		}

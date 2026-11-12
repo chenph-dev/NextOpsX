@@ -2,8 +2,10 @@ package base
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"strings"
+	"sync"
 
 	"nextopsx/internal/connector"
 	"nextopsx/internal/dbexec"
@@ -38,11 +40,14 @@ func ExecutorForHost(protocol string, addr string, port int, user, authType, sec
 // 调用方只依赖协议无关的 sshexec.Exec / *sshexec.Host，不再感知协议存在。
 type ExecutorResolver struct {
 	hosts *hoststore.HostsStore
+
+	mu    sync.Mutex
+	conns map[string]connector.Capability
 }
 
 // NewExecutorResolver 构造 ExecutorResolver。hosts 可为 nil（此时 ExecFor/HostFor 返回失败）。
 func NewExecutorResolver(hosts *hoststore.HostsStore) *ExecutorResolver {
-	return &ExecutorResolver{hosts: hosts}
+	return &ExecutorResolver{hosts: hosts, conns: map[string]connector.Capability{}}
 }
 
 // ExecFor 按 hostID 构造协议对应的执行器（AI 会话、命令执行、命令补全共用）。
@@ -161,6 +166,12 @@ func (r *ExecutorResolver) ConnFor(hostID string) connector.Capability {
 	if r == nil || r.hosts == nil {
 		return nil
 	}
+	r.mu.Lock()
+	if cap, ok := r.conns[hostID]; ok {
+		r.mu.Unlock()
+		return cap
+	}
+	r.mu.Unlock()
 	secret, _, err := r.hosts.GetHostSecret(hostID)
 	if err != nil {
 		log.Printf("resolver: connfor host %s: %v", hostID, err)
@@ -186,7 +197,50 @@ func (r *ExecutorResolver) ConnFor(hostID string) connector.Capability {
 		log.Printf("resolver: connfor host %s: %v", hostID, err)
 		return nil
 	}
+	r.mu.Lock()
+	if existing, ok := r.conns[hostID]; ok {
+		r.mu.Unlock()
+		closeCapability(cap)
+		return existing
+	}
+	r.conns[hostID] = cap
+	r.mu.Unlock()
 	return cap
+}
+
+// Invalidate drops and closes a cached capability after its asset changes.
+func (r *ExecutorResolver) Invalidate(hostID string) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	cap := r.conns[hostID]
+	delete(r.conns, hostID)
+	r.mu.Unlock()
+	closeCapability(cap)
+}
+
+// InvalidateAll drops every cached capability (asset tree changes).
+func (r *ExecutorResolver) InvalidateAll() {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	caps := r.conns
+	r.conns = map[string]connector.Capability{}
+	r.mu.Unlock()
+	for _, cap := range caps {
+		closeCapability(cap)
+	}
+}
+
+// Close releases every cached capability (app exit).
+func (r *ExecutorResolver) Close() { r.InvalidateAll() }
+
+func closeCapability(cap connector.Capability) {
+	if c, ok := cap.(io.Closer); ok && c != nil {
+		_ = c.Close()
+	}
 }
 
 // paramsDatabase 从资产专属参数取数据库名（mysql/postgres 的 database，sqlite 的 filePath）。

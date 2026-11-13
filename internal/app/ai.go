@@ -83,12 +83,12 @@ type AIState struct {
 	Configured bool
 	Loading    bool
 
-	// AI 配置表单
-	ConfigOpen bool
-	Provider   string
-	Model      string
-	BaseURL    string
-	APIKey     string
+	// 当前对话使用的供应商（运行时；编辑草稿在 SettingsState）。
+	Providers      []configstore.AIProvider
+	ProviderID     string
+	ProviderName   string
+	ProviderChoice string // 绑定给供应商下拉框，切换后回写后端
+	Model          string
 
 	// 历史会话弹层
 	HistoryOpen   bool
@@ -106,6 +106,9 @@ type AIState struct {
 	resyncSeq    uint64
 	commandEpoch uint64
 	planEpoch    uint64
+	providerSeq  uint64 // 使过期的供应商读取失效
+	switching    bool   // 供应商切换请求在途（串行写入，保证最后一次选择生效）
+	switchTarget string // 最新的切换目标
 	localSeq     int
 	approveBusy  bool
 
@@ -145,11 +148,16 @@ func (a *App) attachAI(hostID string) {
 	go func() {
 		sid, err := b.EnsureAISession(host)
 		var msgs []convstore.Message
+		var prov configstore.AIProvider
+		provOK := false
 		if err == nil {
 			msgs, _ = b.LoadAIMessages(sid)
+			if p, perr := b.ProviderForConversation(sid); perr == nil {
+				prov, provOK = p, true
+			}
 		}
 		convs, convErr := b.ListAIConversations(host)
-		cfg, cfgErr := b.GetAIConfig()
+		providers, providersErr := b.ListAIProviders()
 		a.Post(func() {
 			if seq != a.AI.attachSeq {
 				return
@@ -158,16 +166,11 @@ func (a *App) attachAI(hostID string) {
 			if convErr == nil {
 				a.AI.Conversations = convs
 			}
-			if cfgErr == nil {
-				a.AI.Configured = cfg.Provider != "" && cfg.Model != ""
-				a.AI.Provider = cfg.Provider
-				if a.AI.Provider == "" {
-					a.AI.Provider = "openai"
-				}
-				a.AI.Model = cfg.Model
-				a.AI.BaseURL = cfg.BaseURL
-				a.AI.APIKey = cfg.APIKey
+			if providersErr == nil {
+				a.AI.Providers = providers
 			}
+			a.AI.providerSeq++
+			a.applyAIProvider(prov, provOK)
 			if err != nil {
 				a.AI.Err = "打开 AI 会话失败：" + err.Error()
 				return
@@ -208,6 +211,16 @@ func (a *App) resetAIForHost(hostID string) {
 	a.AI.approveBusy = false
 	a.AI.Scroll.Y = 0
 	a.AI.Scroll.MaxY = 0
+	// 供应商信息随会话异步加载；先清空，避免短暂显示上一个资产的供应商。
+	a.AI.providerSeq++
+	a.AI.Providers = nil
+	a.AI.ProviderID = ""
+	a.AI.ProviderName = ""
+	a.AI.ProviderChoice = ""
+	a.AI.switchTarget = ""
+	a.AI.switching = false
+	a.AI.Model = ""
+	a.AI.Configured = false
 }
 
 // HandleAIEvent is the backend's AI event sink. Events arrive on worker
@@ -747,6 +760,11 @@ func (a *App) NewAIConversation() {
 	go func() {
 		sid, err := b.NewAISession(host, "AI 对话")
 		convs, _ := b.ListAIConversations(host)
+		var prov configstore.AIProvider
+		var provErr error
+		if err == nil {
+			prov, provErr = b.ProviderForConversation(sid)
+		}
 		a.Post(func() {
 			if host != a.AI.HostID {
 				return
@@ -755,6 +773,8 @@ func (a *App) NewAIConversation() {
 				a.AI.Err = "新建对话失败：" + err.Error()
 				return
 			}
+			a.AI.providerSeq++
+			a.applyAIProvider(prov, provErr == nil)
 			a.AI.SessionID = sid
 			a.AI.Messages = nil
 			a.AI.Streaming = ""
@@ -784,6 +804,7 @@ func (a *App) SwitchAIConversation(sid string) {
 	a.saveAISnapshot()
 	a.AI.SessionID = sid
 	a.AI.Messages = nil
+	a.refreshAIProviderContext()
 	a.restoreAISnapshot(sid)
 	a.AI.HistoryOpen = false
 	a.AI.RenameID = ""
@@ -869,38 +890,6 @@ func (a *App) RenameAIConversation(sid, title string) {
 			if convs != nil {
 				a.AI.Conversations = convs
 			}
-		})
-	}()
-}
-
-// SaveAIConfig saves the AI settings form.
-func (a *App) SaveAIConfig() {
-	cfg := configstore.AIConfig{
-		Provider: strings.TrimSpace(a.AI.Provider),
-		Model:    strings.TrimSpace(a.AI.Model),
-		BaseURL:  strings.TrimSpace(a.AI.BaseURL),
-		APIKey:   strings.TrimSpace(a.AI.APIKey),
-	}
-	if cfg.Provider == "" || cfg.Model == "" {
-		a.AI.Err = "请填写协议与模型名称"
-		return
-	}
-	if a.Backend == nil {
-		a.AI.Configured = true
-		a.AI.ConfigOpen = false
-		return
-	}
-	b := a.Backend
-	go func() {
-		err := b.SaveAIConfig(cfg)
-		a.Post(func() {
-			if err != nil {
-				a.AI.Err = "保存 AI 配置失败：" + err.Error()
-				return
-			}
-			a.AI.Configured = true
-			a.AI.ConfigOpen = false
-			a.AI.Err = ""
 		})
 	}()
 }

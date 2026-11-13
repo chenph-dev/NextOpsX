@@ -17,9 +17,6 @@ func AIPanel(c *ui.Context, a *app.App) {
 	t := c.Theme()
 	ui.Column(c).Fill().Children(func() {
 		aiHeader(c, a, t)
-		if a.AI.ConfigOpen {
-			aiConfigForm(c, a, t)
-		}
 		if a.AI.Loading {
 			ui.Row(c).Padding(24).Center().Children(func() {
 				ui.Spinner(c)
@@ -37,12 +34,16 @@ func aiHeader(c *ui.Context, a *app.App, t *ui.Theme) {
 		if label, color := aiStateBadge(a, t); label != "" {
 			ui.Text(c, label).FontSize(11).TextColor(color)
 		}
-		if a.AI.Configured {
-			if a.AI.Model != "" {
-				ui.Text(c, a.AI.Model).FontSize(11).TextColor(t.TextMuted)
+		// 会话加载期间供应商信息尚未就绪，先不展示，避免显示上一个资产的数据。
+		if !a.AI.Loading {
+			if a.AI.Configured {
+				aiProviderSelect(c, a, t)
+				if a.AI.Model != "" {
+					ui.Text(c, a.AI.Model).FontSize(11).TextColor(t.TextMuted)
+				}
+			} else {
+				ui.Text(c, "未配置 AI").FontSize(11).TextColor(t.Warning)
 			}
-		} else {
-			ui.Text(c, "未配置 AI").FontSize(11).TextColor(t.Warning)
 		}
 		ui.Spacer(c)
 
@@ -63,9 +64,41 @@ func aiHeader(c *ui.Context, a *app.App, t *ui.Theme) {
 		}
 		clear.OnClick(a.ClearAIConversation)
 
-		ui.Button(c, "设置").OnClick(func() { a.AI.ConfigOpen = !a.AI.ConfigOpen })
+		ui.Button(c, "设置").OnClick(func() { a.OpenSettings(app.SettingsModel) })
 	})
 	ui.Divider(c)
+}
+
+// aiProviderSelect lets the user pick the provider used by this conversation.
+// The next message takes effect; while a turn runs or an approval is pending
+// the choice is disabled and the previous provider stays selected.
+func aiProviderSelect(c *ui.Context, a *app.App, t *ui.Theme) {
+	if len(a.AI.Providers) == 0 || a.AI.ProviderID == "" {
+		return
+	}
+	sel := ui.SelectBase(c, &a.AI.ProviderChoice)
+	trigger := sel.Trigger.Padding(3, 8).Border(1, t.Border).Radius(4)
+	if a.AI.Busy() || a.AI.State == session.StateAwaitingApproval {
+		trigger = trigger.Disabled(true)
+	}
+	trigger.Children(func() {
+		ui.Text(c, a.AI.ProviderName).FontSize(11).SingleLine()
+	})
+	if sel.Trigger.Changed() {
+		a.SwitchAIProvider(a.AI.ProviderChoice)
+	}
+	sel.Popup(func(panel ui.Element) {
+		panel.Padding(4).Background(t.Surface).Border(1, t.Border).Radius(6)
+		for _, p := range a.AI.Providers {
+			item := sel.Item(p.ID).Padding(5, 9)
+			if item.Highlighted() {
+				item = item.Background(t.SurfaceHover)
+			}
+			item.Children(func() {
+				ui.Text(c, p.Name).FontSize(11)
+			})
+		}
+	})
 }
 
 func aiStateBadge(a *app.App, t *ui.Theme) (string, ui.Color) {
@@ -144,7 +177,7 @@ func aiUnconfigured(c *ui.Context, a *app.App, t *ui.Theme) {
 		ui.Text(c, "尚未配置 AI 后端").FontSize(15).Bold()
 		ui.Text(c, "填写协议、模型名称和 API Key 后即可开始对话。").
 			FontSize(12).TextColor(t.TextMuted)
-		ui.PrimaryButton(c, "配置 AI").OnClick(func() { a.AI.ConfigOpen = true })
+		ui.PrimaryButton(c, "配置 AI").OnClick(func() { a.OpenSettings(app.SettingsModel) })
 	})
 }
 
@@ -220,46 +253,6 @@ func aiComposer(c *ui.Context, a *app.App, t *ui.Theme) {
 		}
 		send.OnClick(a.SendAIMessage)
 	})
-}
-
-func aiConfigForm(c *ui.Context, a *app.App, t *ui.Theme) {
-	ui.Column(c).Padding(10, 14).Gap(8).Background(t.Surface).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "AI 配置").FontSize(13).Bold()
-			ui.Spacer(c)
-			ui.Button(c, "收起").OnClick(func() { a.AI.ConfigOpen = false })
-		})
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "协议").Width(72).FontSize(12).TextColor(t.TextMuted)
-			c.Key("ai-cfg-provider")
-			ui.Select(c, &a.AI.Provider, []string{"openai", "claude"})
-			ui.Text(c, "模型").Width(36).FontSize(12).TextColor(t.TextMuted)
-			c.Key("ai-cfg-model")
-			ui.TextInput(c, &a.AI.Model).Grow(1).
-				Placeholder("如 gpt-4o / claude-sonnet-4-5")
-		})
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "Base URL").Width(72).FontSize(12).TextColor(t.TextMuted)
-			c.Key("ai-cfg-baseurl")
-			ui.TextInput(c, &a.AI.BaseURL).Grow(1).
-				Placeholder("可留空使用默认地址")
-		})
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "API Key").Width(72).FontSize(12).TextColor(t.TextMuted)
-			c.Key("ai-cfg-key")
-			ui.TextInput(c, &a.AI.APIKey).Grow(1).Password()
-		})
-		ui.Text(c, "openai 协议兼容 OpenAI / DeepSeek / Ollama 等；claude 协议用于 Anthropic 官方 API。").
-			FontSize(11).TextColor(t.TextMuted).Wrap()
-		if a.AI.Err != "" {
-			ui.Text(c, a.AI.Err).FontSize(12).TextColor(t.Danger).Wrap()
-		}
-		ui.Row(c).Justify(ui.End).Gap(6).Children(func() {
-			ui.Button(c, "取消").OnClick(func() { a.AI.ConfigOpen = false })
-			ui.PrimaryButton(c, "保存").OnClick(a.SaveAIConfig)
-		})
-	})
-	ui.Divider(c)
 }
 
 func aiHistoryPanel(c *ui.Context, a *app.App, t *ui.Theme) {

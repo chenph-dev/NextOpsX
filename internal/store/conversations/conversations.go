@@ -12,11 +12,12 @@ import (
 
 // Conversation GORM 模型。
 type convConversation struct {
-	ID        string `gorm:"column:id;primaryKey"`
-	HostID    string `gorm:"column:host_id"`
-	Title     string `gorm:"column:title"`
-	CreatedAt int64  `gorm:"column:created_at"`
-	UpdatedAt int64  `gorm:"column:updated_at"`
+	ID         string `gorm:"column:id;primaryKey"`
+	HostID     string `gorm:"column:host_id"`
+	Title      string `gorm:"column:title"`
+	ProviderID string `gorm:"column:provider_id"`
+	CreatedAt  int64  `gorm:"column:created_at"`
+	UpdatedAt  int64  `gorm:"column:updated_at"`
 }
 
 func (convConversation) TableName() string { return "conversations" }
@@ -51,11 +52,12 @@ func (convCommand) TableName() string { return "commands" }
 
 // Conversation 一次会话（DTO）。
 type Conversation struct {
-	ID        string `json:"id"`
-	HostID    string `json:"hostId"`
-	Title     string `json:"title"`
-	CreatedAt int64  `json:"createdAt"`
-	UpdatedAt int64  `json:"updatedAt"`
+	ID         string `json:"id"`
+	HostID     string `json:"hostId"`
+	Title      string `json:"title"`
+	ProviderID string `json:"providerId"` // 空串 = 使用默认供应商
+	CreatedAt  int64  `json:"createdAt"`
+	UpdatedAt  int64  `json:"updatedAt"`
 }
 
 // Message 一条对话消息（DTO）。
@@ -83,10 +85,15 @@ func NewConvStore(app *store.DB) *ConvStore {
 }
 
 func (s *ConvStore) NewConversation(hostID, title string) (string, error) {
+	return s.NewConversationWithProvider(hostID, title, "")
+}
+
+// NewConversationWithProvider 新建会话并绑定供应商；providerID 为空表示继承默认供应商。
+func (s *ConvStore) NewConversationWithProvider(hostID, title, providerID string) (string, error) {
 	id := crypto.NewID()
 	now := time.Now().Unix()
 	err := s.app.GORM().Create(&convConversation{
-		ID: id, HostID: hostID, Title: title,
+		ID: id, HostID: hostID, Title: title, ProviderID: providerID,
 		CreatedAt: now, UpdatedAt: now,
 	}).Error
 	if err != nil {
@@ -103,7 +110,7 @@ func (s *ConvStore) ListConversations(hostID string) ([]Conversation, error) {
 	out := make([]Conversation, 0, len(convs))
 	for _, c := range convs {
 		out = append(out, Conversation{
-			ID: c.ID, HostID: c.HostID, Title: c.Title,
+			ID: c.ID, HostID: c.HostID, Title: c.Title, ProviderID: c.ProviderID,
 			CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 		})
 	}
@@ -155,9 +162,23 @@ func (s *ConvStore) GetConversation(id string) (Conversation, error) {
 		return Conversation{}, err
 	}
 	return Conversation{
-		ID: c.ID, HostID: c.HostID, Title: c.Title,
+		ID: c.ID, HostID: c.HostID, Title: c.Title, ProviderID: c.ProviderID,
 		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}, nil
+}
+
+// SetConversationProvider 指定会话使用的供应商；空串表示回落到默认供应商。
+func (s *ConvStore) SetConversationProvider(id, providerID string) error {
+	res := s.app.GORM().Model(&convConversation{}).
+		Where("id = ?", id).
+		Update("provider_id", providerID)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("会话 %s 不存在", id)
+	}
+	return nil
 }
 
 func (s *ConvStore) LoadMessages(sessionID string) ([]Message, error) {

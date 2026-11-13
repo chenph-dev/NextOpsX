@@ -115,7 +115,7 @@ type SessionManager struct {
 	app         *store.DB
 	convs       *convstore.ConvStore
 	mem         *memorystore.MemoryStore
-	cfg         *configstore.ConfigStore
+	providers   *configstore.ProviderStore
 	executorFor func(hostID string) sshexec.Exec
 	hostNameFor func(hostID string) (string, error) // 解析资产名（注入系统提示词）
 	emit        func(sessionID, event string, data any)
@@ -123,7 +123,7 @@ type SessionManager struct {
 
 	// modelFactory 构造基础模型；可注入以便测试。
 	// 默认走 einoagent.agentmodel.NewChatModel（eino-ext provider）。
-	modelFactory func(ctx context.Context, cfg configstore.AIConfig) (einomodel.ToolCallingChatModel, error)
+	modelFactory func(ctx context.Context, cfg configstore.AIProvider) (einomodel.ToolCallingChatModel, error)
 
 	// policyFor 按资产解析审批策略（enableAuto + 只读白名单）；nil 表示全量审批。
 	policyFor func(hostID string) (enableAuto bool, readOnlyWhitelist []string)
@@ -149,7 +149,7 @@ type SessionManager struct {
 // NewSessionManager 构造会话管理器。hostNameFor 可为 nil（此时系统提示词不含资产名）。
 func NewSessionManager(
 	app *store.DB,
-	cfg *configstore.ConfigStore,
+	providers *configstore.ProviderStore,
 	executorFor func(hostID string) sshexec.Exec,
 	hostNameFor func(hostID string) (string, error),
 	emit func(sessionID, event string, data any),
@@ -158,12 +158,12 @@ func NewSessionManager(
 		app:         app,
 		convs:       convstore.NewConvStore(app),
 		mem:         memorystore.NewMemoryStore(app),
-		cfg:         cfg,
+		providers:   providers,
 		executorFor: executorFor,
 		hostNameFor: hostNameFor,
 		emit:        emit,
 		logs:        logsstore.NewLogsStore(app),
-		modelFactory: func(ctx context.Context, c configstore.AIConfig) (einomodel.ToolCallingChatModel, error) {
+		modelFactory: func(ctx context.Context, c configstore.AIProvider) (einomodel.ToolCallingChatModel, error) {
 			return agentmodel.NewChatModel(ctx, c)
 		},
 		sessions: map[string]*agentSession{},

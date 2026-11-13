@@ -11,15 +11,15 @@ import (
 	"nextopsx/internal/store/config"
 )
 
-// NewChatModel 按 store.AIConfig 构造 eino ToolCallingChatModel。
-// Provider 是"协议"语义，由前端 AI 配置表单选择：
+// NewChatModel 按一条供应商配置构造 eino ToolCallingChatModel。
+// Protocol 是"协议"语义：
 //   - "openai" : OpenAI 兼容协议。OpenAI / DeepSeek / 通义 / 智谱 / Ollama(v1) 等
 //     服务商都走此分支，差异通过 BaseURL（完整地址，含 /v1）与 Model 表达。
 //   - "claude" : Anthropic 官方协议（Claude 系列），BaseURL 默认 https://api.anthropic.com。
 //
 // 返回的 model.ToolCallingChatModel 实现了 Stream/Generate，可直接用于 eino Graph。
-func NewChatModel(ctx context.Context, cfg configstore.AIConfig) (einomodel.ToolCallingChatModel, error) {
-	switch cfg.Provider {
+func NewChatModel(ctx context.Context, cfg configstore.AIProvider) (einomodel.ToolCallingChatModel, error) {
+	switch cfg.Protocol {
 	case "claude":
 		baseURL := cfg.BaseURL
 		if baseURL == "" {
@@ -46,6 +46,6 @@ func NewChatModel(ctx context.Context, cfg configstore.AIConfig) (einomodel.Tool
 		})
 
 	default:
-		return nil, fmt.Errorf("unsupported AI provider: %q", cfg.Provider)
+		return nil, fmt.Errorf("unsupported AI protocol: %q", cfg.Protocol)
 	}
 }

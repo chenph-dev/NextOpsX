@@ -75,12 +75,42 @@ func (b *Backend) RenameAIConversation(sessionID, title string) error {
 	return b.sessions.RenameConversation(sessionID, title)
 }
 
-// GetAIConfig returns the model configuration (API key decrypted).
-func (b *Backend) GetAIConfig() (configstore.AIConfig, error) {
-	return b.aiConfig.GetAIConfig()
+// ListAIProviders returns all providers without API keys.
+func (b *Backend) ListAIProviders() ([]configstore.AIProvider, error) {
+	return b.aiProviders.List()
 }
 
-// SaveAIConfig stores the model configuration and invalidates cached models.
-func (b *Backend) SaveAIConfig(c configstore.AIConfig) error {
-	return b.aiConfig.SaveAIConfig(c)
+// GetAIProvider returns one provider with its API key decrypted (edit form).
+func (b *Backend) GetAIProvider(id string) (configstore.AIProvider, error) {
+	return b.aiProviders.Get(id)
+}
+
+// CreateAIProvider adds a provider and returns its ID.
+func (b *Backend) CreateAIProvider(p configstore.AIProvider) (string, error) {
+	return b.aiProviders.Create(p)
+}
+
+// UpdateAIProvider updates a provider.
+func (b *Backend) UpdateAIProvider(p configstore.AIProvider) error {
+	return b.aiProviders.Update(p)
+}
+
+// DeleteAIProvider removes a provider; conversations fall back to the default.
+func (b *Backend) DeleteAIProvider(id string) error {
+	return b.aiProviders.Delete(id)
+}
+
+// SetDefaultAIProvider marks a provider as the default for new conversations.
+func (b *Backend) SetDefaultAIProvider(id string) error {
+	return b.aiProviders.SetDefault(id)
+}
+
+// SetConversationAIProvider selects the provider used by one conversation.
+func (b *Backend) SetConversationAIProvider(sessionID, providerID string) error {
+	return b.sm.SetConversationProvider(sessionID, providerID)
+}
+
+// ProviderForConversation returns the provider a conversation resolves to.
+func (b *Backend) ProviderForConversation(sessionID string) (configstore.AIProvider, error) {
+	return b.sm.ProviderForConversation(sessionID)
 }

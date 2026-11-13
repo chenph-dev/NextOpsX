@@ -84,11 +84,23 @@ func (m *Manager) List() ([]*Skill, error) {
 	return out, nil
 }
 
-// Lookup 按 name 解析技能（含磁盘目录）。
+// Lookup 按 name 解析技能（含磁盘目录），不检查启用状态；管理页预览用。
 func (m *Manager) Lookup(name string) (*Skill, error) {
 	r, err := m.store.Get(name)
 	if err != nil {
 		return nil, err
+	}
+	return m.toSkill(r), nil
+}
+
+// LookupEnabled 按 name 解析已启用的技能；停用的技能视为不存在，供 AI 工具使用。
+func (m *Manager) LookupEnabled(name string) (*Skill, error) {
+	r, err := m.store.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	if !r.Enabled {
+		return nil, fmt.Errorf("技能 %q 已停用", name)
 	}
 	return m.toSkill(r), nil
 }

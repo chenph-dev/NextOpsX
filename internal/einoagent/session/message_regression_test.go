@@ -12,7 +12,7 @@ import (
 
 func TestSendMessagePreflightFailureDoesNotPersistUserMessage(t *testing.T) {
 	app := testutil.OpenTempStore(t)
-	cfg := configstore.NewConfigStore(app)
+	providers := configstore.NewProviderStore(app)
 	convs := convstore.NewConvStore(app)
 	hostID, err := hoststore.NewHostsStore(app).SaveHost(hoststore.HostInput{
 		Name: "h", Addr: "1.1.1.1", Port: 22, User: "u",
@@ -21,7 +21,7 @@ func TestSendMessagePreflightFailureDoesNotPersistUserMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mgr := NewSessionManager(app, cfg, func(string) sshexec.Exec { return nil }, nil, nil)
+	mgr := NewSessionManager(app, providers, func(string) sshexec.Exec { return nil }, nil, nil)
 	sid, err := mgr.CreateSession(hostID, "test")
 	if err != nil {
 		t.Fatal(err)

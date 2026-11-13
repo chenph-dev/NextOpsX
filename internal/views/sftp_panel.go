@@ -8,8 +8,8 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/assets"
 	"nextopsx/internal/sftp"
-	"nextopsx/resources"
 )
 
 // SFTPPanel is the remote file browser and transfer panel for SSH assets.
@@ -133,12 +133,12 @@ func sftpFileList(c *ui.Context, a *app.App, t *ui.Theme) {
 
 func sftpEntryIcon(c *ui.Context, e sftp.Entry, t *ui.Theme) {
 	if e.IsDir {
-		if s := resources.FolderSVG(); s != nil {
+		if s := assets.FolderSVG(); s != nil {
 			ui.Icon(c, s).Size(14, 14).TextColor(t.Accent)
 		}
 		return
 	}
-	if s := resources.ObjectSVG("file"); s != nil {
+	if s := assets.ObjectSVG("file"); s != nil {
 		ui.Icon(c, s).Size(14, 14).TextColor(t.TextMuted)
 	}
 }

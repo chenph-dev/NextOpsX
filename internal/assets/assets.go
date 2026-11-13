@@ -1,5 +1,5 @@
-// Package resources embeds the app's UI assets.
-package resources
+// Package assets embeds the app's UI assets.
+package assets
 
 import (
 	"embed"

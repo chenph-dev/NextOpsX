@@ -6,7 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
-	"nextopsx/resources"
+	"nextopsx/internal/assets"
 )
 
 // DBWorkbench is the native database workbench: schema tree, query tabs and
@@ -93,7 +93,7 @@ func dbTabStrip(c *ui.Context, a *app.App, t *ui.Theme) {
 							Padding(4, 8).Radius(6, 6, 0, 0)
 						title.Children(func() {
 							if tab.Kind == app.DBTabTable {
-								if s := resources.ObjectSVG("table"); s != nil {
+								if s := assets.ObjectSVG("table"); s != nil {
 									ui.Icon(c, s).Size(12, 12)
 								}
 							}

@@ -4,6 +4,7 @@ package app
 
 import (
 	"io"
+	"sync"
 
 	"github.com/egoist/mygo/plugins/terminal"
 
@@ -45,8 +46,9 @@ type App struct {
 	Busy       bool
 	ErrMsg     string
 
-	conn io.Closer
-	up   Updater
+	conn   io.Closer
+	up     Updater
+	writes sync.WaitGroup // 退出前等待短小的异步写（主题等）落库
 }
 
 // New loads the asset tree and creates the app state.
@@ -58,6 +60,15 @@ func New(b *backend.Backend) (*App, error) {
 	a := &App{Backend: b, Roots: roots, Open: map[string]*bool{}}
 	a.initOpen(roots)
 	a.Audit.Selected = -1
+	a.Settings.DataDir = b.DataDir()
+	if ui, err := b.GetUISettings(); err == nil {
+		a.Settings.Theme = ui.Theme
+	} else {
+		a.Settings.ThemeErr = "读取界面设置失败：" + err.Error()
+	}
+	if a.Settings.Theme == "" {
+		a.Settings.Theme = "system"
+	}
 	a.ensureHostConnectors()
 	b.SetAIEventSink(a.HandleAIEvent)
 	b.SetSFTPEventSink(a.HandleSFTPEvent)
@@ -82,6 +93,10 @@ func (a *App) initOpen(nodes []hoststore.TreeNode) {
 func (a *App) Attach(up Updater) {
 	a.up = up
 }
+
+// WaitForWrites blocks until short background writes (theme preferences)
+// have reached the database. Call it before closing the backend on quit.
+func (a *App) WaitForWrites() { a.writes.Wait() }
 
 // Post runs fn on the UI thread. Without a window (tests) it runs inline.
 func (a *App) Post(fn func()) {

@@ -33,6 +33,25 @@ func TestApprovalPolicyFacade(t *testing.T) {
 	}
 }
 
+func TestUISettingsFacade(t *testing.T) {
+	b := openTestBackend(t)
+
+	got, err := b.GetUISettings()
+	if err != nil || got.Theme != "system" {
+		t.Fatalf("默认 UI 设置 = %+v err=%v", got, err)
+	}
+	if err := b.SaveUISettings(configstore.UISettings{Theme: "light"}); err != nil {
+		t.Fatalf("SaveUISettings: %v", err)
+	}
+	got, _ = b.GetUISettings()
+	if got.Theme != "light" {
+		t.Fatalf("回读 = %+v", got)
+	}
+	if b.DataDir() == "" {
+		t.Fatal("DataDir 不应为空")
+	}
+}
+
 func TestAuditFacade(t *testing.T) {
 	b := openTestBackend(t)
 

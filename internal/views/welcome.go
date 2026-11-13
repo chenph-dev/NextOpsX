@@ -14,13 +14,13 @@ func Welcome(c *ui.Context, a *app.App) {
 	t := c.Theme()
 	ui.Column(c).Fill().Padding(32).Gap(12).AlignItems(ui.Start).Children(func() {
 		if a.Hosts.Err != "" {
-			ui.Text(c, a.Hosts.Err).FontSize(12).TextColor(t.Danger).Wrap()
+			ui.Text(c, a.Hosts.Err).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
 		}
 		n := a.Selected
 		if n == nil {
-			ui.Text(c, "选择左侧资产").FontSize(18).TextColor(t.TextMuted)
+			ui.Text(c, "选择左侧资产").FontSize(fontSize(18)).TextColor(t.TextMuted)
 			ui.Text(c, "还没有资产时，可以先新建资产或目录。").
-				FontSize(12).TextColor(t.TextMuted)
+				FontSize(fontSize(13)).TextColor(t.TextMuted)
 			ui.Row(c).Gap(8).Children(func() {
 				ui.PrimaryButton(c, "新建资产").OnClick(a.OpenNewHostForm)
 				ui.Button(c, "新建目录").OnClick(a.OpenNewFolderForm)
@@ -30,7 +30,7 @@ func Welcome(c *ui.Context, a *app.App) {
 		}
 
 		if n.NodeType == "folder" {
-			ui.Text(c, n.Name).FontSize(22).Bold()
+			ui.Text(c, n.Name).FontSize(fontSize(22)).Bold()
 			ui.Text(c, fmt.Sprintf("目录 · %d 个直接子节点", len(n.Children))).
 				TextColor(t.TextMuted)
 			ui.Row(c).Gap(8).Children(func() {
@@ -43,12 +43,12 @@ func Welcome(c *ui.Context, a *app.App) {
 			return
 		}
 
-		ui.Text(c, n.Name).FontSize(22).Bold()
+		ui.Text(c, n.Name).FontSize(fontSize(22)).Bold()
 		ui.Text(c, fmt.Sprintf("%s@%s:%d", n.User, n.Addr, n.Port)).
 			TextColor(t.TextMuted)
 		ui.Text(c, fmt.Sprintf("协议：%s · 认证：%s · 自动放行：%s",
 			a.HostProtocolName(n.Protocol), a.AuthDisplay(n.AuthType), a.AutoApproveDisplay(n.AutoApprove))).
-			FontSize(12).TextColor(t.TextMuted)
+			FontSize(fontSize(13)).TextColor(t.TextMuted)
 
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 			if a.IsSSHProtocol(n.Protocol) {
@@ -79,7 +79,7 @@ func backgroundTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 	}
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, "后台仍保持到「"+a.TermHostLabel()+"」的终端会话。").
-			FontSize(11).TextColor(t.TextMuted)
-		ui.Button(c, "关闭后台终端").FontSize(11).OnClick(a.Disconnect)
+			FontSize(fontSize(12)).TextColor(t.TextMuted)
+		ui.Button(c, "关闭后台终端").FontSize(fontSize(12)).OnClick(a.Disconnect)
 	})
 }

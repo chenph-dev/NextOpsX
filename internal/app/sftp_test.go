@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strings"
 	"testing"
 
 	sftppkg "nextopsx/internal/sftp"
@@ -22,6 +23,42 @@ func TestSFTPPathHelpers(t *testing.T) {
 	}
 	if got := a.SFTPPathFor("etc"); got != "/etc" {
 		t.Fatalf("root join = %q", got)
+	}
+}
+
+func TestSFTPCompletionNotifies(t *testing.T) {
+	a := &App{}
+	var got [][2]string
+	a.SetNotifier(func(title, body string) {
+		got = append(got, [2]string{title, body})
+	})
+
+	a.HandleSFTPEvent("sftp:start", sftppkg.TaskInfo{
+		ID: "t1", RemotePath: "/tmp/report.csv", Status: string(sftppkg.TaskRunning),
+	})
+	a.HandleSFTPEvent("sftp:progress", sftppkg.TaskInfo{
+		ID: "t1", RemotePath: "/tmp/report.csv", Status: string(sftppkg.TaskDone),
+	})
+	if len(got) != 1 || got[0][0] != "传输完成" || got[0][1] != "report.csv" {
+		t.Fatalf("done notification = %v", got)
+	}
+
+	// 同一终态的重复事件不再通知。
+	a.HandleSFTPEvent("sftp:progress", sftppkg.TaskInfo{
+		ID: "t1", RemotePath: "/tmp/report.csv", Status: string(sftppkg.TaskDone),
+	})
+	if len(got) != 1 {
+		t.Fatalf("duplicate notification = %v", got)
+	}
+
+	a.HandleSFTPEvent("sftp:start", sftppkg.TaskInfo{
+		ID: "t2", RemotePath: "/tmp/b.txt", Status: string(sftppkg.TaskRunning),
+	})
+	a.HandleSFTPEvent("sftp:progress", sftppkg.TaskInfo{
+		ID: "t2", RemotePath: "/tmp/b.txt", Status: string(sftppkg.TaskError), Error: "disk full",
+	})
+	if len(got) != 2 || got[1][0] != "传输失败" || !strings.Contains(got[1][1], "disk full") {
+		t.Fatalf("error notification = %v", got)
 	}
 }
 

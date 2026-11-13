@@ -388,8 +388,10 @@ func (a *App) SFTPRefreshTasks() {
 func (a *App) HandleSFTPEvent(event string, task sftppkg.TaskInfo) {
 	a.Post(func() {
 		found := false
+		prevStatus := ""
 		for i := range a.SFTP.Tasks {
 			if a.SFTP.Tasks[i].ID == task.ID {
+				prevStatus = a.SFTP.Tasks[i].Status
 				a.SFTP.Tasks[i] = task
 				found = true
 				break
@@ -401,7 +403,31 @@ func (a *App) HandleSFTPEvent(event string, task sftppkg.TaskInfo) {
 		if event == "sftp:start" {
 			a.SFTP.TaskPanelOpen = true
 		}
+		if found && prevStatus != task.Status {
+			switch task.Status {
+			case string(sftppkg.TaskDone):
+				a.notifyUser("传输完成", sftpTaskName(task))
+			case string(sftppkg.TaskError):
+				body := sftpTaskName(task)
+				if task.Error != "" {
+					body += "：" + task.Error
+				}
+				a.notifyUser("传输失败", body)
+			}
+		}
 	})
+}
+
+// sftpTaskName picks a readable file name for a notification.
+func sftpTaskName(t sftppkg.TaskInfo) string {
+	name := filepath.Base(t.RemotePath)
+	if name == "" || name == "." || name == "/" || name == string(filepath.Separator) {
+		name = filepath.Base(t.LocalPath)
+	}
+	if name == "" || name == "." || name == "/" {
+		return "文件传输"
+	}
+	return name
 }
 
 // SFTPPause pauses a task.

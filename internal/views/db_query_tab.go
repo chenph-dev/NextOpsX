@@ -23,7 +23,7 @@ func DBQueryTab(c *ui.Context, a *app.App, tab *app.DBTab, t *ui.Theme) {
 			if tab.Running {
 				ui.Row(c).Padding(20).Center().Children(func() {
 					ui.Spinner(c)
-					ui.Text(c, "执行中…").FontSize(11).TextColor(t.TextMuted)
+					ui.Text(c, "执行中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 				})
 				return
 			}
@@ -45,12 +45,12 @@ func DBQueryTab(c *ui.Context, a *app.App, tab *app.DBTab, t *ui.Theme) {
 func DBTableTab(c *ui.Context, a *app.App, tab *app.DBTab, t *ui.Theme) {
 	ui.Column(c).Fill().MinWidth(0).Padding(8).Gap(6).Children(func() {
 		ui.Row(c).MinWidth(0).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, tab.TableName).FontSize(13).Bold().SingleLine()
+			ui.Text(c, tab.TableName).FontSize(fontSize(13)).Bold().SingleLine()
 			if tab.HasTotal {
-				ui.Text(c, fmt.Sprintf("共 %d 行", tab.Total)).FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, fmt.Sprintf("共 %d 行", tab.Total)).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			}
 			if tab.DurationMS > 0 {
-				ui.Text(c, fmt.Sprintf("%dms", tab.DurationMS)).FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, fmt.Sprintf("%dms", tab.DurationMS)).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			}
 			ui.Spacer(c)
 
@@ -60,7 +60,7 @@ func DBTableTab(c *ui.Context, a *app.App, tab *app.DBTab, t *ui.Theme) {
 					prev = prev.Disabled(true)
 				}
 				prev.OnClick(func() { a.DBTablePage(-1) })
-				ui.Text(c, dbPageLabel(tab.Page, tab.PageSize, tab.HasTotal, tab.Total)).FontSize(11)
+				ui.Text(c, dbPageLabel(tab.Page, tab.PageSize, tab.HasTotal, tab.Total)).FontSize(fontSize(12))
 				next := ui.Button(c, "下一页")
 				if !dbTableCanNext(tab) {
 					next = next.Disabled(true)
@@ -74,7 +74,7 @@ func DBTableTab(c *ui.Context, a *app.App, tab *app.DBTab, t *ui.Theme) {
 		case tab.Running:
 			ui.Row(c).Padding(20).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "加载中…").FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, "加载中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case tab.Err != "":
 			dbErrorText(c, tab.Err, t)

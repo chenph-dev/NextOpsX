@@ -29,9 +29,9 @@ func DBWorkbench(c *ui.Context, a *app.App) {
 				tab := a.ActiveDBTab()
 				if tab == nil {
 					ui.Column(c).Fill().Center().Gap(6).Children(func() {
-						ui.Text(c, "没有打开的标签").FontSize(12).TextColor(t.TextMuted)
+						ui.Text(c, "没有打开的标签").FontSize(fontSize(13)).TextColor(t.TextMuted)
 						ui.Text(c, "点击标签栏右侧的 + 新建查询。").
-							FontSize(11).TextColor(t.TextMuted)
+							FontSize(fontSize(12)).TextColor(t.TextMuted)
 					})
 					return
 				}
@@ -70,7 +70,7 @@ func dbToolbar(c *ui.Context, a *app.App, t *ui.Theme) {
 		export.OnClick(a.ExportActiveDBResult)
 
 		ui.Spacer(c)
-		ui.Text(c, dbConnectionLabel(a)).FontSize(12).Bold().SingleLine()
+		ui.Text(c, dbConnectionLabel(a)).FontSize(fontSize(13)).Bold().SingleLine()
 	})
 }
 
@@ -97,7 +97,7 @@ func dbTabStrip(c *ui.Context, a *app.App, t *ui.Theme) {
 									ui.Icon(c, s).Size(12, 12)
 								}
 							}
-							label := ui.Text(c, tab.Title).FontSize(12).SingleLine().
+							label := ui.Text(c, tab.Title).FontSize(fontSize(13)).SingleLine().
 								MaxWidth(160)
 							if active {
 								label.Bold()
@@ -110,7 +110,7 @@ func dbTabStrip(c *ui.Context, a *app.App, t *ui.Theme) {
 						close := ui.ButtonBase(c).Size(18, 18).Radius(4).
 							Tooltip("关闭标签")
 						close.Children(func() {
-							ui.Text(c, "×").FontSize(12).TextColor(t.TextMuted)
+							ui.Text(c, "×").FontSize(fontSize(13)).TextColor(t.TextMuted)
 						})
 						close.OnClick(func() { a.CloseDBTab(tab.Key) })
 					})
@@ -119,7 +119,7 @@ func dbTabStrip(c *ui.Context, a *app.App, t *ui.Theme) {
 				plus := ui.ButtonBase(c).Size(28, 28).Radius(6).
 					Tooltip("新建查询")
 				plus.Children(func() {
-					ui.Text(c, "+").FontSize(17).TextColor(t.TextMuted)
+					ui.Text(c, "+").FontSize(fontSize(17)).TextColor(t.TextMuted)
 				})
 				plus.OnClick(a.NewDBQueryTab)
 			})
@@ -131,18 +131,18 @@ func dbStatusBar(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Divider(c)
 	ui.Row(c).Padding(3, 10).Gap(12).AlignItems(ui.Center).Children(func() {
 		if a.DB.HostID != "" {
-			ui.Text(c, dbConnectionLabel(a)).FontSize(11).TextColor(t.TextMuted).SingleLine()
+			ui.Text(c, dbConnectionLabel(a)).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 		}
 		ui.Spacer(c)
 		if a.DB.Err != "" {
-			ui.Text(c, a.DB.Err).FontSize(11).TextColor(t.Danger).SingleLine()
+			ui.Text(c, a.DB.Err).FontSize(fontSize(12)).TextColor(t.Danger).SingleLine()
 			return
 		}
 		text := a.DB.Notice
 		if text == "" {
 			text = "就绪"
 		}
-		ui.Text(c, text).FontSize(11).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, text).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 	})
 }
 
@@ -153,14 +153,14 @@ func dbResultMeta(c *ui.Context, tab *app.DBTab, t *ui.Theme) {
 		}
 		if len(tab.Result.Columns) > 0 {
 			ui.Text(c, fmt.Sprintf("%d 行 · %dms", len(tab.Result.Rows), tab.DurationMS)).
-				FontSize(11).TextColor(t.TextMuted)
+				FontSize(fontSize(12)).TextColor(t.TextMuted)
 			if tab.Result.Truncated {
-				ui.Text(c, "结果已截断").FontSize(11).TextColor(t.Warning)
+				ui.Text(c, "结果已截断").FontSize(fontSize(12)).TextColor(t.Warning)
 			}
 			return
 		}
 		ui.Text(c, fmt.Sprintf("影响 %d 行 · %dms", tab.Result.RowsAffected, tab.DurationMS)).
-			FontSize(11).TextColor(t.TextMuted)
+			FontSize(fontSize(12)).TextColor(t.TextMuted)
 	})
 }
 
@@ -176,11 +176,11 @@ func dbConnectionLabel(a *app.App) string {
 }
 
 func dbErrorText(c *ui.Context, msg string, t *ui.Theme) {
-	ui.Text(c, msg).FontSize(12).TextColor(t.Danger).Wrap()
+	ui.Text(c, msg).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
 }
 
 func dbHint(c *ui.Context, text string, t *ui.Theme) {
-	ui.Text(c, text).FontSize(12).TextColor(t.TextMuted)
+	ui.Text(c, text).FontSize(fontSize(13)).TextColor(t.TextMuted)
 }
 
 func dbPageLabel(page, size int, hasTotal bool, total int64) string {

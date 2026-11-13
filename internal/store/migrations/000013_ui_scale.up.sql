@@ -1,0 +1,2 @@
+-- 界面缩放（百分比）：90 / 100 / 110 / 125。
+ALTER TABLE ui_settings ADD COLUMN scale INTEGER NOT NULL DEFAULT 100;

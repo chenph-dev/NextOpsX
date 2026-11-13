@@ -31,9 +31,9 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 				case f.EditingID != "":
 					title = "编辑资产"
 				}
-				ui.Text(c, title).FontSize(17).Bold()
+				ui.Text(c, title).FontSize(fontSize(17)).Bold()
 				ui.Text(c, "位置："+a.HostFormParentLabel()).
-					FontSize(11).TextColor(t.TextMuted)
+					FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 
 			nameInput := func() {
@@ -56,7 +56,7 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 			if f.IsFolder {
 				formRow(c, t, "名称", nameInput)
 				if f.Err != "" {
-					ui.Text(c, f.Err).FontSize(12).TextColor(t.Danger).Wrap()
+					ui.Text(c, f.Err).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
 				}
 				ui.Divider(c)
 				formFooter(c, a, t, f, false)
@@ -136,7 +136,7 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 				})
 				if f.EditingID != "" {
 					ui.Text(c, "编辑时凭据留空表示保留原值。").
-						FontSize(11).TextColor(t.TextMuted).Padding(0, 0, 0, 96)
+						FontSize(fontSize(12)).TextColor(t.TextMuted).Padding(0, 0, 0, 96)
 				}
 			}
 
@@ -174,7 +174,7 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 				}
 			})
 			ui.Text(c, "继承全局：按审批策略；自动放行：只读命令免审批；人工审批：全部命令先确认。").
-				FontSize(11).TextColor(t.TextMuted).Wrap().Padding(0, 0, 0, 96)
+				FontSize(fontSize(12)).TextColor(t.TextMuted).Wrap().Padding(0, 0, 0, 96)
 
 			if f.TestMsg != "" {
 				color := t.TextMuted
@@ -183,11 +183,11 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 				} else if !strings.HasPrefix(f.TestMsg, "正在") {
 					color = t.Danger
 				}
-				ui.Text(c, f.TestMsg).FontSize(12).TextColor(color).Wrap().
+				ui.Text(c, f.TestMsg).FontSize(fontSize(13)).TextColor(color).Wrap().
 					Padding(0, 0, 0, 96)
 			}
 			if f.Err != "" {
-				ui.Text(c, f.Err).FontSize(12).TextColor(t.Danger).Wrap()
+				ui.Text(c, f.Err).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
 			}
 			ui.Divider(c)
 			formFooter(c, a, t, f, true)
@@ -197,7 +197,7 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 
 func formRow(c *ui.Context, t *ui.Theme, label string, build func()) {
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, label).Width(88).FontSize(12).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, label).Width(88).FontSize(fontSize(13)).TextColor(t.TextMuted).SingleLine()
 		build()
 	})
 }
@@ -206,7 +206,7 @@ func formRow(c *ui.Context, t *ui.Theme, label string, build func()) {
 // controls line up between rows.
 func formField(c *ui.Context, t *ui.Theme, label string, build func()) {
 	ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, label).Width(88).FontSize(12).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, label).Width(88).FontSize(fontSize(13)).TextColor(t.TextMuted).SingleLine()
 		build()
 	})
 }
@@ -242,7 +242,7 @@ func renameDialog(c *ui.Context, a *app.App) {
 	ui.Modal(c, &a.Hosts.RenameOpen, func() {
 		t := c.Theme()
 		ui.Column(c).Width(420).Padding(18).Gap(10).Children(func() {
-			ui.Text(c, "重命名").FontSize(16).Bold()
+			ui.Text(c, "重命名").FontSize(fontSize(16)).Bold()
 			c.Key("host-rename-name")
 			ui.TextInput(c, &a.Hosts.RenameName).Label("新名称").Grow(1)
 			ui.Row(c).Justify(ui.End).Gap(8).Children(func() {
@@ -250,7 +250,7 @@ func renameDialog(c *ui.Context, a *app.App) {
 				ui.PrimaryButton(c, "保存").OnClick(a.SaveRename)
 			})
 			if a.Hosts.Err != "" {
-				ui.Text(c, a.Hosts.Err).FontSize(12).TextColor(t.Danger).Wrap()
+				ui.Text(c, a.Hosts.Err).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
 			}
 		})
 	})
@@ -260,9 +260,9 @@ func moveDialog(c *ui.Context, a *app.App) {
 	ui.Modal(c, &a.Hosts.MoveOpen, func() {
 		t := c.Theme()
 		ui.Column(c).Width(460).Padding(18).Gap(8).Children(func() {
-			ui.Text(c, "移动到目录").FontSize(16).Bold()
+			ui.Text(c, "移动到目录").FontSize(fontSize(16)).Bold()
 			ui.Text(c, "选择目标目录；根目录表示移到最外层。").
-				FontSize(11).TextColor(t.TextMuted)
+				FontSize(fontSize(12)).TextColor(t.TextMuted)
 			ui.Scroll(c).MaxHeight(300).Children(func() {
 				ui.Column(c).Gap(4).Children(func() {
 					ui.Button(c, "根目录").OnClick(func() { a.MoveNodeTo("") })
@@ -276,7 +276,7 @@ func moveDialog(c *ui.Context, a *app.App) {
 				ui.Button(c, "取消").OnClick(func() { a.Hosts.MoveOpen = false })
 			})
 			if a.Hosts.Err != "" {
-				ui.Text(c, a.Hosts.Err).FontSize(12).TextColor(t.Danger).Wrap()
+				ui.Text(c, a.Hosts.Err).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
 			}
 		})
 	})

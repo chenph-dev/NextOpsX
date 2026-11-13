@@ -32,11 +32,14 @@ type SettingsState struct {
 	Tab    SettingsTab
 	Notice string
 
-	// 常规：界面偏好。
-	Theme       string // system | light | dark
-	ThemeSaving bool
-	ThemeErr    string
-	DataDir     string
+	// 通用：界面偏好。
+	Theme      string // system | light | dark
+	ThemeIndex int    // 0 system, 1 light, 2 dark（Segmented 的绑定值）
+	Scale      int    // 界面缩放百分比：90/100/110/125
+	ScaleIndex int    // Scales 的下标（Segmented 的绑定值）
+	UISaving   bool
+	UIErr      string
+	DataDir    string
 
 	// 模型分区：供应商列表与编辑草稿。
 	Providers        []configstore.AIProvider
@@ -76,34 +79,92 @@ func (a *App) CloseSettings() {
 	a.Settings.Notice = ""
 }
 
-// SetTheme applies a theme immediately and persists it. While a save is in
-// flight the latest choice is queued, so the last click wins.
+// ThemeIndex maps a theme to the segmented control's index.
+func ThemeIndex(theme string) int {
+	switch configstore.NormalizeTheme(theme) {
+	case configstore.ThemeLight:
+		return 1
+	case configstore.ThemeDark:
+		return 2
+	default:
+		return 0
+	}
+}
+
+// ThemeAt maps a segmented control index to a theme.
+func ThemeAt(index int) string {
+	switch index {
+	case 1:
+		return configstore.ThemeLight
+	case 2:
+		return configstore.ThemeDark
+	default:
+		return configstore.ThemeSystem
+	}
+}
+
+// ScaleIndex maps a scale percentage to the segmented control's index.
+func ScaleIndex(scale int) int {
+	scale = configstore.NormalizeScale(scale)
+	for i, s := range configstore.Scales {
+		if s == scale {
+			return i
+		}
+	}
+	return 1 // 100%
+}
+
+// ScaleAt maps a segmented control index to a scale percentage.
+func ScaleAt(index int) int {
+	if index >= 0 && index < len(configstore.Scales) {
+		return configstore.Scales[index]
+	}
+	return configstore.ScaleDefault
+}
+
+// SetTheme applies a theme immediately and persists it.
 func (a *App) SetTheme(theme string) {
 	theme = configstore.NormalizeTheme(theme)
 	a.Settings.Theme = theme
-	a.Settings.ThemeErr = ""
-	if a.Backend == nil || a.Settings.ThemeSaving {
-		return
-	}
-	a.saveTheme(theme)
+	a.Settings.ThemeIndex = ThemeIndex(theme)
+	a.Settings.UIErr = ""
+	a.saveUIPrefs()
 }
 
-func (a *App) saveTheme(theme string) {
-	a.Settings.ThemeSaving = true
+// SetScale applies a UI scale immediately and persists it.
+func (a *App) SetScale(scale int) {
+	scale = configstore.NormalizeScale(scale)
+	a.Settings.Scale = scale
+	a.Settings.ScaleIndex = ScaleIndex(scale)
+	a.Settings.UIErr = ""
+	a.saveUIPrefs()
+}
+
+// saveUIPrefs persists theme and scale. While a save is in flight the latest
+// values are queued, so the last click wins.
+func (a *App) saveUIPrefs() {
+	if a.Backend == nil || a.Settings.UISaving {
+		return
+	}
+	a.Settings.UISaving = true
+	prefs := configstore.UISettings{
+		Theme: a.Settings.Theme,
+		Scale: a.Settings.Scale,
+	}
 	a.writes.Add(1)
 	b := a.Backend
 	go func() {
-		err := b.SaveUISettings(configstore.UISettings{Theme: theme})
+		err := b.SaveUISettings(prefs)
 		a.writes.Done()
 		a.Post(func() {
-			a.Settings.ThemeSaving = false
+			a.Settings.UISaving = false
 			if err != nil {
-				a.Settings.ThemeErr = "保存主题失败：" + err.Error()
+				a.Settings.UIErr = "保存界面设置失败：" + err.Error()
 			} else {
-				a.Settings.ThemeErr = ""
+				a.Settings.UIErr = ""
 			}
-			if a.Settings.Theme != theme {
-				a.saveTheme(a.Settings.Theme)
+			if a.Settings.Theme != prefs.Theme || a.Settings.Scale != prefs.Scale {
+				a.saveUIPrefs()
 			}
 		})
 	}()

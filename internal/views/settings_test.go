@@ -39,10 +39,13 @@ func TestSettingsModelShowsProviders(t *testing.T) {
 func TestSettingsGeneralSection(t *testing.T) {
 	a := &app.App{View: app.ViewSettings}
 	a.Settings.Theme = "dark"
+	a.Settings.ThemeIndex = app.ThemeIndex("dark")
+	a.Settings.Scale = 100
+	a.Settings.ScaleIndex = app.ScaleIndex(100)
 	a.Settings.DataDir = "/tmp/nextopsx-data"
 
 	tt := ui.NewTester(Shell(a), 1300, 900)
-	for _, want := range []string{"常规", "主题", "深色", "数据目录", "/tmp/nextopsx-data"} {
+	for _, want := range []string{"通用", "主题", "深色", "界面缩放", "125%", "数据目录", "/tmp/nextopsx-data"} {
 		if !tt.HasText(want) {
 			t.Errorf("missing %q in %q", want, tt.Texts())
 		}
@@ -103,7 +106,7 @@ func TestSettingsPolicySection(t *testing.T) {
 
 	tt := ui.NewTester(Shell(a), 1300, 900)
 	for _, want := range []string{
-		"审批", "自动放行只读命令", "只读白名单（每行一个命令名，留空使用内置默认）",
+		"审批", "自动放行只读命令", "只读白名单",
 		"清空（使用内置默认）", "保存",
 	} {
 		if !tt.HasText(want) {

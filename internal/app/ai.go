@@ -299,13 +299,47 @@ func (a *App) applyAIEvent(sessionID, event string, data any) {
 		}
 	case "session:state":
 		if st, ok := data.(string); ok {
+			prev := a.AI.State
 			a.AI.State = st
 			if st == session.StateIdle {
+				if prev == session.StateThinking || prev == session.StateRunning {
+					a.notifyAITurnEnded()
+				}
 				a.resyncAI(sessionID)
 			}
 		}
 	}
 	a.saveAISnapshot()
+}
+
+// notifyAITurnEnded reports a finished turn. Cancellations are the user's own
+// doing and stay silent; failures say so instead of claiming a reply.
+func (a *App) notifyAITurnEnded() {
+	a.notifyTurnResult(a.AI.Err, a.AI.ErrCancelled, a.AI.HostID)
+}
+
+// notifyTurnResult reports a finished turn. Cancellations are the user's own
+// doing and stay silent; failures say so instead of claiming a reply.
+func (a *App) notifyTurnResult(errMsg string, cancelled bool, hostID string) {
+	if cancelled {
+		return
+	}
+	host := ""
+	if n := findTreeNode(a.Roots, hostID); n != nil {
+		host = n.Name
+	}
+	switch {
+	case errMsg != "":
+		body := errMsg
+		if host != "" {
+			body = "「" + host + "」：" + body
+		}
+		a.notifyUser("AI 对话出错", body)
+	case host != "":
+		a.notifyUser("AI 对话完成", "「"+host+"」的回复已生成")
+	default:
+		a.notifyUser("AI 对话完成", "后台对话的回复已生成")
+	}
 }
 
 // saveAISnapshot copies the active session's live state for a later switch.
@@ -455,7 +489,13 @@ func (a *App) applyAIEventSnapshot(sessionID, event string, data any) {
 		}
 	case "session:state":
 		if st, ok := data.(string); ok {
+			prev := s.State
 			s.State = st
+			if st == session.StateIdle &&
+				(prev == session.StateThinking || prev == session.StateRunning) {
+				// 后台会话完成也要通知；这里拿不到资产名，用通用文案。
+				a.notifyTurnResult(s.Err, s.ErrCancelled, "")
+			}
 		}
 	}
 }

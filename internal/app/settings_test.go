@@ -67,6 +67,18 @@ func TestSetThemeNormalizes(t *testing.T) {
 	}
 }
 
+func TestSetScaleNormalizes(t *testing.T) {
+	a := &App{}
+	a.SetScale(125)
+	if a.Settings.Scale != 125 || a.Settings.ScaleIndex != 3 {
+		t.Fatalf("scale = %d index = %d", a.Settings.Scale, a.Settings.ScaleIndex)
+	}
+	a.SetScale(999)
+	if a.Settings.Scale != 100 || a.Settings.ScaleIndex != 1 {
+		t.Fatalf("invalid scale = %d index = %d", a.Settings.Scale, a.Settings.ScaleIndex)
+	}
+}
+
 func TestParseWhitelistKeepsSpaces(t *testing.T) {
 	got := parseWhitelist("df -h\nfree -m,uptime\n\ndf -h\r\n")
 	want := []string{"df -h", "free -m", "uptime"}

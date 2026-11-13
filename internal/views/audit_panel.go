@@ -12,14 +12,17 @@ import (
 // auditSettings is the AI call audit section of the settings page.
 func auditSettings(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Fill().MinWidth(0).Children(func() {
-		settingsHeader(c, t, "审计", "AI 模型与工具的调用记录，用于排查与 token 用量统计。", func() {
+		ui.Row(c).Padding(8, 14).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "AI 调用记录").FontSize(fontSize(13)).Bold()
+			ui.Spacer(c)
 			ui.Button(c, "刷新").OnClick(a.LoadAudit)
 		})
+		ui.Divider(c)
 		switch {
 		case a.Audit.Loading && len(a.Audit.Logs) == 0:
 			ui.Row(c).Grow(1).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "读取审计日志…").FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, "读取审计日志…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.Audit.Err != "" && len(a.Audit.Logs) == 0:
 			ui.Column(c).Padding(16).Gap(6).Children(func() {
@@ -28,16 +31,16 @@ func auditSettings(c *ui.Context, a *app.App, t *ui.Theme) {
 			})
 		default:
 			if a.Audit.Err != "" {
-				ui.Text(c, a.Audit.Err).FontSize(11).TextColor(t.Danger).
+				ui.Text(c, a.Audit.Err).FontSize(fontSize(12)).TextColor(t.Danger).
 					Padding(4, 16).Wrap()
 			}
 			auditSummary(c, a, t)
 			ui.Divider(c)
 			if len(a.Audit.Logs) == 0 {
 				ui.Column(c).Padding(16).Gap(6).Children(func() {
-					ui.Text(c, "还没有调用记录").FontSize(12).TextColor(t.TextMuted)
+					ui.Text(c, "还没有调用记录").FontSize(fontSize(13)).TextColor(t.TextMuted)
 					ui.Text(c, "使用 AI 对话后，模型与工具调用会记录在这里。").
-						FontSize(11).TextColor(t.TextMuted)
+						FontSize(fontSize(12)).TextColor(t.TextMuted)
 				})
 				return
 			}
@@ -61,8 +64,8 @@ func auditSummary(c *ui.Context, a *app.App, t *ui.Theme) {
 
 func auditStat(c *ui.Context, t *ui.Theme, label, value string) {
 	ui.Column(c).Gap(1).Children(func() {
-		ui.Text(c, value).FontSize(15).Bold().SingleLine()
-		ui.Text(c, label).FontSize(10).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, value).FontSize(fontSize(15)).Bold().SingleLine()
+		ui.Text(c, label).FontSize(fontSize(11)).TextColor(t.TextMuted).SingleLine()
 	})
 }
 
@@ -94,7 +97,7 @@ func auditTable(c *ui.Context, a *app.App, t *ui.Theme) {
 		switch col {
 		case 0:
 			ui.Text(c, time.Unix(l.Ts, 0).Format("01-02 15:04:05")).
-				FontSize(11).SingleLine()
+				FontSize(fontSize(12)).SingleLine()
 		case 1:
 			component := "其他"
 			switch l.Component {
@@ -103,24 +106,24 @@ func auditTable(c *ui.Context, a *app.App, t *ui.Theme) {
 			case "tool":
 				component = "工具"
 			}
-			ui.Text(c, component).FontSize(11).SingleLine()
+			ui.Text(c, component).FontSize(fontSize(12)).SingleLine()
 		case 2:
-			ui.Text(c, l.Name).FontSize(11).SingleLine()
+			ui.Text(c, l.Name).FontSize(fontSize(12)).SingleLine()
 		case 3:
-			ui.Text(c, l.Provider).FontSize(11).SingleLine()
+			ui.Text(c, l.Provider).FontSize(fontSize(12)).SingleLine()
 		case 4:
-			ui.Text(c, fmt.Sprintf("%d", l.TokensIn)).FontSize(11).SingleLine()
+			ui.Text(c, fmt.Sprintf("%d", l.TokensIn)).FontSize(fontSize(12)).SingleLine()
 		case 5:
-			ui.Text(c, fmt.Sprintf("%d", l.TokensOut)).FontSize(11).SingleLine()
+			ui.Text(c, fmt.Sprintf("%d", l.TokensOut)).FontSize(fontSize(12)).SingleLine()
 		case 6:
-			ui.Text(c, fmt.Sprintf("%d", l.TokensTotal)).FontSize(11).SingleLine()
+			ui.Text(c, fmt.Sprintf("%d", l.TokensTotal)).FontSize(fontSize(12)).SingleLine()
 		case 7:
-			ui.Text(c, fmt.Sprintf("%dms", l.DurationMS)).FontSize(11).SingleLine()
+			ui.Text(c, fmt.Sprintf("%dms", l.DurationMS)).FontSize(fontSize(12)).SingleLine()
 		case 8:
 			if l.OK {
-				ui.Text(c, "成功").FontSize(11).TextColor(t.Success).SingleLine()
+				ui.Text(c, "成功").FontSize(fontSize(12)).TextColor(t.Success).SingleLine()
 			} else {
-				ui.Text(c, "失败").FontSize(11).TextColor(t.Danger).SingleLine()
+				ui.Text(c, "失败").FontSize(fontSize(12)).TextColor(t.Danger).SingleLine()
 			}
 		}
 	}).Grow(1).MinWidth(0)
@@ -138,9 +141,9 @@ func auditDetail(c *ui.Context, a *app.App, t *ui.Theme) {
 		if l.SessionID == "" {
 			line = time.Unix(l.Ts, 0).Format("2006-01-02 15:04:05")
 		}
-		ui.Text(c, line).FontSize(11).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, line).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 		if l.Error != "" {
-			ui.Text(c, "错误："+l.Error).FontSize(11).TextColor(t.Danger).Wrap()
+			ui.Text(c, "错误："+l.Error).FontSize(fontSize(12)).TextColor(t.Danger).Wrap()
 		}
 	})
 }

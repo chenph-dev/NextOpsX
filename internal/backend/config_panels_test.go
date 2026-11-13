@@ -37,14 +37,14 @@ func TestUISettingsFacade(t *testing.T) {
 	b := openTestBackend(t)
 
 	got, err := b.GetUISettings()
-	if err != nil || got.Theme != "system" {
+	if err != nil || got.Theme != "system" || got.Scale != configstore.ScaleDefault {
 		t.Fatalf("默认 UI 设置 = %+v err=%v", got, err)
 	}
-	if err := b.SaveUISettings(configstore.UISettings{Theme: "light"}); err != nil {
+	if err := b.SaveUISettings(configstore.UISettings{Theme: "light", Scale: 110}); err != nil {
 		t.Fatalf("SaveUISettings: %v", err)
 	}
 	got, _ = b.GetUISettings()
-	if got.Theme != "light" {
+	if got.Theme != "light" || got.Scale != 110 {
 		t.Fatalf("回读 = %+v", got)
 	}
 	if b.DataDir() == "" {

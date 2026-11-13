@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/plugins/terminal"
 
 	"nextopsx/internal/backend"
+	configstore "nextopsx/internal/store/config"
 	hoststore "nextopsx/internal/store/hosts"
 )
 
@@ -48,7 +49,8 @@ type App struct {
 
 	conn   io.Closer
 	up     Updater
-	writes sync.WaitGroup // 退出前等待短小的异步写（主题等）落库
+	writes sync.WaitGroup           // 退出前等待短小的异步写（主题等）落库
+	notify func(title, body string) // 桌面通知（由 main 注入；可空）
 }
 
 // New loads the asset tree and creates the app state.
@@ -63,12 +65,16 @@ func New(b *backend.Backend) (*App, error) {
 	a.Settings.DataDir = b.DataDir()
 	if ui, err := b.GetUISettings(); err == nil {
 		a.Settings.Theme = ui.Theme
+		a.Settings.Scale = ui.Scale
 	} else {
-		a.Settings.ThemeErr = "读取界面设置失败：" + err.Error()
+		a.Settings.UIErr = "读取界面设置失败：" + err.Error()
 	}
 	if a.Settings.Theme == "" {
 		a.Settings.Theme = "system"
 	}
+	a.Settings.Scale = configstore.NormalizeScale(a.Settings.Scale)
+	a.Settings.ThemeIndex = ThemeIndex(a.Settings.Theme)
+	a.Settings.ScaleIndex = ScaleIndex(a.Settings.Scale)
 	a.ensureHostConnectors()
 	b.SetAIEventSink(a.HandleAIEvent)
 	b.SetSFTPEventSink(a.HandleSFTPEvent)
@@ -92,6 +98,18 @@ func (a *App) initOpen(nodes []hoststore.TreeNode) {
 // Attach gives the app a way to post state changes to the UI thread.
 func (a *App) Attach(up Updater) {
 	a.up = up
+}
+
+// SetNotifier installs the desktop-notification sink; nil disables
+// notifications.
+func (a *App) SetNotifier(fn func(title, body string)) {
+	a.notify = fn
+}
+
+func (a *App) notifyUser(title, body string) {
+	if a.notify != nil {
+		a.notify(title, body)
+	}
 }
 
 // WaitForWrites blocks until short background writes (theme preferences)

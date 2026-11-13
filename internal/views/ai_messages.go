@@ -51,10 +51,10 @@ func aiMessage(c *ui.Context, a *app.App, i int, t *ui.Theme) {
 func aiUserBubble(c *ui.Context, text string, t *ui.Theme) {
 	svc := c.Services()
 	ui.Row(c).Justify(ui.End).Gap(6).AlignItems(ui.Center).Children(func() {
-		ui.Button(c, "复制").FontSize(11).OnClick(func() { svc.WriteClipboard(text) })
+		ui.Button(c, "复制").FontSize(fontSize(12)).OnClick(func() { svc.WriteClipboard(text) })
 		ui.Column(c).MaxWidth(560).Padding(8, 10).Radius(8).
 			Background(t.Accent).Children(func() {
-			ui.Text(c, text).TextColor(t.AccentText).FontSize(12).Wrap()
+			ui.Text(c, text).TextColor(t.AccentText).FontSize(fontSize(13)).Wrap()
 		})
 	})
 }
@@ -66,7 +66,7 @@ func aiAssistantBubble(c *ui.Context, text string, t *ui.Theme) {
 			Background(t.Surface).Children(func() {
 			MarkdownView(c, text)
 		})
-		ui.Button(c, "复制").FontSize(11).OnClick(func() { svc.WriteClipboard(text) })
+		ui.Button(c, "复制").FontSize(fontSize(12)).OnClick(func() { svc.WriteClipboard(text) })
 	})
 }
 
@@ -158,7 +158,7 @@ func toolOutputBlock(c *ui.Context, a *app.App, msg convstore.Message, t *ui.The
 	if lines := countOutputLines(msg.Content); lines > 0 {
 		head += fmt.Sprintf(" · %d 行", lines)
 	}
-	ui.Button(c, head).FontSize(11).SingleLine().OnClick(func() {
+	ui.Button(c, head).FontSize(fontSize(12)).SingleLine().OnClick(func() {
 		a.ToggleToolOutput(msg.ID)
 	})
 	if !open {
@@ -171,7 +171,7 @@ func toolOutputBlock(c *ui.Context, a *app.App, msg convstore.Message, t *ui.The
 	ui.Scroll(c).MaxHeight(260).Children(func() {
 		ui.Column(c).Background(t.Background).Border(1, t.Border).Radius(4).
 			Padding(6, 8).Children(func() {
-			ui.Text(c, content).Font("monospace").FontSize(11).Wrap()
+			ui.Text(c, content).Font("monospace").FontSize(fontSize(12)).Wrap()
 		})
 	})
 }

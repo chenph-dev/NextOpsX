@@ -19,23 +19,47 @@ var (
 	lightThemeBase = ui.LightTheme()
 	darkThemeBase  = ui.DarkTheme()
 	passTheme      ui.Theme
+	uiScale        float32 = 1
 )
 
-// applyTheme overrides the system-following default when the user chose an
-// explicit theme. The root view rebuilds every frame, which is where SetTheme
-// takes effect for the whole tree.
+// fontSize scales an explicit text size by the user's UI scale.
+func fontSize(v float32) float32 { return v * uiScale }
+
+// applyTheme applies the user's theme and UI scale. The root view rebuilds
+// every frame, which is where SetTheme takes effect for the whole tree.
 func applyTheme(c *ui.Context, a *app.App) {
-	var base *ui.Theme
+	scale := float32(a.Settings.Scale) / 100
+	if scale <= 0 {
+		scale = 1
+	}
+	uiScale = scale
+
+	prefs := c.Preferences()
+	var t ui.Theme
 	switch a.Settings.Theme {
 	case configstore.ThemeLight:
-		base = lightThemeBase
+		t = *lightThemeBase
+		t.FontSize = 13
+		followPreferences(&t, prefs)
 	case configstore.ThemeDark:
-		base = darkThemeBase
+		t = *darkThemeBase
+		t.FontSize = 13
+		followPreferences(&t, prefs)
 	default:
-		return // 跟随系统：使用 MyGo 的默认主题
+		// 跟随系统：默认主题已应用外观与系统文字缩放，这里统一基准字号。
+		t = *c.Theme()
+		textScale := prefs.TextScale
+		if textScale <= 0 {
+			textScale = 1
+		}
+		t.FontSize = 13 * textScale
 	}
-	passTheme = *base
-	followPreferences(&passTheme, c.Preferences())
+	if scale != 1 {
+		t.FontSize *= scale
+		t.Spacing *= scale
+		t.Radius *= scale
+	}
+	passTheme = t
 	c.SetTheme(&passTheme)
 }
 
@@ -91,11 +115,11 @@ func Shell(a *app.App) func(*ui.Context) {
 			ui.Column(c).Width(280).FillHeight().Background(t.Surface).
 				Border(1, t.Border).Children(func() {
 				ui.Row(c).Padding(12).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, "资产").FontSize(16).Bold()
+					ui.Text(c, "资产").FontSize(fontSize(16)).Bold()
 					ui.Text(c, fmt.Sprintf("%d", countHosts(a.Roots))).TextColor(t.TextMuted)
 					ui.Spacer(c)
-					ui.Button(c, "＋资产").FontSize(11).OnClick(a.OpenNewHostForm)
-					ui.Button(c, "＋目录").FontSize(11).OnClick(a.OpenNewFolderForm)
+					ui.Button(c, "＋资产").FontSize(fontSize(12)).OnClick(a.OpenNewHostForm)
+					ui.Button(c, "＋目录").FontSize(fontSize(12)).OnClick(a.OpenNewFolderForm)
 				})
 				tree := ui.Scroll(c).Grow(1)
 				tree.ContextMenu(func(m *ui.Menu) {
@@ -128,13 +152,13 @@ func Shell(a *app.App) func(*ui.Context) {
 					return
 				}
 				ui.Row(c).Padding(10, 16).Gap(12).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, a.Selected.Name).FontSize(15).Bold()
+					ui.Text(c, a.Selected.Name).FontSize(fontSize(15)).Bold()
 					if a.Selected.NodeType == "host" {
 						ui.Text(c, fmt.Sprintf("%s@%s:%d", a.Selected.User, a.Selected.Addr, a.Selected.Port)).
-							FontSize(12).TextColor(t.TextMuted)
+							FontSize(fontSize(13)).TextColor(t.TextMuted)
 						ui.Spacer(c)
 						if a.Selected.Protocol == "winrm" {
-							ui.Button(c, "远程桌面").FontSize(11).OnClick(a.OpenRDP)
+							ui.Button(c, "远程桌面").FontSize(fontSize(12)).OnClick(a.OpenRDP)
 						}
 						labels := []string{"终端", "AI 对话"}
 						switch {
@@ -162,11 +186,11 @@ func Shell(a *app.App) func(*ui.Context) {
 						}
 						return
 					}
-					ui.Text(c, "目录").FontSize(12).TextColor(t.TextMuted)
+					ui.Text(c, "目录").FontSize(fontSize(13)).TextColor(t.TextMuted)
 				})
 				if a.ErrMsg != "" {
 					ui.Row(c).Padding(0, 16).Children(func() {
-						ui.Text(c, a.ErrMsg).FontSize(11).TextColor(t.Danger).Wrap()
+						ui.Text(c, a.ErrMsg).FontSize(fontSize(12)).TextColor(t.Danger).Wrap()
 					})
 				}
 				ui.Divider(c)

@@ -32,17 +32,17 @@ func AIPanel(c *ui.Context, a *app.App) {
 func aiHeader(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Row(c).Padding(8, 12).Gap(8).AlignItems(ui.Center).Children(func() {
 		if label, color := aiStateBadge(a, t); label != "" {
-			ui.Text(c, label).FontSize(11).TextColor(color)
+			ui.Text(c, label).FontSize(fontSize(12)).TextColor(color)
 		}
 		// 会话加载期间供应商信息尚未就绪，先不展示，避免显示上一个资产的数据。
 		if !a.AI.Loading {
 			if a.AI.Configured {
 				aiProviderSelect(c, a, t)
 				if a.AI.Model != "" {
-					ui.Text(c, a.AI.Model).FontSize(11).TextColor(t.TextMuted)
+					ui.Text(c, a.AI.Model).FontSize(fontSize(12)).TextColor(t.TextMuted)
 				}
 			} else {
-				ui.Text(c, "未配置 AI").FontSize(11).TextColor(t.Warning)
+				ui.Text(c, "未配置 AI").FontSize(fontSize(12)).TextColor(t.Warning)
 			}
 		}
 		ui.Spacer(c)
@@ -82,7 +82,7 @@ func aiProviderSelect(c *ui.Context, a *app.App, t *ui.Theme) {
 		trigger = trigger.Disabled(true)
 	}
 	trigger.Children(func() {
-		ui.Text(c, a.AI.ProviderName).FontSize(11).SingleLine()
+		ui.Text(c, a.AI.ProviderName).FontSize(fontSize(12)).SingleLine()
 	})
 	if sel.Trigger.Changed() {
 		a.SwitchAIProvider(a.AI.ProviderChoice)
@@ -95,7 +95,7 @@ func aiProviderSelect(c *ui.Context, a *app.App, t *ui.Theme) {
 				item = item.Background(t.SurfaceHover)
 			}
 			item.Children(func() {
-				ui.Text(c, p.Name).FontSize(11)
+				ui.Text(c, p.Name).FontSize(fontSize(12))
 			})
 		}
 	})
@@ -151,7 +151,7 @@ func aiMessageStream(c *ui.Context, a *app.App, t *ui.Theme) {
 			if a.AI.State == session.StateThinking && a.AI.Streaming == "" {
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 					ui.Spinner(c)
-					ui.Text(c, "思考中…").FontSize(11).TextColor(t.TextMuted)
+					ui.Text(c, "思考中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 				})
 			}
 			if a.AI.RunningCommand != "" {
@@ -169,14 +169,14 @@ func aiErrorText(c *ui.Context, a *app.App, t *ui.Theme) {
 	if a.AI.ErrCancelled {
 		color = t.TextMuted
 	}
-	ui.Text(c, a.AI.Err).FontSize(12).TextColor(color).Wrap()
+	ui.Text(c, a.AI.Err).FontSize(fontSize(13)).TextColor(color).Wrap()
 }
 
 func aiUnconfigured(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Padding(24).Gap(10).Center().Children(func() {
-		ui.Text(c, "尚未配置 AI 后端").FontSize(15).Bold()
+		ui.Text(c, "尚未配置 AI 后端").FontSize(fontSize(15)).Bold()
 		ui.Text(c, "填写协议、模型名称和 API Key 后即可开始对话。").
-			FontSize(12).TextColor(t.TextMuted)
+			FontSize(fontSize(13)).TextColor(t.TextMuted)
 		ui.PrimaryButton(c, "配置 AI").OnClick(func() { a.OpenSettings(app.SettingsModel) })
 	})
 }
@@ -184,7 +184,7 @@ func aiUnconfigured(c *ui.Context, a *app.App, t *ui.Theme) {
 func aiEmptyState(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Padding(16).Gap(10).Children(func() {
 		ui.Text(c, "向 AI 描述要执行的运维任务，命令会先交由你审批。").
-			FontSize(12).TextColor(t.TextMuted)
+			FontSize(fontSize(13)).TextColor(t.TextMuted)
 		for _, s := range aiSuggestions(a.SelectedProtocol()) {
 			suggestion := s
 			ui.Button(c, suggestion).OnClick(func() { a.AI.Input = suggestion })
@@ -210,18 +210,18 @@ func aiSuggestions(protocol string) []string {
 func aiRunningBlock(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 		ui.Spinner(c)
-		ui.Text(c, "$ "+a.AI.RunningCommand).Font("monospace").FontSize(11).
+		ui.Text(c, "$ "+a.AI.RunningCommand).Font("monospace").FontSize(fontSize(12)).
 			TextColor(t.TextMuted).SingleLine()
 		if !a.AI.RunStartedAt.IsZero() {
 			elapsed := time.Since(a.AI.RunStartedAt).Seconds()
-			ui.Text(c, fmt.Sprintf("%.0fs", elapsed)).FontSize(11).TextColor(t.TextMuted)
+			ui.Text(c, fmt.Sprintf("%.0fs", elapsed)).FontSize(fontSize(12)).TextColor(t.TextMuted)
 		}
 	})
 	if a.AI.RunOutput != "" {
 		ui.Scroll(c).MaxHeight(180).Children(func() {
 			ui.Column(c).Background(t.Surface).Border(1, t.Border).Radius(4).
 				Padding(6, 8).Children(func() {
-				ui.Text(c, a.AI.RunOutput).Font("monospace").FontSize(11).Wrap()
+				ui.Text(c, a.AI.RunOutput).Font("monospace").FontSize(fontSize(12)).Wrap()
 			})
 		})
 	}
@@ -258,12 +258,12 @@ func aiComposer(c *ui.Context, a *app.App, t *ui.Theme) {
 func aiHistoryPanel(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Width(340).MaxHeight(420).Padding(10).Gap(6).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "历史对话").FontSize(13).Bold()
+			ui.Text(c, "历史对话").FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
 			ui.Button(c, "新对话").OnClick(a.NewAIConversation)
 		})
 		if len(a.AI.Conversations) == 0 {
-			ui.Text(c, "暂无历史对话").FontSize(12).TextColor(t.TextMuted)
+			ui.Text(c, "暂无历史对话").FontSize(fontSize(13)).TextColor(t.TextMuted)
 			return
 		}
 		ui.Scroll(c).MaxHeight(340).Children(func() {

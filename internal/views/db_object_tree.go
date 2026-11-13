@@ -16,18 +16,18 @@ func DBObjectTree(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Width(240).FillHeight().Background(t.Surface).
 		Border(1, t.Border).Children(func() {
 		ui.Row(c).Padding(6, 8).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "对象").FontSize(12).Bold()
+			ui.Text(c, "对象").FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
-			ui.Button(c, "展开").FontSize(10).OnClick(func() { a.SetDBTreeAll(true) })
-			ui.Button(c, "收起").FontSize(10).OnClick(func() { a.SetDBTreeAll(false) })
+			ui.Button(c, "展开").FontSize(fontSize(11)).OnClick(func() { a.SetDBTreeAll(true) })
+			ui.Button(c, "收起").FontSize(fontSize(11)).OnClick(func() { a.SetDBTreeAll(false) })
 		})
 		ui.Divider(c)
 		ui.Row(c).Padding(4, 6).Gap(4).AlignItems(ui.Center).Children(func() {
 			c.Key("db-tree-filter")
-			ui.TextInput(c, &a.DB.Filter).Grow(1).FontSize(11).
+			ui.TextInput(c, &a.DB.Filter).Grow(1).FontSize(fontSize(12)).
 				Placeholder("筛选表/视图")
 			if a.DB.Filter != "" {
-				ui.Button(c, "清除").FontSize(10).OnClick(func() { a.DB.Filter = "" })
+				ui.Button(c, "清除").FontSize(fontSize(11)).OnClick(func() { a.DB.Filter = "" })
 			}
 		})
 		ui.Divider(c)
@@ -35,7 +35,7 @@ func DBObjectTree(c *ui.Context, a *app.App, t *ui.Theme) {
 		case a.DB.SchemaLoading:
 			ui.Row(c).Padding(16).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "正在加载结构…").FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, "正在加载结构…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.DB.SchemaErr != "":
 			ui.Column(c).Padding(8).Children(func() {
@@ -47,12 +47,12 @@ func DBObjectTree(c *ui.Context, a *app.App, t *ui.Theme) {
 				ui.Column(c).Padding(8).Gap(6).Children(func() {
 					if a.DB.Filter != "" {
 						ui.Text(c, "没有匹配「"+a.DB.Filter+"」的表或视图。").
-							FontSize(11).TextColor(t.TextMuted).Wrap()
+							FontSize(fontSize(12)).TextColor(t.TextMuted).Wrap()
 						ui.Button(c, "清除筛选").OnClick(func() { a.DB.Filter = "" })
 						return
 					}
 					ui.Text(c, dbEmptySchemaHint(a, a.DB.Protocol)).
-						FontSize(11).TextColor(t.TextMuted).Wrap()
+						FontSize(fontSize(12)).TextColor(t.TextMuted).Wrap()
 					ui.Button(c, "刷新结构").OnClick(a.RefreshDBSchema)
 				})
 				return

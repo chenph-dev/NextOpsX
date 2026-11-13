@@ -14,9 +14,12 @@ import (
 // install, enable/disable, delete and preview SKILL.md.
 func skillsSettings(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Fill().MinWidth(0).Children(func() {
-		settingsHeader(c, t, "技能", "安装 ZIP 技能包；启用后 AI 可使用其说明与脚本。", func() {
+		ui.Row(c).Padding(8, 14).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "已安装技能").FontSize(fontSize(13)).Bold()
+			ui.Spacer(c)
 			ui.PrimaryButton(c, "安装技能 ZIP").OnClick(a.InstallSkillZip)
 		})
+		ui.Divider(c)
 		ui.Row(c).Grow(1).FillHeight().MinWidth(0).AlignItems(ui.Stretch).Children(func() {
 			skillsList(c, a, t)
 			skillsDetail(c, a, t)
@@ -31,14 +34,14 @@ func skillsList(c *ui.Context, a *app.App, t *ui.Theme) {
 		Border(1, t.Border).Children(func() {
 		ui.Row(c).Padding(6, 10).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, fmt.Sprintf("已安装 (%d)", len(a.Skills.Items))).
-				FontSize(12).Bold()
+				FontSize(fontSize(13)).Bold()
 		})
 		ui.Divider(c)
 		switch {
 		case a.Skills.Loading:
 			ui.Row(c).Padding(16).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "读取技能…").FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, "读取技能…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.Skills.Err != "":
 			ui.Column(c).Padding(8).Gap(6).Children(func() {
@@ -47,9 +50,9 @@ func skillsList(c *ui.Context, a *app.App, t *ui.Theme) {
 			})
 		case len(a.Skills.Items) == 0:
 			ui.Column(c).Padding(16).Gap(6).Children(func() {
-				ui.Text(c, "还没有安装技能").FontSize(12).TextColor(t.TextMuted)
+				ui.Text(c, "还没有安装技能").FontSize(fontSize(13)).TextColor(t.TextMuted)
 				ui.Text(c, "技能包需要包含 SKILL.md 与可选 scripts/ 目录。").
-					FontSize(11).TextColor(t.TextMuted)
+					FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		default:
 			ui.Scroll(c).Grow(1).Children(func() {
@@ -72,12 +75,12 @@ func skillRow(c *ui.Context, a *app.App, s *skill.Skill, t *ui.Theme) {
 	row.OnClick(func() { a.SelectSkill(s.Name) })
 	row.Children(func() {
 		ui.Column(c).Grow(1).Gap(1).Children(func() {
-			ui.Text(c, s.Name).FontSize(12).Bold().SingleLine()
+			ui.Text(c, s.Name).FontSize(fontSize(13)).Bold().SingleLine()
 			desc := s.Description
 			if desc == "" {
 				desc = "无描述"
 			}
-			ui.Text(c, desc).FontSize(11).TextColor(t.TextMuted).SingleLine()
+			ui.Text(c, desc).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 		})
 		c.Key("skill-toggle-" + s.Name)
 		sw := ui.Switch(c, &s.Enabled)
@@ -90,7 +93,7 @@ func skillRow(c *ui.Context, a *app.App, s *skill.Skill, t *ui.Theme) {
 func skillsDetail(c *ui.Context, a *app.App, t *ui.Theme) {
 	if a.Skills.Selected == "" {
 		ui.Column(c).Grow(1).FillHeight().Padding(24).Center().Children(func() {
-			ui.Text(c, "选择左侧技能查看 SKILL.md").FontSize(12).TextColor(t.TextMuted)
+			ui.Text(c, "选择左侧技能查看 SKILL.md").FontSize(fontSize(13)).TextColor(t.TextMuted)
 		})
 		return
 	}
@@ -103,13 +106,13 @@ func skillsDetail(c *ui.Context, a *app.App, t *ui.Theme) {
 	}
 	ui.Column(c).Grow(1).FillHeight().MinWidth(0).Padding(10, 14).Gap(8).Children(func() {
 		ui.Row(c).MinWidth(0).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, a.Skills.Selected).FontSize(15).Bold().SingleLine().MaxWidth(420)
+			ui.Text(c, a.Skills.Selected).FontSize(fontSize(15)).Bold().SingleLine().MaxWidth(420)
 			if current != nil {
 				state := "已停用"
 				if current.Enabled {
 					state = "已启用"
 				}
-				ui.Text(c, state).FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, state).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			}
 			ui.Spacer(c)
 			if current != nil {
@@ -117,16 +120,16 @@ func skillsDetail(c *ui.Context, a *app.App, t *ui.Theme) {
 				if current.Enabled {
 					toggle = "停用"
 				}
-				ui.Button(c, toggle).FontSize(11).OnClick(func() {
+				ui.Button(c, toggle).FontSize(fontSize(12)).OnClick(func() {
 					a.SetSkillEnabled(current.Name, !current.Enabled)
 				})
 			}
-			ui.Button(c, "删除").FontSize(11).OnClick(func() {
+			ui.Button(c, "删除").FontSize(fontSize(12)).OnClick(func() {
 				a.OpenDeleteSkill(a.Skills.Selected)
 			})
 		})
 		if current != nil && current.Description != "" {
-			ui.Text(c, current.Description).FontSize(12).
+			ui.Text(c, current.Description).FontSize(fontSize(13)).
 				TextColor(t.TextMuted).Wrap()
 		}
 		ui.Divider(c)
@@ -134,7 +137,7 @@ func skillsDetail(c *ui.Context, a *app.App, t *ui.Theme) {
 		case a.Skills.MarkdownLoading:
 			ui.Row(c).Padding(20).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "读取 SKILL.md…").FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, "读取 SKILL.md…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.Skills.MarkdownErr != "":
 			dbErrorText(c, a.Skills.MarkdownErr, t)
@@ -167,17 +170,17 @@ func skillMarkdownBody(md string) string {
 func skillsStatusBar(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Divider(c)
 	ui.Row(c).Padding(3, 10).Gap(12).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, "skills").FontSize(11).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, "skills").FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 		ui.Spacer(c)
 		if a.Skills.Err != "" {
-			ui.Text(c, a.Skills.Err).FontSize(11).TextColor(t.Danger).SingleLine()
+			ui.Text(c, a.Skills.Err).FontSize(fontSize(12)).TextColor(t.Danger).SingleLine()
 			return
 		}
 		text := a.Skills.Notice
 		if text == "" {
 			text = "就绪"
 		}
-		ui.Text(c, text).FontSize(11).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, text).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 	})
 }
 

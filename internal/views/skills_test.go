@@ -28,7 +28,7 @@ func TestSkillsPanelRenders(t *testing.T) {
 	a := skillsTestApp()
 	tt := ui.NewTester(Shell(a), 1300, 900)
 	for _, want := range []string{
-		"设置", "技能", "安装技能 ZIP", "返回资产", "已安装 (2)",
+		"设置", "技能", "安装技能 ZIP", "返回", "已安装 (2)",
 		"disk-analysis", "分析磁盘占用", "log-cleanup", "清理旧日志",
 		"已启用", "停用", "删除", "磁盘分析", "运行 df -h。",
 	} {

@@ -26,40 +26,40 @@ func SFTPPanel(c *ui.Context, a *app.App) {
 
 func sftpToolbar(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Row(c).Padding(6, 10).Gap(6).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, "SFTP · "+a.SFTP.HostName).FontSize(12).Bold().SingleLine()
-		ui.Text(c, a.SFTP.Path).Font("monospace").FontSize(12).
+		ui.Text(c, "SFTP · "+a.SFTP.HostName).FontSize(fontSize(13)).Bold().SingleLine()
+		ui.Text(c, a.SFTP.Path).Font("monospace").FontSize(fontSize(13)).
 			TextColor(t.TextMuted).Grow(1).SingleLine()
 
-		up := ui.Button(c, "上一级").FontSize(11)
+		up := ui.Button(c, "上一级").FontSize(fontSize(12))
 		if a.SFTP.Path == "/" {
 			up = up.Disabled(true)
 		}
 		up.OnClick(a.SFTPGoParent)
-		ui.Button(c, "刷新").FontSize(11).OnClick(a.SFTPRefresh)
-		ui.Button(c, "新建目录").FontSize(11).OnClick(a.SFTPOpenNewFolder)
-		ui.Button(c, "上传").FontSize(11).OnClick(a.SFTPUpload)
+		ui.Button(c, "刷新").FontSize(fontSize(12)).OnClick(a.SFTPRefresh)
+		ui.Button(c, "新建目录").FontSize(fontSize(12)).OnClick(a.SFTPOpenNewFolder)
+		ui.Button(c, "上传").FontSize(fontSize(12)).OnClick(a.SFTPUpload)
 
 		selected := a.SFTPSelectedEntry()
-		download := ui.Button(c, "下载").FontSize(11)
+		download := ui.Button(c, "下载").FontSize(fontSize(12))
 		if selected == nil || selected.IsDir {
 			download = download.Disabled(true)
 		}
 		download.OnClick(a.SFTPDownload)
 
-		rename := ui.Button(c, "重命名").FontSize(11)
+		rename := ui.Button(c, "重命名").FontSize(fontSize(12))
 		if selected == nil {
 			rename = rename.Disabled(true)
 		}
 		rename.OnClick(a.SFTPOpenRename)
 
-		del := ui.Button(c, "删除").FontSize(11)
+		del := ui.Button(c, "删除").FontSize(fontSize(12))
 		if selected == nil {
 			del = del.Disabled(true)
 		}
 		del.OnClick(a.SFTPOpenDelete)
 
 		taskBtn := ui.Button(c, fmt.Sprintf("任务 (%d)", a.SFTPTaskActiveCount())).
-			FontSize(11)
+			FontSize(fontSize(12))
 		taskBtn = taskBtn.OnClick(func() {
 			a.SFTP.TaskPanelOpen = !a.SFTP.TaskPanelOpen
 		})
@@ -73,20 +73,20 @@ func sftpFileList(c *ui.Context, a *app.App, t *ui.Theme) {
 	if a.SFTP.Loading {
 		ui.Row(c).Grow(1).Padding(24).Center().Children(func() {
 			ui.Spinner(c)
-			ui.Text(c, "正在读取目录…").FontSize(11).TextColor(t.TextMuted)
+			ui.Text(c, "正在读取目录…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 		})
 		return
 	}
 	if a.SFTP.LoadErr != "" {
 		ui.Column(c).Grow(1).Padding(16).Gap(8).Children(func() {
-			ui.Text(c, a.SFTP.LoadErr).FontSize(12).TextColor(t.Danger).Wrap()
+			ui.Text(c, a.SFTP.LoadErr).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
 			ui.Button(c, "重试").OnClick(a.SFTPRefresh)
 		})
 		return
 	}
 	if len(a.SFTP.Entries) == 0 {
 		ui.Row(c).Grow(1).Padding(24).Center().Children(func() {
-			ui.Text(c, "目录为空").FontSize(12).TextColor(t.TextMuted)
+			ui.Text(c, "目录为空").FontSize(fontSize(13)).TextColor(t.TextMuted)
 		})
 		return
 	}
@@ -107,23 +107,23 @@ func sftpFileList(c *ui.Context, a *app.App, t *ui.Theme) {
 		case 0:
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 				sftpEntryIcon(c, e, t)
-				ui.Text(c, e.Name).FontSize(12).SingleLine()
+				ui.Text(c, e.Name).FontSize(fontSize(13)).SingleLine()
 			})
 		case 1:
 			kind := "文件"
 			if e.IsDir {
 				kind = "目录"
 			}
-			ui.Text(c, kind).FontSize(11).TextColor(t.TextMuted)
+			ui.Text(c, kind).FontSize(fontSize(12)).TextColor(t.TextMuted)
 		case 2:
 			size := ""
 			if !e.IsDir {
 				size = app.SFTPFormatSize(e.Size)
 			}
-			ui.Text(c, size).FontSize(11).TextColor(t.TextMuted)
+			ui.Text(c, size).FontSize(fontSize(12)).TextColor(t.TextMuted)
 		case 3:
 			ui.Text(c, time.Unix(e.ModTime, 0).Format("2006-01-02 15:04")).
-				FontSize(11).TextColor(t.TextMuted)
+				FontSize(fontSize(12)).TextColor(t.TextMuted)
 		}
 	}).Grow(1).MinWidth(0)
 	if table.Submitted() {
@@ -146,28 +146,28 @@ func sftpEntryIcon(c *ui.Context, e sftp.Entry, t *ui.Theme) {
 func sftpStatusBar(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Divider(c)
 	ui.Row(c).Padding(3, 10).Gap(12).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, a.SFTP.Path).Font("monospace").FontSize(11).
+		ui.Text(c, a.SFTP.Path).Font("monospace").FontSize(fontSize(12)).
 			TextColor(t.TextMuted).SingleLine()
 		ui.Spacer(c)
 		if a.SFTP.Err != "" {
-			ui.Text(c, a.SFTP.Err).FontSize(11).TextColor(t.Danger).SingleLine()
+			ui.Text(c, a.SFTP.Err).FontSize(fontSize(12)).TextColor(t.Danger).SingleLine()
 			return
 		}
 		text := a.SFTP.Notice
 		if text == "" {
 			text = "就绪"
 		}
-		ui.Text(c, text).FontSize(11).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, text).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 	})
 }
 
 func sftpTasksPanel(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Width(640).MaxHeight(470).Padding(10).Gap(8).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "传输任务").FontSize(13).Bold()
+			ui.Text(c, "传输任务").FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
 			ui.Text(c, fmt.Sprintf("进行中 %d", a.SFTPTaskCount(app.SFTPTasksRunning))).
-				FontSize(11).TextColor(t.TextMuted)
+				FontSize(fontSize(12)).TextColor(t.TextMuted)
 		})
 		labels := []string{
 			fmt.Sprintf("进行中 (%d)", a.SFTPTaskCount(app.SFTPTasksRunning)),
@@ -179,7 +179,7 @@ func sftpTasksPanel(c *ui.Context, a *app.App, t *ui.Theme) {
 		ui.Tabs(c, &a.SFTP.TaskTab, labels...)
 		tasks := a.SFTPVisibleTasks()
 		if len(tasks) == 0 {
-			ui.Text(c, "没有任务").FontSize(11).TextColor(t.TextMuted)
+			ui.Text(c, "没有任务").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			return
 		}
 		ui.Scroll(c).MaxHeight(340).Children(func() {
@@ -219,21 +219,21 @@ func sftpTaskRow(c *ui.Context, a *app.App, task sftp.TaskInfo, t *ui.Theme) {
 	ui.Column(c).Border(1, t.Border).Radius(6).Padding(6, 8).Gap(4).
 		Background(t.Surface).Children(func() {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, direction).FontSize(10).TextColor(t.TextMuted)
-			ui.Text(c, name).FontSize(12).SingleLine().Grow(1)
-			ui.Text(c, app.SFTPStatusText(task.Status)).FontSize(11).
+			ui.Text(c, direction).FontSize(fontSize(11)).TextColor(t.TextMuted)
+			ui.Text(c, name).FontSize(fontSize(13)).SingleLine().Grow(1)
+			ui.Text(c, app.SFTPStatusText(task.Status)).FontSize(fontSize(12)).
 				TextColor(statusColor)
 			sftpTaskActions(c, a, task, t)
 		})
 		ui.Progress(c, ratio)
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, app.SFTPFormatSize(task.Done)+" / "+app.SFTPFormatSize(task.Total)).
-				FontSize(10).TextColor(t.TextMuted)
-			ui.Text(c, task.RemotePath).FontSize(10).TextColor(t.TextMuted).
+				FontSize(fontSize(11)).TextColor(t.TextMuted)
+			ui.Text(c, task.RemotePath).FontSize(fontSize(11)).TextColor(t.TextMuted).
 				SingleLine().Grow(1)
 		})
 		if task.Error != "" {
-			ui.Text(c, task.Error).FontSize(10).TextColor(t.Danger).Wrap()
+			ui.Text(c, task.Error).FontSize(fontSize(11)).TextColor(t.Danger).Wrap()
 		}
 	})
 }
@@ -241,27 +241,27 @@ func sftpTaskRow(c *ui.Context, a *app.App, task sftp.TaskInfo, t *ui.Theme) {
 func sftpTaskActions(c *ui.Context, a *app.App, task sftp.TaskInfo, t *ui.Theme) {
 	switch task.Status {
 	case string(sftp.TaskRunning):
-		ui.Button(c, "暂停").FontSize(10).OnClick(func() { a.SFTPPause(task.ID) })
-		ui.Button(c, "取消").FontSize(10).OnClick(func() { a.SFTPCancel(task.ID) })
+		ui.Button(c, "暂停").FontSize(fontSize(11)).OnClick(func() { a.SFTPPause(task.ID) })
+		ui.Button(c, "取消").FontSize(fontSize(11)).OnClick(func() { a.SFTPCancel(task.ID) })
 	case string(sftp.TaskPaused):
-		ui.Button(c, "继续").FontSize(10).OnClick(func() { a.SFTPResume(task.ID) })
-		ui.Button(c, "取消").FontSize(10).OnClick(func() { a.SFTPCancel(task.ID) })
+		ui.Button(c, "继续").FontSize(fontSize(11)).OnClick(func() { a.SFTPResume(task.ID) })
+		ui.Button(c, "取消").FontSize(fontSize(11)).OnClick(func() { a.SFTPCancel(task.ID) })
 	case string(sftp.TaskQueued):
-		ui.Button(c, "取消").FontSize(10).OnClick(func() { a.SFTPCancel(task.ID) })
+		ui.Button(c, "取消").FontSize(fontSize(11)).OnClick(func() { a.SFTPCancel(task.ID) })
 	case string(sftp.TaskCancelled), string(sftp.TaskDone), string(sftp.TaskError):
-		ui.Button(c, "移除").FontSize(10).OnClick(func() { a.SFTPRemoveTask(task.ID) })
+		ui.Button(c, "移除").FontSize(fontSize(11)).OnClick(func() { a.SFTPRemoveTask(task.ID) })
 	}
 }
 
 func sftpDialogs(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Modal(c, &a.SFTP.NewFolderOpen, func() {
 		ui.Column(c).Width(420).Padding(18).Gap(10).Children(func() {
-			ui.Text(c, "新建目录").FontSize(16).Bold()
-			ui.Text(c, "位置："+a.SFTP.Path).FontSize(11).TextColor(t.TextMuted)
+			ui.Text(c, "新建目录").FontSize(fontSize(16)).Bold()
+			ui.Text(c, "位置："+a.SFTP.Path).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			c.Key("sftp-new-folder")
 			ui.TextInput(c, &a.SFTP.NewFolderName).Label("目录名称").Grow(1)
 			if a.SFTP.Err != "" {
-				ui.Text(c, a.SFTP.Err).FontSize(12).TextColor(t.Danger).Wrap()
+				ui.Text(c, a.SFTP.Err).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
 			}
 			ui.Row(c).Justify(ui.End).Gap(8).Children(func() {
 				ui.Button(c, "取消").OnClick(func() { a.SFTP.NewFolderOpen = false })
@@ -271,11 +271,11 @@ func sftpDialogs(c *ui.Context, a *app.App, t *ui.Theme) {
 	})
 	ui.Modal(c, &a.SFTP.RenameOpen, func() {
 		ui.Column(c).Width(420).Padding(18).Gap(10).Children(func() {
-			ui.Text(c, "重命名").FontSize(16).Bold()
+			ui.Text(c, "重命名").FontSize(fontSize(16)).Bold()
 			c.Key("sftp-rename")
 			ui.TextInput(c, &a.SFTP.RenameName).Label("新名称").Grow(1)
 			if a.SFTP.Err != "" {
-				ui.Text(c, a.SFTP.Err).FontSize(12).TextColor(t.Danger).Wrap()
+				ui.Text(c, a.SFTP.Err).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
 			}
 			ui.Row(c).Justify(ui.End).Gap(8).Children(func() {
 				ui.Button(c, "取消").OnClick(func() { a.SFTP.RenameOpen = false })

@@ -20,24 +20,24 @@ func TestUISettings_DefaultAndSave(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetUISettings: %v", err)
 	}
-	if got.Theme != "system" {
-		t.Fatalf("默认主题 = %q", got.Theme)
+	if got.Theme != "system" || got.Scale != ScaleDefault {
+		t.Fatalf("默认界面设置 = %+v", got)
 	}
 
-	if err := s.SaveUISettings(UISettings{Theme: "dark"}); err != nil {
+	if err := s.SaveUISettings(UISettings{Theme: "dark", Scale: 125}); err != nil {
 		t.Fatalf("SaveUISettings: %v", err)
 	}
 	got, _ = s.GetUISettings()
-	if got.Theme != "dark" {
-		t.Fatalf("回读主题 = %q", got.Theme)
+	if got.Theme != "dark" || got.Scale != 125 {
+		t.Fatalf("回读 = %+v", got)
 	}
 
-	// 非法值回落为跟随系统。
-	if err := s.SaveUISettings(UISettings{Theme: "neon"}); err != nil {
+	// 非法值回落到默认。
+	if err := s.SaveUISettings(UISettings{Theme: "neon", Scale: 999}); err != nil {
 		t.Fatalf("SaveUISettings: %v", err)
 	}
 	got, _ = s.GetUISettings()
-	if got.Theme != "system" {
-		t.Fatalf("非法主题应回落 system，得到 %q", got.Theme)
+	if got.Theme != "system" || got.Scale != ScaleDefault {
+		t.Fatalf("非法值应回落默认，得到 %+v", got)
 	}
 }

@@ -8,6 +8,7 @@ import (
 type uiSettingsModel struct {
 	ID    int    `gorm:"column:id;primaryKey"`
 	Theme string `gorm:"column:theme"`
+	Scale int    `gorm:"column:scale"`
 }
 
 func (uiSettingsModel) TableName() string { return "ui_settings" }
@@ -32,9 +33,27 @@ func NormalizeTheme(theme string) string {
 	}
 }
 
-// UISettings 界面偏好 DTO。Theme: "system" | "light" | "dark"。
+// 界面缩放的可选百分比。
+const ScaleDefault = 100
+
+// Scales 是可选缩放比例的完整列表。
+var Scales = []int{90, 100, 110, 125}
+
+// NormalizeScale 把未知缩放比例回落为 100%。
+func NormalizeScale(scale int) int {
+	for _, s := range Scales {
+		if scale == s {
+			return scale
+		}
+	}
+	return ScaleDefault
+}
+
+// UISettings 界面偏好 DTO。Theme: "system" | "light" | "dark"；
+// Scale 是界面缩放百分比。
 type UISettings struct {
 	Theme string `json:"theme"`
+	Scale int    `json:"scale"`
 }
 
 // UISettingsStore 提供界面偏好读写。
@@ -55,14 +74,17 @@ func (s *UISettingsStore) GetUISettings() (UISettings, error) {
 		return UISettings{}, err
 	}
 	if m.ID == 0 {
-		return UISettings{Theme: ThemeSystem}, nil
+		return UISettings{Theme: ThemeSystem, Scale: ScaleDefault}, nil
 	}
-	return UISettings{Theme: NormalizeTheme(m.Theme)}, nil
+	return UISettings{
+		Theme: NormalizeTheme(m.Theme),
+		Scale: NormalizeScale(m.Scale),
+	}, nil
 }
 
 // SaveUISettings 保存界面偏好（覆盖单行 id=1）。
 func (s *UISettingsStore) SaveUISettings(u UISettings) error {
 	return s.app.GORM().Save(&uiSettingsModel{
-		ID: 1, Theme: NormalizeTheme(u.Theme),
+		ID: 1, Theme: NormalizeTheme(u.Theme), Scale: NormalizeScale(u.Scale),
 	}).Error
 }

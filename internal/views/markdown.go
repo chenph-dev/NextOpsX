@@ -471,7 +471,7 @@ func MarkdownView(c *ui.Context, src string) {
 	t := c.Theme()
 	blocks := mdParse(src)
 	if len(blocks) == 0 {
-		ui.Text(c, src).FontSize(12).Wrap()
+		ui.Text(c, src).FontSize(fontSize(13)).Wrap()
 		return
 	}
 	ui.Column(c).Gap(6).Children(func() {
@@ -499,7 +499,7 @@ func mdRenderBlocks(c *ui.Context, blocks []Block, t *ui.Theme) {
 			ui.Scroll(c).MaxHeight(320).Children(func() {
 				ui.Column(c).Background(t.Background).Border(1, t.Border).Radius(4).
 					Padding(6, 8).Children(func() {
-					ui.Text(c, b.Text).Font("monospace").FontSize(11).Wrap()
+					ui.Text(c, b.Text).Font("monospace").FontSize(fontSize(12)).Wrap()
 				})
 			})
 		case Rule:
@@ -518,7 +518,7 @@ func mdRenderBlocks(c *ui.Context, blocks []Block, t *ui.Theme) {
 					marker = fmt.Sprintf("%d.", i+1)
 				}
 				ui.Row(c).Gap(6).AlignItems(ui.Start).Children(func() {
-					ui.Text(c, marker).Width(20).FontSize(12).TextColor(t.TextMuted)
+					ui.Text(c, marker).Width(20).FontSize(fontSize(13)).TextColor(t.TextMuted)
 					ui.Column(c).Grow(1).Children(func() {
 						mdRenderBlocks(c, item, t)
 					})
@@ -533,7 +533,7 @@ func mdParagraph(c *ui.Context, inlines []Inline, size float32, bold bool, t *ui
 	if len(spans) == 0 {
 		return
 	}
-	text := ui.RichText(c, spans...).FontSize(size).LineHeight(1.5)
+	text := ui.RichText(c, spans...).FontSize(fontSize(size)).LineHeight(1.5)
 	if bold {
 		text = text.Bold()
 	}

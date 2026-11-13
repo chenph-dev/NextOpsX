@@ -1,10 +1,58 @@
 package app
 
 import (
+	"strings"
 	"testing"
 
 	"nextopsx/internal/einoagent/session"
 )
+
+func TestAITurnEndNotifies(t *testing.T) {
+	a := &App{}
+	a.AI.SessionID = "s1"
+	var got [][2]string
+	a.SetNotifier(func(title, body string) {
+		got = append(got, [2]string{title, body})
+	})
+
+	a.AI.State = session.StateThinking
+	a.applyAIEvent("s1", "session:state", session.StateIdle)
+	if len(got) != 1 || got[0][0] != "AI 对话完成" {
+		t.Fatalf("done notification = %v", got)
+	}
+
+	got = nil
+	a.AI.Err = "boom"
+	a.AI.State = session.StateRunning
+	a.applyAIEvent("s1", "session:state", session.StateIdle)
+	if len(got) != 1 || got[0][0] != "AI 对话出错" || !strings.Contains(got[0][1], "boom") {
+		t.Fatalf("error notification = %v", got)
+	}
+
+	got = nil
+	a.AI.Err = ""
+	a.AI.ErrCancelled = true
+	a.AI.State = session.StateThinking
+	a.applyAIEvent("s1", "session:state", session.StateIdle)
+	if len(got) != 0 {
+		t.Fatalf("cancelled turn should stay silent: %v", got)
+	}
+}
+
+func TestAIBackgroundTurnNotifies(t *testing.T) {
+	a := &App{}
+	a.AI.SessionID = "active"
+	var got [][2]string
+	a.SetNotifier(func(title, body string) {
+		got = append(got, [2]string{title, body})
+	})
+
+	a.applyAIEvent("bg", "session:state", session.StateThinking)
+	a.applyAIEvent("bg", "session:state", session.StateIdle)
+	if len(got) != 1 || got[0][0] != "AI 对话完成" {
+		t.Fatalf("background notification = %v", got)
+	}
+}
 
 func TestAIEventsUpdateState(t *testing.T) {
 	a := &App{}

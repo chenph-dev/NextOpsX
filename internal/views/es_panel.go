@@ -14,9 +14,9 @@ func ESPanel(c *ui.Context, a *app.App) {
 	t := c.Theme()
 	ui.Column(c).Fill().MinWidth(0).Children(func() {
 		ui.Row(c).Padding(6, 10).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "Elasticsearch · "+a.ES.Label).FontSize(12).Bold().SingleLine()
+			ui.Text(c, "Elasticsearch · "+a.ES.Label).FontSize(fontSize(13)).Bold().SingleLine()
 			ui.Spacer(c)
-			ui.Button(c, "刷新索引").FontSize(11).OnClick(a.ESRefreshIndices)
+			ui.Button(c, "刷新索引").FontSize(fontSize(12)).OnClick(a.ESRefreshIndices)
 		})
 		ui.Divider(c)
 		ui.Row(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
@@ -45,14 +45,14 @@ func esIndexPane(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Width(260).FillHeight().Background(t.Surface).
 		Border(1, t.Border).Children(func() {
 		ui.Row(c).Padding(6, 8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, fmt.Sprintf("索引 (%d)", len(a.ES.Indices))).FontSize(12).Bold()
+			ui.Text(c, fmt.Sprintf("索引 (%d)", len(a.ES.Indices))).FontSize(fontSize(13)).Bold()
 		})
 		ui.Divider(c)
 		switch {
 		case a.ES.IndicesLoading:
 			ui.Row(c).Padding(16).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "读取索引…").FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, "读取索引…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.ES.IndicesErr != "":
 			ui.Column(c).Padding(8).Gap(6).Children(func() {
@@ -60,7 +60,7 @@ func esIndexPane(c *ui.Context, a *app.App, t *ui.Theme) {
 				ui.Button(c, "重试").OnClick(a.ESRefreshIndices)
 			})
 		case len(a.ES.Indices) == 0:
-			ui.Text(c, "没有索引").FontSize(11).TextColor(t.TextMuted).Padding(8)
+			ui.Text(c, "没有索引").FontSize(fontSize(12)).TextColor(t.TextMuted).Padding(8)
 		default:
 			a.ES.IndexGrid.Selected = &a.ES.IndexRow
 			cols := []ui.TableColumn{{Title: "索引", MinWidth: 220}}
@@ -70,7 +70,7 @@ func esIndexPane(c *ui.Context, a *app.App, t *ui.Theme) {
 						return
 					}
 					idx := a.ES.Indices[row]
-					ui.Text(c, idx).FontSize(12).SingleLine().Tooltip(idx)
+					ui.Text(c, idx).FontSize(fontSize(13)).SingleLine().Tooltip(idx)
 				}).Grow(1).MinWidth(0)
 			if table.Changed() && a.ES.IndexRow >= 0 && a.ES.IndexRow < len(a.ES.Indices) {
 				a.ESSelectIndex(a.ES.Indices[a.ES.IndexRow])
@@ -86,9 +86,9 @@ func esQuery(c *ui.Context, a *app.App, t *ui.Theme) {
 			if a.ES.SelectedIndex != "" {
 				label = "索引：" + a.ES.SelectedIndex
 			}
-			ui.Text(c, label).FontSize(12).TextColor(t.TextMuted).SingleLine().MaxWidth(420)
+			ui.Text(c, label).FontSize(fontSize(13)).TextColor(t.TextMuted).SingleLine().MaxWidth(420)
 			ui.Spacer(c)
-			run := ui.PrimaryButton(c, "执行查询").FontSize(11)
+			run := ui.PrimaryButton(c, "执行查询").FontSize(fontSize(12))
 			if a.ES.SelectedIndex == "" || a.ES.QueryRunning {
 				run = run.Disabled(true)
 			}
@@ -96,12 +96,12 @@ func esQuery(c *ui.Context, a *app.App, t *ui.Theme) {
 		})
 		c.Key("es-dsl")
 		ui.TextArea(c, &a.ES.QueryDSL).Lines(4, 10).Font("monospace").
-			FontSize(11).Label("Query DSL").Placeholder(`{"query": {"match_all": {}}}`)
+			FontSize(fontSize(12)).Label("Query DSL").Placeholder(`{"query": {"match_all": {}}}`)
 		switch {
 		case a.ES.QueryRunning:
 			ui.Row(c).Padding(20).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "查询中…").FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, "查询中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.ES.QueryErr != "":
 			dbErrorText(c, a.ES.QueryErr, t)
@@ -116,15 +116,15 @@ func esQuery(c *ui.Context, a *app.App, t *ui.Theme) {
 func esInfo(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Grow(1).MinWidth(0).Padding(8).Gap(6).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "集群信息").FontSize(12).Bold()
+			ui.Text(c, "集群信息").FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
-			ui.Button(c, "刷新").FontSize(11).OnClick(a.ESLoadInfo)
+			ui.Button(c, "刷新").FontSize(fontSize(12)).OnClick(a.ESLoadInfo)
 		})
 		switch {
 		case a.ES.InfoLoading:
 			ui.Row(c).Padding(20).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "读取集群信息…").FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, "读取集群信息…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.ES.InfoErr != "":
 			dbErrorText(c, a.ES.InfoErr, t)
@@ -135,9 +135,9 @@ func esInfo(c *ui.Context, a *app.App, t *ui.Theme) {
 				ui.Column(c).Gap(2).Children(func() {
 					for _, m := range a.ES.Info {
 						ui.Row(c).Padding(2, 4).Gap(12).Children(func() {
-							ui.Text(c, m.Name).Width(220).FontSize(11).
+							ui.Text(c, m.Name).Width(220).FontSize(fontSize(12)).
 								TextColor(t.TextMuted).SingleLine()
-							ui.Text(c, m.Value).FontSize(11).SingleLine().Selectable()
+							ui.Text(c, m.Value).FontSize(fontSize(12)).SingleLine().Selectable()
 						})
 					}
 				})
@@ -151,10 +151,10 @@ func esCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Height(240).Shrink(0).Background(t.Surface).
 		Border(1, t.Border).Radius(4).Children(func() {
 		ui.Row(c).Padding(4, 8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "REST 命令终端").FontSize(12).Bold()
+			ui.Text(c, "REST 命令终端").FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
 			history := ui.Button(c, fmt.Sprintf("历史 (%d)", len(a.ES.CommandHistory))).
-				FontSize(10)
+				FontSize(fontSize(11))
 			history = history.OnClick(func() {
 				a.ES.HistoryOpen = !a.ES.HistoryOpen
 			})
@@ -169,7 +169,7 @@ func esCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 				case a.ES.CommandRunning:
 					ui.Row(c).Padding(8).Children(func() {
 						ui.Spinner(c)
-						ui.Text(c, "执行中…").FontSize(11).TextColor(t.TextMuted)
+						ui.Text(c, "执行中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
 					})
 				case a.ES.CommandErr != "":
 					dbErrorText(c, a.ES.CommandErr, t)
@@ -184,9 +184,9 @@ func esCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 		ui.Row(c).Padding(6, 8).Gap(6).AlignItems(ui.End).Children(func() {
 			c.Key("es-command")
 			ui.TextArea(c, &a.ES.Command).Grow(1).Lines(2, 6).
-				Font("monospace").FontSize(11).
+				Font("monospace").FontSize(fontSize(12)).
 				Placeholder("_cat/indices?format=json\n或 logs-*/_search\n{\"query\":{\"match_all\":{}}}")
-			run := ui.PrimaryButton(c, "执行").FontSize(11)
+			run := ui.PrimaryButton(c, "执行").FontSize(fontSize(12))
 			if a.ES.CommandRunning {
 				run = run.Disabled(true)
 			}
@@ -197,16 +197,16 @@ func esCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 
 func esHistory(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Width(500).MaxHeight(320).Padding(8).Gap(4).Children(func() {
-		ui.Text(c, "命令历史").FontSize(12).Bold()
+		ui.Text(c, "命令历史").FontSize(fontSize(13)).Bold()
 		if len(a.ES.CommandHistory) == 0 {
-			ui.Text(c, "暂无历史").FontSize(11).TextColor(t.TextMuted)
+			ui.Text(c, "暂无历史").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			return
 		}
 		ui.Scroll(c).MaxHeight(260).Children(func() {
 			ui.Column(c).Gap(2).Children(func() {
 				for _, cmd := range a.ES.CommandHistory {
 					command := cmd
-					ui.Button(c, command).FontSize(11).SingleLine().OnClick(func() {
+					ui.Button(c, command).FontSize(fontSize(12)).SingleLine().OnClick(func() {
 						a.ESPickHistory(command)
 					})
 				}
@@ -218,16 +218,16 @@ func esHistory(c *ui.Context, a *app.App, t *ui.Theme) {
 func esStatusBar(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Divider(c)
 	ui.Row(c).Padding(3, 10).Gap(12).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, a.ES.Label).FontSize(11).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, a.ES.Label).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 		ui.Spacer(c)
 		if a.ES.Err != "" {
-			ui.Text(c, a.ES.Err).FontSize(11).TextColor(t.Danger).SingleLine()
+			ui.Text(c, a.ES.Err).FontSize(fontSize(12)).TextColor(t.Danger).SingleLine()
 			return
 		}
 		text := a.ES.Notice
 		if text == "" {
 			text = "就绪"
 		}
-		ui.Text(c, text).FontSize(11).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, text).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 	})
 }

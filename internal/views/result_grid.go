@@ -32,7 +32,7 @@ func ResultGridView(c *ui.Context, grid *ui.ListState, res *dbexec.Result, t *ui
 	ui.Table(c, grid, cols, rows, func(row, col int) {
 		if placeholder {
 			if col == 0 {
-				ui.Text(c, "(无数据)").FontSize(11).TextColor(t.TextMuted).SingleLine()
+				ui.Text(c, "(无数据)").FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 			} else {
 				ui.Text(c, "").SingleLine()
 			}
@@ -45,7 +45,7 @@ func ResultGridView(c *ui.Context, grid *ui.ListState, res *dbexec.Result, t *ui
 		if col < len(res.Rows[row]) && res.Rows[row][col] != nil {
 			text = app.DBCellText(res.Rows[row][col])
 		}
-		ui.Text(c, text).FontSize(11).SingleLine()
+		ui.Text(c, text).FontSize(fontSize(12)).SingleLine()
 	}).Grow(1).MinWidth(0)
 }
 

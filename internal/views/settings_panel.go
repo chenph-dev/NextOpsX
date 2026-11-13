@@ -19,6 +19,10 @@ func SettingsView(c *ui.Context, a *app.App) {
 			switch a.Settings.Tab {
 			case app.SettingsSkills:
 				skillsSettings(c, a, t)
+			case app.SettingsPolicy:
+				policySettings(c, a, t)
+			case app.SettingsAudit:
+				auditSettings(c, a, t)
 			default:
 				modelSettings(c, a, t)
 			}
@@ -36,6 +40,8 @@ func settingsNav(c *ui.Context, a *app.App, t *ui.Theme) {
 		ui.Column(c).Padding(6).Gap(2).Children(func() {
 			settingsNavItem(c, a, t, app.SettingsModel, "模型")
 			settingsNavItem(c, a, t, app.SettingsSkills, "技能")
+			settingsNavItem(c, a, t, app.SettingsPolicy, "审批")
+			settingsNavItem(c, a, t, app.SettingsAudit, "审计")
 		})
 		ui.Spacer(c)
 		ui.Divider(c)
@@ -47,7 +53,12 @@ func settingsNav(c *ui.Context, a *app.App, t *ui.Theme) {
 
 func settingsNavItem(c *ui.Context, a *app.App, t *ui.Theme, tab app.SettingsTab, label string) {
 	selected := a.Settings.Tab == tab
-	row := ui.Row(c).Padding(7, 10).Radius(6).OnClick(func() { a.OpenSettings(tab) })
+	row := ui.Row(c).Padding(7, 10).Radius(6).OnClick(func() {
+		// 点击当前分区不应重新加载，否则会丢掉未保存的编辑。
+		if a.Settings.Tab != tab {
+			a.OpenSettings(tab)
+		}
+	})
 	if selected {
 		row = row.Background(t.SurfaceHover)
 	}

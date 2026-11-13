@@ -66,6 +66,9 @@ func Shell(a *app.App) func(*ui.Context) {
 						ui.Text(c, fmt.Sprintf("%s@%s:%d", a.Selected.User, a.Selected.Addr, a.Selected.Port)).
 							FontSize(12).TextColor(t.TextMuted)
 						ui.Spacer(c)
+						if a.Selected.Protocol == "winrm" {
+							ui.Button(c, "远程桌面").FontSize(11).OnClick(a.OpenRDP)
+						}
 						labels := []string{"终端", "AI 对话"}
 						switch {
 						case a.IsRedisProtocol(a.Selected.Protocol):
@@ -94,6 +97,11 @@ func Shell(a *app.App) func(*ui.Context) {
 					}
 					ui.Text(c, "目录").FontSize(12).TextColor(t.TextMuted)
 				})
+				if a.ErrMsg != "" {
+					ui.Row(c).Padding(0, 16).Children(func() {
+						ui.Text(c, a.ErrMsg).FontSize(11).TextColor(t.Danger).Wrap()
+					})
+				}
 				ui.Divider(c)
 				if a.Selected.NodeType != "host" {
 					Welcome(c, a)

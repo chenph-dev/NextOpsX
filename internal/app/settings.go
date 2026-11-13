@@ -22,6 +22,8 @@ type SettingsTab int
 const (
 	SettingsModel SettingsTab = iota
 	SettingsSkills
+	SettingsPolicy
+	SettingsAudit
 )
 
 // SettingsState is the global settings page.
@@ -54,6 +56,10 @@ func (a *App) OpenSettings(tab SettingsTab) {
 		a.LoadAIProviders()
 	case SettingsSkills:
 		a.LoadSkills()
+	case SettingsPolicy:
+		a.LoadApprovalPolicy()
+	case SettingsAudit:
+		a.LoadAudit()
 	}
 }
 

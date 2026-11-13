@@ -7,6 +7,7 @@ import (
 
 	"nextopsx/internal/app"
 	configstore "nextopsx/internal/store/config"
+	logsstore "nextopsx/internal/store/logs"
 )
 
 func TestSettingsModelShowsProviders(t *testing.T) {
@@ -32,6 +33,58 @@ func TestSettingsModelShowsProviders(t *testing.T) {
 	}
 	if tt.HasText("设为默认") {
 		t.Errorf("已是默认供应商时不应显示「设为默认」: %q", tt.Texts())
+	}
+}
+
+func TestSettingsAuditSection(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsAudit
+	a.Audit = app.AuditState{
+		Logs: []logsstore.CallLog{
+			{
+				ID: "l1", SessionID: "s1", Ts: 1700000000, Component: "model",
+				Name: "llm", Provider: "OpenAI", TokensIn: 10, TokensOut: 20,
+				TokensTotal: 30, DurationMS: 120, OK: true,
+			},
+			{
+				ID: "l2", SessionID: "s1", Ts: 1700000001, Component: "tool",
+				Name: "execute_command", Provider: "SSH", OK: false, Error: "boom",
+			},
+		},
+		Summary: logsstore.TokenSummary{
+			TotalCalls: 2, ModelCalls: 1, ToolCalls: 1,
+			TokensIn: 10, TokensOut: 20, TokensTotal: 30,
+		},
+		Selected: 1,
+	}
+
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"审计", "刷新", "调用", "模型", "工具",
+		"llm", "OpenAI", "execute_command", "SSH", "成功", "失败",
+		"错误：boom",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+}
+
+func TestSettingsPolicySection(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsPolicy
+	a.Policy.Loaded = true
+	a.Policy.EnableAuto = true
+	a.Policy.ReadOnly = "df -h\nfree -m"
+
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"审批", "自动放行只读命令", "只读白名单（每行一个命令名，留空使用内置默认）",
+		"清空（使用内置默认）", "保存",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
 	}
 }
 

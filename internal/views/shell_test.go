@@ -60,6 +60,24 @@ func TestHostTreeSelects(t *testing.T) {
 	}
 }
 
+func TestWinRMHostShowsRDPEntry(t *testing.T) {
+	a := &app.App{}
+	a.Selected = &hoststore.TreeNode{
+		ID: "h1", Name: "win-01", NodeType: "host",
+		Addr: "10.0.0.9", Port: 5985, User: "Administrator", Protocol: "winrm",
+	}
+	tt := ui.NewTester(Shell(a), 1000, 700)
+	if !tt.HasText("远程桌面") {
+		t.Fatalf("RDP entry missing for WinRM asset: %q", tt.Texts())
+	}
+
+	a.Selected.Protocol = "ssh"
+	tt = ui.NewTester(Shell(a), 1000, 700)
+	if tt.HasText("远程桌面") {
+		t.Fatalf("RDP entry should be hidden for SSH asset: %q", tt.Texts())
+	}
+}
+
 func closeSQL(t *testing.T, db *store.DB) {
 	t.Helper()
 	sqlDB, err := db.GORM().DB()

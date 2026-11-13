@@ -37,6 +37,8 @@ type App struct {
 	ES       ESState
 	SFTP     SFTPState
 	Skills   SkillsState
+	Policy   PolicyState
+	Audit    AuditState
 
 	Term       *terminal.Terminal
 	TermHostID string
@@ -55,6 +57,7 @@ func New(b *backend.Backend) (*App, error) {
 	}
 	a := &App{Backend: b, Roots: roots, Open: map[string]*bool{}}
 	a.initOpen(roots)
+	a.Audit.Selected = -1
 	a.ensureHostConnectors()
 	b.SetAIEventSink(a.HandleAIEvent)
 	b.SetSFTPEventSink(a.HandleSFTPEvent)
@@ -95,6 +98,7 @@ func (a *App) Post(fn func()) {
 func (a *App) Select(n *hoststore.TreeNode) {
 	a.View = ViewAssets
 	a.Selected = n
+	a.ErrMsg = ""
 	a.attachAsset(n)
 }
 

@@ -63,9 +63,7 @@ func Welcome(c *ui.Context, a *app.App) {
 			ui.Button(c, "移动").OnClick(a.OpenMoveDialog)
 			ui.Button(c, "删除").OnClick(a.OpenDeleteDialog)
 		})
-		if a.ErrMsg != "" {
-			ui.Text(c, a.ErrMsg).TextColor(t.Danger).Width(520).Wrap()
-		}
+		// connection/RDP errors are shown once in Shell's header strip.
 		backgroundTerminal(c, a, t)
 	})
 }

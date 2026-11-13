@@ -189,6 +189,8 @@ func (a *App) nextHostFormSeq() uint64 {
 
 // OpenNewHostForm opens the form for a new asset in the selected folder.
 func (a *App) OpenNewHostForm() {
+	// 菜单等入口可能在设置页触发；表单由资产视图渲染，先切回去。
+	a.View = ViewAssets
 	a.Hosts.RenameOpen = false
 	a.Hosts.MoveOpen = false
 	a.Hosts.DeleteOpen = false
@@ -205,6 +207,7 @@ func (a *App) OpenNewHostForm() {
 
 // OpenNewFolderForm opens the form for a folder in the selected folder.
 func (a *App) OpenNewFolderForm() {
+	a.View = ViewAssets
 	a.Hosts.RenameOpen = false
 	a.Hosts.MoveOpen = false
 	a.Hosts.DeleteOpen = false

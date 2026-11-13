@@ -42,6 +42,31 @@ func TestOpenSettingsLoadsNewSections(t *testing.T) {
 	}
 }
 
+func TestNewAssetFormsLeaveSettings(t *testing.T) {
+	a := &App{View: ViewSettings}
+	a.OpenNewHostForm()
+	if a.View != ViewAssets || !a.Hosts.Form.Open {
+		t.Fatalf("host form: view=%v open=%v", a.View, a.Hosts.Form.Open)
+	}
+	a.View = ViewSettings
+	a.OpenNewFolderForm()
+	if a.View != ViewAssets || !a.Hosts.Form.Open || !a.Hosts.Form.IsFolder {
+		t.Fatalf("folder form: view=%v form=%+v", a.View, a.Hosts.Form)
+	}
+}
+
+func TestSetThemeNormalizes(t *testing.T) {
+	a := &App{}
+	a.SetTheme("light")
+	if a.Settings.Theme != "light" {
+		t.Fatalf("theme = %q", a.Settings.Theme)
+	}
+	a.SetTheme("neon")
+	if a.Settings.Theme != "system" {
+		t.Fatalf("invalid theme = %q", a.Settings.Theme)
+	}
+}
+
 func TestParseWhitelistKeepsSpaces(t *testing.T) {
 	got := parseWhitelist("df -h\nfree -m,uptime\n\ndf -h\r\n")
 	want := []string{"df -h", "free -m", "uptime"}

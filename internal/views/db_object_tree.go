@@ -7,8 +7,8 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/assets"
 	"nextopsx/internal/dbexec"
-	"nextopsx/resources"
 )
 
 // DBObjectTree is the schema tree: tables and views with their columns.
@@ -142,7 +142,7 @@ func dbTableNode(c *ui.Context, a *app.App, tb dbexec.Table) {
 }
 
 func dbTreeIcon(c *ui.Context, name string) {
-	if s := resources.ObjectSVG(name); s != nil {
+	if s := assets.ObjectSVG(name); s != nil {
 		ui.Icon(c, s).Size(13, 13)
 	}
 }

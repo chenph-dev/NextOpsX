@@ -20,7 +20,8 @@ const (
 type SettingsTab int
 
 const (
-	SettingsModel SettingsTab = iota
+	SettingsGeneral SettingsTab = iota
+	SettingsModel
 	SettingsSkills
 	SettingsPolicy
 	SettingsAudit
@@ -30,6 +31,12 @@ const (
 type SettingsState struct {
 	Tab    SettingsTab
 	Notice string
+
+	// 常规：界面偏好。
+	Theme       string // system | light | dark
+	ThemeSaving bool
+	ThemeErr    string
+	DataDir     string
 
 	// 模型分区：供应商列表与编辑草稿。
 	Providers        []configstore.AIProvider
@@ -67,6 +74,39 @@ func (a *App) OpenSettings(tab SettingsTab) {
 func (a *App) CloseSettings() {
 	a.View = ViewAssets
 	a.Settings.Notice = ""
+}
+
+// SetTheme applies a theme immediately and persists it. While a save is in
+// flight the latest choice is queued, so the last click wins.
+func (a *App) SetTheme(theme string) {
+	theme = configstore.NormalizeTheme(theme)
+	a.Settings.Theme = theme
+	a.Settings.ThemeErr = ""
+	if a.Backend == nil || a.Settings.ThemeSaving {
+		return
+	}
+	a.saveTheme(theme)
+}
+
+func (a *App) saveTheme(theme string) {
+	a.Settings.ThemeSaving = true
+	a.writes.Add(1)
+	b := a.Backend
+	go func() {
+		err := b.SaveUISettings(configstore.UISettings{Theme: theme})
+		a.writes.Done()
+		a.Post(func() {
+			a.Settings.ThemeSaving = false
+			if err != nil {
+				a.Settings.ThemeErr = "保存主题失败：" + err.Error()
+			} else {
+				a.Settings.ThemeErr = ""
+			}
+			if a.Settings.Theme != theme {
+				a.saveTheme(a.Settings.Theme)
+			}
+		})
+	}()
 }
 
 // LoadAIProviders refreshes the provider list.

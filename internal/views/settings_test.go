@@ -36,6 +36,30 @@ func TestSettingsModelShowsProviders(t *testing.T) {
 	}
 }
 
+func TestSettingsGeneralSection(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Theme = "dark"
+	a.Settings.DataDir = "/tmp/nextopsx-data"
+
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{"常规", "主题", "深色", "数据目录", "/tmp/nextopsx-data"} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+
+	if err := tt.Click("深色"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.Click("浅色"); err != nil {
+		t.Fatal(err)
+	}
+	if a.Settings.Theme != "light" {
+		t.Fatalf("theme = %q, want light", a.Settings.Theme)
+	}
+}
+
 func TestSettingsAuditSection(t *testing.T) {
 	a := &app.App{View: app.ViewSettings}
 	a.Settings.Tab = app.SettingsAudit

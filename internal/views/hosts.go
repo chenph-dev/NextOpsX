@@ -4,8 +4,8 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/assets"
 	hoststore "nextopsx/internal/store/hosts"
-	"nextopsx/resources"
 )
 
 // HostTree builds the folder/host tree and reports selection.
@@ -53,12 +53,12 @@ func buildNodes(c *ui.Context, a *app.App, nodes []hoststore.TreeNode) {
 
 func hostTreeIcon(c *ui.Context, n *hoststore.TreeNode) {
 	if n.NodeType == "folder" {
-		if s := resources.FolderSVG(); s != nil {
+		if s := assets.FolderSVG(); s != nil {
 			ui.Icon(c, s).Size(15, 15).TextColor(c.Theme().TextMuted)
 		}
 		return
 	}
-	if b := resources.ProtocolBitmap(n.Protocol); b != nil {
+	if b := assets.ProtocolBitmap(n.Protocol); b != nil {
 		ui.Image(c, b).Size(16, 16)
 	}
 }

@@ -33,15 +33,16 @@ import (
 
 // Backend owns the stores, executors and AI services of the app.
 type Backend struct {
-	db       *store.DB
-	hosts    *hoststore.HostsStore
-	policy   *configstore.PolicyStore
-	convs    *convstore.ConvStore
-	logs     *logsstore.LogsStore
-	skills   *skill.Manager
-	resolver *base.ExecutorResolver
-	sm       *session.SessionManager
-	sftp     *sftppkg.Manager
+	db         *store.DB
+	hosts      *hoststore.HostsStore
+	policy     *configstore.PolicyStore
+	uiSettings *configstore.UISettingsStore
+	convs      *convstore.ConvStore
+	logs       *logsstore.LogsStore
+	skills     *skill.Manager
+	resolver   *base.ExecutorResolver
+	sm         *session.SessionManager
+	sftp       *sftppkg.Manager
 
 	aiProviders *aiconfig.ProviderHandler
 	approval    *approvalpolicy.ApprovalPolicyHandler
@@ -100,6 +101,7 @@ func New() (*Backend, error) {
 	}
 	providers := configstore.NewProviderStore(db)
 	policy := configstore.NewPolicyStore(db)
+	uiSettings := configstore.NewUISettingsStore(db)
 	hosts := hoststore.NewHostsStore(db)
 	convs := convstore.NewConvStore(db)
 	logs := logsstore.NewLogsStore(db)
@@ -116,8 +118,8 @@ func New() (*Backend, error) {
 	resolver := base.NewExecutorResolver(hosts)
 
 	b := &Backend{
-		db: db, hosts: hosts, policy: policy, convs: convs,
-		logs: logs, skills: skillMgr, resolver: resolver,
+		db: db, hosts: hosts, policy: policy, uiSettings: uiSettings,
+		convs: convs, logs: logs, skills: skillMgr, resolver: resolver,
 	}
 	b.sm = session.NewSessionManager(db, providers, resolver.ExecFor,
 		func(hostID string) (string, error) {

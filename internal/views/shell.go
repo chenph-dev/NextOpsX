@@ -9,14 +9,81 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	configstore "nextopsx/internal/store/config"
 )
+
+// Base themes are created once; each frame copies one and applies the
+// desktop's preferences, so an explicit theme keeps accent, contrast and text
+// scale like the system-following default does.
+var (
+	lightThemeBase = ui.LightTheme()
+	darkThemeBase  = ui.DarkTheme()
+	passTheme      ui.Theme
+)
+
+// applyTheme overrides the system-following default when the user chose an
+// explicit theme. The root view rebuilds every frame, which is where SetTheme
+// takes effect for the whole tree.
+func applyTheme(c *ui.Context, a *app.App) {
+	var base *ui.Theme
+	switch a.Settings.Theme {
+	case configstore.ThemeLight:
+		base = lightThemeBase
+	case configstore.ThemeDark:
+		base = darkThemeBase
+	default:
+		return // 跟随系统：使用 MyGo 的默认主题
+	}
+	passTheme = *base
+	followPreferences(&passTheme, c.Preferences())
+	c.SetTheme(&passTheme)
+}
+
+// followPreferences mirrors MyGo's unexported Theme.follow (v0.4.8), which the
+// default theme applies but an overriding theme does not.
+func followPreferences(t *ui.Theme, p ui.Preferences) {
+	if a := p.Accent; a.A > 0 {
+		a.A = 255
+		black := ui.Color{A: 255}
+		white := ui.Color{R: 255, G: 255, B: 255, A: 255}
+		t.Accent = a
+		if t.Dark {
+			t.AccentHover = a.Mix(white, 0.2)
+			t.AccentPressed = a.Mix(black, 0.15)
+			t.Selection = a.Alpha(0.4)
+			t.Focus = a.Mix(white, 0.2).Alpha(0.6)
+		} else {
+			t.AccentHover = a.Mix(black, 0.12)
+			t.AccentPressed = a.Mix(black, 0.25)
+			t.Selection = a.Alpha(0.25)
+			t.Focus = a.Alpha(0.55)
+		}
+		l := uint8(0.2126*float32(a.R) + 0.7152*float32(a.G) + 0.0722*float32(a.B) + 0.5)
+		t.AccentText = white
+		if l > 165 {
+			t.AccentText = ui.Color{R: 24, G: 24, B: 27, A: 255}
+		}
+	}
+	if p.HighContrast {
+		t.Border = t.Border.Mix(t.Text, 0.45)
+		t.TextMuted = t.TextMuted.Mix(t.Text, 0.4)
+		t.Focus.A = 255
+		t.Scrollbar = t.Scrollbar.Alpha(1.6)
+	}
+	if s := p.TextScale; s > 0 && s != 1 {
+		t.FontSize *= s
+	}
+}
 
 // Shell is the window layout: the asset tree on the left, the terminal or
 // AI chat on the right.
 func Shell(a *app.App) func(*ui.Context) {
 	return func(c *ui.Context) {
+		applyTheme(c, a)
 		if a.View == app.ViewSettings {
 			SettingsView(c, a)
+			// 资产表单可能从菜单打开；设置页也渲染对话框，避免弹窗被隐藏后残留。
+			HostsDialogs(c, a)
 			return
 		}
 		t := c.Theme()

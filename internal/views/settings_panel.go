@@ -17,6 +17,8 @@ func SettingsView(c *ui.Context, a *app.App) {
 		settingsNav(c, a, t)
 		ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
 			switch a.Settings.Tab {
+			case app.SettingsGeneral:
+				generalSettings(c, a, t)
 			case app.SettingsSkills:
 				skillsSettings(c, a, t)
 			case app.SettingsPolicy:
@@ -38,6 +40,7 @@ func settingsNav(c *ui.Context, a *app.App, t *ui.Theme) {
 		})
 		ui.Divider(c)
 		ui.Column(c).Padding(6).Gap(2).Children(func() {
+			settingsNavItem(c, a, t, app.SettingsGeneral, "常规")
 			settingsNavItem(c, a, t, app.SettingsModel, "模型")
 			settingsNavItem(c, a, t, app.SettingsSkills, "技能")
 			settingsNavItem(c, a, t, app.SettingsPolicy, "审批")

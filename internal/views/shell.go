@@ -15,6 +15,10 @@ import (
 // AI chat on the right.
 func Shell(a *app.App) func(*ui.Context) {
 	return func(c *ui.Context) {
+		if a.View == app.ViewSettings {
+			SettingsView(c, a)
+			return
+		}
 		t := c.Theme()
 		ui.Row(c).Fill().Children(func() {
 			ui.Column(c).Width(280).FillHeight().Background(t.Surface).
@@ -29,11 +33,11 @@ func Shell(a *app.App) func(*ui.Context) {
 				tree := ui.Scroll(c).Grow(1)
 				tree.ContextMenu(func(m *ui.Menu) {
 					if m.Item("新建资产").Chosen() {
-						a.Selected = nil
+						a.Select(nil)
 						a.OpenNewHostForm()
 					}
 					if m.Item("新建目录").Chosen() {
-						a.Selected = nil
+						a.Select(nil)
 						a.OpenNewFolderForm()
 					}
 					m.Separator()
@@ -43,6 +47,11 @@ func Shell(a *app.App) func(*ui.Context) {
 				})
 				tree.Children(func() {
 					HostTree(c, a)
+				})
+				ui.Divider(c)
+				ui.Row(c).Padding(8).Children(func() {
+					ui.Button(c, "设置").Grow(1).
+						OnClick(func() { a.OpenSettings(a.Settings.Tab) })
 				})
 			})
 

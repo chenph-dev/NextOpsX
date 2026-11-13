@@ -663,8 +663,7 @@ func (a *App) refreshHosts(selectID string) {
 			a.mergeOpen(roots)
 			if selectID != "" {
 				if n := findTreeNode(roots, selectID); n != nil {
-					a.Selected = n
-					a.attachAsset(n)
+					a.Select(n)
 				}
 				return
 			}
@@ -672,10 +671,9 @@ func (a *App) refreshHosts(selectID string) {
 				return
 			}
 			if n := findTreeNode(roots, a.Selected.ID); n != nil {
-				a.Selected = n
-				a.attachAsset(n)
+				a.Select(n)
 			} else {
-				a.Selected = nil
+				a.Select(nil)
 			}
 		})
 	}()
@@ -763,7 +761,7 @@ func (a *App) ConfirmDeleteNode() {
 			a.Hosts.DeleteID = ""
 			a.Hosts.DeleteName = ""
 			if a.Selected != nil && a.Selected.ID == id {
-				a.Selected = nil
+				a.Select(nil)
 			}
 			a.refreshHosts("")
 		})

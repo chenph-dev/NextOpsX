@@ -7,6 +7,7 @@ import (
 
 	"nextopsx/internal/app"
 	"nextopsx/internal/einoagent/session"
+	configstore "nextopsx/internal/store/config"
 	convstore "nextopsx/internal/store/conversations"
 	hoststore "nextopsx/internal/store/hosts"
 )
@@ -143,18 +144,45 @@ func TestAIPanelTabsAndConfig(t *testing.T) {
 		t.Fatalf("tab = %d, want AI", a.RightTab)
 	}
 
-	a.AI.ConfigOpen = true
+	a.OpenSettings(app.SettingsModel)
+	a.NewAIProvider()
+	a.Settings.Draft.Name = "test"
+	a.Settings.Draft.Protocol = "openai"
+	a.Settings.Draft.Model = ""
 	tt.Frame()
-	if !tt.HasText("AI 配置") || !tt.HasText("协议") || !tt.HasText("模型") {
-		t.Fatalf("config form missing: %q", tt.Texts())
+	if !tt.HasText("协议") || !tt.HasText("Base URL") || !tt.HasText("API Key") {
+		t.Fatalf("model settings missing: %q", tt.Texts())
 	}
-	a.AI.Provider = "openai"
-	a.AI.Model = ""
 	if err := tt.Click("保存"); err != nil {
 		t.Fatal(err)
 	}
-	if a.AI.Err != "请填写协议与模型名称" {
-		t.Fatalf("err = %q", a.AI.Err)
+	if a.Settings.ProvidersErr != "请填写名称、协议与模型" {
+		t.Fatalf("err = %q", a.Settings.ProvidersErr)
+	}
+}
+
+func TestAIProviderSelectListsProviders(t *testing.T) {
+	a := aiTestApp()
+	a.AI.Configured = true
+	a.AI.ProviderID = "p1"
+	a.AI.ProviderName = "默认供应商"
+	a.AI.ProviderChoice = "p1"
+	a.AI.Model = "m1"
+	a.AI.Providers = []configstore.AIProvider{
+		{ID: "p1", Name: "默认供应商", Protocol: "openai", Model: "m1", IsDefault: true},
+		{ID: "p2", Name: "备用 Claude", Protocol: "claude", Model: "m2"},
+	}
+
+	tt := ui.NewTester(Shell(a), 1000, 700)
+	if !tt.HasText("默认供应商") || !tt.HasText("m1") {
+		t.Fatalf("provider selector missing: %q", tt.Texts())
+	}
+	if err := tt.Click("默认供应商"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !tt.HasText("备用 Claude") {
+		t.Fatalf("provider popup missing: %q", tt.Texts())
 	}
 }
 
@@ -226,10 +254,10 @@ func TestAIErrorsVisibleInEmptyAndConfigStates(t *testing.T) {
 
 	a = aiTestApp()
 	a.AI.Configured = false
-	a.AI.ConfigOpen = true
-	a.AI.Err = "请填写协议与模型名称"
+	a.OpenSettings(app.SettingsModel)
+	a.Settings.ProvidersErr = "请填写名称、协议与模型"
 	tt = ui.NewTester(Shell(a), 1000, 700)
-	if !tt.HasText("请填写协议与模型名称") {
+	if !tt.HasText("请填写名称、协议与模型") {
 		t.Fatalf("config error missing: %q", tt.Texts())
 	}
 }

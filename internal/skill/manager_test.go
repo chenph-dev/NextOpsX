@@ -97,6 +97,25 @@ func TestManager_CatalogRespectsEnabled(t *testing.T) {
 	}
 }
 
+func TestManager_LookupEnabled(t *testing.T) {
+	m := newTestManager(t)
+	if _, err := m.Install(validSkillZip()); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	if _, err := m.LookupEnabled("disk-analysis"); err != nil {
+		t.Fatalf("启用技能应可解析: %v", err)
+	}
+	if err := m.SetEnabled("disk-analysis", false); err != nil {
+		t.Fatalf("SetEnabled: %v", err)
+	}
+	if _, err := m.LookupEnabled("disk-analysis"); err == nil {
+		t.Fatal("停用技能不应被 AI 工具解析")
+	}
+	if _, err := m.Lookup("disk-analysis"); err != nil {
+		t.Fatalf("停用技能仍应可供管理页预览: %v", err)
+	}
+}
+
 func TestManager_DeleteRemovesFiles(t *testing.T) {
 	m := newTestManager(t)
 	s, err := m.Install(validSkillZip())

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	einomodel "github.com/cloudwego/eino/components/model"
@@ -41,10 +42,12 @@ func newSessionFixture(t *testing.T, responses []*schema.Message) *sessionFixtur
 	app := testutil.OpenTempStore(t)
 	hosts := hoststore.NewHostsStore(app)
 	convs := convstore.NewConvStore(app)
-	cfg := configstore.NewConfigStore(app)
-	// ensureGraph 要求 Provider 非空；modelFactory 已被测试覆写，provider 取值无关紧要。
-	if err := cfg.SaveAIConfig(configstore.AIConfig{Provider: "openai", Model: "test-model"}); err != nil {
-		t.Fatalf("SaveAIConfig: %v", err)
+	providers := configstore.NewProviderStore(app)
+	// ensureGraph 要求至少有一个供应商；modelFactory 已被测试覆写，取值无关紧要。
+	if _, err := providers.Create(configstore.AIProvider{
+		Name: "test", Protocol: "openai", Model: "test-model",
+	}); err != nil {
+		t.Fatalf("Create provider: %v", err)
 	}
 	hostID, err := hosts.SaveHost(hoststore.HostInput{
 		Name: "h", Addr: "1.1.1.1", Port: 22, User: "u",
@@ -62,12 +65,12 @@ func newSessionFixture(t *testing.T, responses []*schema.Message) *sessionFixtur
 		hostID:    hostID,
 		hosts:     hosts,
 	}
-	f.mgr = NewSessionManager(app, cfg,
+	f.mgr = NewSessionManager(app, providers,
 		func(hid string) sshexec.Exec { return f.ex },
 		nil, // hostNameFor（测试不注入资产名）
 		rec.Emit,
 	)
-	f.mgr.modelFactory = func(ctx context.Context, c configstore.AIConfig) (einomodel.ToolCallingChatModel, error) {
+	f.mgr.modelFactory = func(ctx context.Context, c configstore.AIProvider) (einomodel.ToolCallingChatModel, error) {
 		return f.modelImpl, nil
 	}
 	return f
@@ -105,6 +108,52 @@ func TestSessionManager_TextOnlyTurnPersists(t *testing.T) {
 		msgs[1].Role != "assistant" || msgs[1].Content != "你好，有什么可以帮你" {
 		t.Errorf("消息落库错误: %+v", msgs)
 	}
+}
+
+func TestSessionManager_UsesConversationProvider(t *testing.T) {
+	f := newSessionFixture(t, []*schema.Message{
+		schema.AssistantMessage("one", nil),
+		schema.AssistantMessage("two", nil),
+	})
+	providers := configstore.NewProviderStore(f.app)
+	second, err := providers.Create(configstore.AIProvider{
+		Name: "second", Protocol: "openai", Model: "m2",
+	})
+	if err != nil {
+		t.Fatalf("Create provider: %v", err)
+	}
+	var mu sync.Mutex
+	used := ""
+	f.mgr.modelFactory = func(ctx context.Context, c configstore.AIProvider) (einomodel.ToolCallingChatModel, error) {
+		mu.Lock()
+		used = c.Name
+		mu.Unlock()
+		return f.modelImpl, nil
+	}
+	usedName := func() string {
+		mu.Lock()
+		defer mu.Unlock()
+		return used
+	}
+
+	sid, _ := f.mgr.EnsureSession(f.hostID)
+	if err := f.mgr.SendMessage(sid, "hi"); err != nil {
+		t.Fatalf("SendMessage: %v", err)
+	}
+	testutil.WaitFor(t, func() bool { return usedName() == "test" }, "新会话使用默认供应商")
+	f.waitState(sid, StateIdle)
+
+	if err := f.mgr.SetConversationProvider(sid, second); err != nil {
+		t.Fatalf("SetConversationProvider: %v", err)
+	}
+	mu.Lock()
+	used = ""
+	mu.Unlock()
+	if err := f.mgr.SendMessage(sid, "again"); err != nil {
+		t.Fatalf("SendMessage: %v", err)
+	}
+	testutil.WaitFor(t, func() bool { return usedName() == "second" }, "切换后使用新供应商")
+	f.waitState(sid, StateIdle)
 }
 
 func TestSessionManager_ApprovalRoundTrip(t *testing.T) {
@@ -216,7 +265,7 @@ func TestSessionManager_MissingExecutor(t *testing.T) {
 
 func TestSessionManager_ModelFactoryError(t *testing.T) {
 	f := newSessionFixture(t, nil)
-	f.mgr.modelFactory = func(ctx context.Context, c configstore.AIConfig) (einomodel.ToolCallingChatModel, error) {
+	f.mgr.modelFactory = func(ctx context.Context, c configstore.AIProvider) (einomodel.ToolCallingChatModel, error) {
 		return nil, errors.New("unsupported provider")
 	}
 	sid, _ := f.mgr.EnsureSession(f.hostID)

@@ -35,7 +35,6 @@ import (
 type Backend struct {
 	db       *store.DB
 	hosts    *hoststore.HostsStore
-	cfg      *configstore.ConfigStore
 	policy   *configstore.PolicyStore
 	convs    *convstore.ConvStore
 	logs     *logsstore.LogsStore
@@ -44,13 +43,13 @@ type Backend struct {
 	sm       *session.SessionManager
 	sftp     *sftppkg.Manager
 
-	aiConfig   *aiconfig.AIConfigHandler
-	approval   *approvalpolicy.ApprovalPolicyHandler
-	dbHandler  *dbhandler.DbHandler
-	connectors *connectorhandler.ConnectorHandler
-	rdp        *rdphandler.RdpHandler
-	logsAPI    *logshandler.LogsHandler
-	sessions   *sessionshandler.SessionsHandler
+	aiProviders *aiconfig.ProviderHandler
+	approval    *approvalpolicy.ApprovalPolicyHandler
+	dbHandler   *dbhandler.DbHandler
+	connectors  *connectorhandler.ConnectorHandler
+	rdp         *rdphandler.RdpHandler
+	logsAPI     *logshandler.LogsHandler
+	sessions    *sessionshandler.SessionsHandler
 
 	// aiSink 接收 SessionManager 的 AI 事件（前台 UI 注入）。
 	aiMu   sync.Mutex
@@ -99,7 +98,7 @@ func New() (*Backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg := configstore.NewConfigStore(db)
+	providers := configstore.NewProviderStore(db)
 	policy := configstore.NewPolicyStore(db)
 	hosts := hoststore.NewHostsStore(db)
 	convs := convstore.NewConvStore(db)
@@ -117,10 +116,10 @@ func New() (*Backend, error) {
 	resolver := base.NewExecutorResolver(hosts)
 
 	b := &Backend{
-		db: db, hosts: hosts, cfg: cfg, policy: policy, convs: convs,
+		db: db, hosts: hosts, policy: policy, convs: convs,
 		logs: logs, skills: skillMgr, resolver: resolver,
 	}
-	b.sm = session.NewSessionManager(db, cfg, resolver.ExecFor,
+	b.sm = session.NewSessionManager(db, providers, resolver.ExecFor,
 		func(hostID string) (string, error) {
 			meta, err := hosts.HostMetaByID(hostID)
 			if err != nil {
@@ -146,7 +145,7 @@ func New() (*Backend, error) {
 		}
 		return auto, p.ReadOnlyList
 	})
-	b.sm.SetSkillResolver(skillMgr.Catalog, skillMgr.Lookup)
+	b.sm.SetSkillResolver(skillMgr.Catalog, skillMgr.LookupEnabled)
 	b.sm.SetProtocolResolver(func(hostID string) string {
 		meta, err := hosts.HostMetaByID(hostID)
 		if err != nil || meta == nil {
@@ -161,7 +160,7 @@ func New() (*Backend, error) {
 		func(t *sftppkg.Task) { b.emitSFTP("sftp:progress", t) },
 		func(t *sftppkg.Task) { b.emitSFTP("sftp:start", t) },
 	)
-	b.aiConfig = aiconfig.NewAIConfigHandler(cfg, b.sm.InvalidateConfig)
+	b.aiProviders = aiconfig.NewProviderHandler(providers, b.sm.InvalidateConfig)
 	b.approval = approvalpolicy.NewApprovalPolicyHandler(policy, b.sm.InvalidateConfig)
 	b.dbHandler = dbhandler.NewDbHandler(resolver)
 	b.connectors = connectorhandler.NewConnectorHandler()

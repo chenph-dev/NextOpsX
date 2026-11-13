@@ -1,10 +1,14 @@
 package session
 
 import (
+	"errors"
 	"fmt"
+
+	"gorm.io/gorm"
 
 	"nextopsx/internal/einoagent/checkpoint"
 	agenttools "nextopsx/internal/einoagent/tools"
+	configstore "nextopsx/internal/store/config"
 )
 
 // EnsureSession 返回资产当前会话（最近更新的 conversation），没有则懒创建。
@@ -19,9 +23,44 @@ func (m *SessionManager) EnsureSession(hostID string) (string, error) {
 	return m.CreateSession(hostID, "AI 对话")
 }
 
-// CreateSession 新建一个 conversation（前端"新建对话"按钮）。
+// CreateSession 新建一个 conversation（前端"新建对话"按钮），
+// 默认继承当前默认供应商；未配置供应商时留空，发送时再报错。
 func (m *SessionManager) CreateSession(hostID, title string) (string, error) {
-	return m.convs.NewConversation(hostID, title)
+	providerID := ""
+	p, err := m.providers.Default()
+	switch {
+	case err == nil:
+		providerID = p.ID
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		// 还没有配置供应商：允许建会话，首次发送时再提示。
+	default:
+		return "", fmt.Errorf("读取默认供应商失败: %w", err)
+	}
+	return m.convs.NewConversationWithProvider(hostID, title, providerID)
+}
+
+// SetConversationProvider 指定会话使用的供应商（空串表示回落到默认），
+// 并使已构建的 Graph 失效，下一轮按新供应商重建。
+func (m *SessionManager) SetConversationProvider(sid, providerID string) error {
+	if providerID != "" {
+		if _, err := m.providers.Get(providerID); err != nil {
+			return err
+		}
+	}
+	if err := m.convs.SetConversationProvider(sid, providerID); err != nil {
+		return err
+	}
+	m.InvalidateConfig()
+	return nil
+}
+
+// ProviderForConversation 返回会话当前解析到的供应商（含 API Key）。
+func (m *SessionManager) ProviderForConversation(sid string) (configstore.AIProvider, error) {
+	conv, err := m.convs.GetConversation(sid)
+	if err != nil {
+		return configstore.AIProvider{}, err
+	}
+	return m.providers.Resolve(conv.ProviderID)
 }
 
 // sessionFor 获取或懒构建会话运行时。

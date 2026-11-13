@@ -8,6 +8,7 @@ import (
 	einotool "github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
+	"gorm.io/gorm"
 
 	"nextopsx/internal/connector"
 	"nextopsx/internal/einoagent/callback"
@@ -89,14 +90,18 @@ func (m *SessionManager) ensureGraph(s *agentSession) error {
 	}
 
 	ctx := context.Background()
-	cfg, err := m.cfg.GetAIConfig()
+	conv, err := m.convs.GetConversation(s.id)
 	if err != nil {
-		return fmt.Errorf("读取 AI 配置失败: %w", err)
+		return fmt.Errorf("读取会话失败: %w", err)
 	}
-	if cfg.Provider == "" {
-		return fmt.Errorf("尚未配置 AI 后端，请先到「AI 配置」页设置")
+	prov, err := m.providers.Resolve(conv.ProviderID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("尚未配置 AI 供应商，请先到「设置 → 模型」添加")
 	}
-	base, err := m.modelFactory(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("读取 AI 供应商失败: %w", err)
+	}
+	base, err := m.modelFactory(ctx, prov)
 	if err != nil {
 		return fmt.Errorf("构建模型失败: %w", err)
 	}

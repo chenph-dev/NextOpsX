@@ -24,6 +24,10 @@ type App struct {
 	Open     map[string]*bool
 	Selected *hoststore.TreeNode
 
+	// View is the window's top-level view: assets or settings.
+	View     MainView
+	Settings SettingsState
+
 	// RightTab is the right pane's view: 0 terminal, 1 AI chat.
 	RightTab int
 	AI       AIState
@@ -32,6 +36,7 @@ type App struct {
 	Redis    RedisState
 	ES       ESState
 	SFTP     SFTPState
+	Skills   SkillsState
 
 	Term       *terminal.Terminal
 	TermHostID string
@@ -50,7 +55,6 @@ func New(b *backend.Backend) (*App, error) {
 	}
 	a := &App{Backend: b, Roots: roots, Open: map[string]*bool{}}
 	a.initOpen(roots)
-	a.AI.Provider = "openai"
 	a.ensureHostConnectors()
 	b.SetAIEventSink(a.HandleAIEvent)
 	b.SetSFTPEventSink(a.HandleSFTPEvent)
@@ -86,15 +90,17 @@ func (a *App) Post(fn func()) {
 }
 
 // Select marks an asset as selected and attaches its workbench and AI
-// conversation.
+// conversation. Passing nil clears the selection. Either way it leaves the
+// settings page, so every selection path goes through here.
 func (a *App) Select(n *hoststore.TreeNode) {
+	a.View = ViewAssets
 	a.Selected = n
 	a.attachAsset(n)
 }
 
 // attachAsset initializes per-asset state for a selected asset. It is used
-// both by tree clicks and by tree refreshes (create/edit), which set
-// Selected directly.
+// by Select for tree clicks and by tree refreshes (create/edit) after the
+// selection is re-pointed.
 func (a *App) attachAsset(n *hoststore.TreeNode) {
 	if n == nil || n.NodeType != "host" {
 		return

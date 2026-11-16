@@ -1,0 +1,196 @@
+package i18n
+
+// AI chat UI strings: panel header, composer, history, approval cards, tool
+// output and the app-layer AI errors/notifications.
+var (
+	aiZh = map[string]string{
+		// Panel header and states.
+		"ai.loading":                   "正在载入会话…",
+		"ai.header.unconfigured":       "未配置 AI",
+		"ai.state.thinking":            "思考中…",
+		"ai.state.awaitingApproval":    "等待审批",
+		"ai.state.running":             "执行中…",
+		"ai.action.cancel":             "取消",
+		"ai.action.newConversation":    "新对话",
+		"ai.action.history":            "历史",
+		"ai.action.clear":              "清空",
+		"ai.action.settings":           "设置",
+		"ai.action.send":               "发送",
+		"ai.action.save":               "保存",
+		"ai.action.rename":             "改名",
+		"ai.action.delete":             "删除",
+		"ai.action.confirmDelete":      "确认删除",
+		"ai.action.copy":               "复制",
+		"ai.empty.unconfiguredTitle":   "尚未配置 AI 后端",
+		"ai.empty.unconfiguredHint":    "填写协议、模型名称和 API Key 后即可开始对话。",
+		"ai.empty.configure":           "配置 AI",
+		"ai.empty.hint":                "向 AI 描述要执行的运维任务，命令会先交由你审批。",
+		"ai.composer.placeholder":      "输入消息，Enter 发送；/clear 清空，/new 新对话",
+		"ai.composer.unconfigured":     "请先配置 AI 后端",
+		"ai.composer.awaitingApproval": "请先处理上方的审批卡",
+		"ai.composer.busy":             "AI 正在处理，可点击「取消」中止",
+		"ai.history.title":             "历史对话",
+		"ai.history.empty":             "暂无历史对话",
+
+		// Suggestions shown in the empty conversation.
+		"ai.suggestion.systemInfo":   "查看系统信息",
+		"ai.suggestion.diskSpace":    "检查磁盘空间",
+		"ai.suggestion.systemEvents": "查看最近的系统事件",
+		"ai.suggestion.dbTables":     "列出当前数据库的表",
+		"ai.suggestion.dbSchema":     "查看表结构",
+		"ai.suggestion.dbRowCounts":  "统计各表行数",
+		"ai.suggestion.redisInfo":    "查看 Redis INFO",
+		"ai.suggestion.redisKeys":    "列出部分 key",
+		"ai.suggestion.redisMemory":  "查看内存使用",
+		"ai.suggestion.esHealth":     "查看集群健康状态",
+		"ai.suggestion.esIndices":    "列出索引",
+		"ai.suggestion.esSearch":     "搜索最近文档",
+		"ai.suggestion.diskUsage":    "查看磁盘空间",
+		"ai.suggestion.load":         "查看系统负载",
+		"ai.suggestion.logs":         "查看最近的系统日志",
+		"ai.suggestion.docker":       "检查 Docker 容器",
+
+		// Tool output block.
+		"ai.tool.output":    "工具输出",
+		"ai.tool.rejected":  " · 已拒绝",
+		"ai.tool.cancelled": " · 已取消",
+		"ai.tool.lines":     " · %d 行",
+		"ai.tool.noOutput":  "(无输出)",
+
+		// Approval status and command card.
+		"ai.status.approved":      "已批准",
+		"ai.status.rejected":      "已拒绝",
+		"ai.status.auto":          "自动放行",
+		"ai.status.pending":       "待审批",
+		"ai.command.why":          "原因：%s",
+		"ai.command.highRisk":     "高风险",
+		"ai.command.confirmHint":  "这是高风险命令，请再次点击确认。",
+		"ai.command.edit":         "编辑",
+		"ai.command.done":         "完成",
+		"ai.command.reject":       "拒绝",
+		"ai.command.approve":      "批准",
+		"ai.command.approveAgain": "再次确认批准",
+		"ai.plan.title":           "执行计划",
+		"ai.plan.goal":            "目标：%s",
+
+		// App-layer errors and notifications.
+		"ai.conversation.defaultTitle":      "AI 对话",
+		"ai.error.openSessionFailed":        "打开 AI 会话失败：%s",
+		"ai.error.sendFailed":               "发送失败：%s",
+		"ai.error.approveFailed":            "批准失败：%s",
+		"ai.error.rejectFailed":             "拒绝失败：%s",
+		"ai.error.approvePlanFailed":        "批准计划失败：%s",
+		"ai.error.rejectPlanFailed":         "拒绝计划失败：%s",
+		"ai.error.cancelFailed":             "取消失败：%s",
+		"ai.error.clearFailed":              "清空失败：%s",
+		"ai.error.newConversationFailed":    "新建对话失败：%s",
+		"ai.error.deleteConversationFailed": "删除对话失败：%s",
+		"ai.error.renameFailed":             "重命名失败：%s",
+		"ai.notify.errorTitle":              "AI 对话出错",
+		"ai.notify.doneTitle":               "AI 对话完成",
+		"ai.notify.hostBody":                "「%s」：%s",
+		"ai.notify.hostDone":                "「%s」的回复已生成",
+		"ai.notify.backgroundDone":          "后台对话的回复已生成",
+
+		// Remote desktop launch error (asset header strip).
+		"rdp.openFailed": "启动远程桌面失败：%s",
+	}
+
+	aiEn = map[string]string{
+		// Panel header and states.
+		"ai.loading":                   "Loading conversation…",
+		"ai.header.unconfigured":       "AI not configured",
+		"ai.state.thinking":            "Thinking…",
+		"ai.state.awaitingApproval":    "Awaiting approval",
+		"ai.state.running":             "Running…",
+		"ai.action.cancel":             "Cancel",
+		"ai.action.newConversation":    "New chat",
+		"ai.action.history":            "History",
+		"ai.action.clear":              "Clear",
+		"ai.action.settings":           "Settings",
+		"ai.action.send":               "Send",
+		"ai.action.save":               "Save",
+		"ai.action.rename":             "Rename",
+		"ai.action.delete":             "Delete",
+		"ai.action.confirmDelete":      "Confirm delete",
+		"ai.action.copy":               "Copy",
+		"ai.empty.unconfiguredTitle":   "No AI backend configured",
+		"ai.empty.unconfiguredHint":    "Fill in the protocol, model name and API key to start chatting.",
+		"ai.empty.configure":           "Configure AI",
+		"ai.empty.hint":                "Describe the ops task you want done; commands are sent to you for approval first.",
+		"ai.composer.placeholder":      "Type a message, Enter to send; /clear to clear, /new for a new chat",
+		"ai.composer.unconfigured":     "Configure the AI backend first",
+		"ai.composer.awaitingApproval": "Resolve the approval card above first",
+		"ai.composer.busy":             "AI is working; click Cancel to stop",
+		"ai.history.title":             "Chat history",
+		"ai.history.empty":             "No chat history",
+
+		// Suggestions shown in the empty conversation.
+		"ai.suggestion.systemInfo":   "Show system information",
+		"ai.suggestion.diskSpace":    "Check disk space",
+		"ai.suggestion.systemEvents": "Show recent system events",
+		"ai.suggestion.dbTables":     "List tables in the current database",
+		"ai.suggestion.dbSchema":     "Show table schemas",
+		"ai.suggestion.dbRowCounts":  "Count rows per table",
+		"ai.suggestion.redisInfo":    "Show Redis INFO",
+		"ai.suggestion.redisKeys":    "List some keys",
+		"ai.suggestion.redisMemory":  "Show memory usage",
+		"ai.suggestion.esHealth":     "Show cluster health",
+		"ai.suggestion.esIndices":    "List indices",
+		"ai.suggestion.esSearch":     "Search recent documents",
+		"ai.suggestion.diskUsage":    "Show disk usage",
+		"ai.suggestion.load":         "Show system load",
+		"ai.suggestion.logs":         "Show recent system logs",
+		"ai.suggestion.docker":       "Check Docker containers",
+
+		// Tool output block.
+		"ai.tool.output":    "Tool output",
+		"ai.tool.rejected":  " · Rejected",
+		"ai.tool.cancelled": " · Cancelled",
+		"ai.tool.lines":     " · %d lines",
+		"ai.tool.noOutput":  "(no output)",
+
+		// Approval status and command card.
+		"ai.status.approved":      "Approved",
+		"ai.status.rejected":      "Rejected",
+		"ai.status.auto":          "Auto-approved",
+		"ai.status.pending":       "Pending approval",
+		"ai.command.why":          "Why: %s",
+		"ai.command.highRisk":     "High risk",
+		"ai.command.confirmHint":  "This is a high-risk command; click again to confirm.",
+		"ai.command.edit":         "Edit",
+		"ai.command.done":         "Done",
+		"ai.command.reject":       "Reject",
+		"ai.command.approve":      "Approve",
+		"ai.command.approveAgain": "Confirm approval",
+		"ai.plan.title":           "Execution plan",
+		"ai.plan.goal":            "Goal: %s",
+
+		// App-layer errors and notifications.
+		"ai.conversation.defaultTitle":      "AI chat",
+		"ai.error.openSessionFailed":        "Failed to open AI conversation: %s",
+		"ai.error.sendFailed":               "Send failed: %s",
+		"ai.error.approveFailed":            "Approval failed: %s",
+		"ai.error.rejectFailed":             "Rejection failed: %s",
+		"ai.error.approvePlanFailed":        "Plan approval failed: %s",
+		"ai.error.rejectPlanFailed":         "Plan rejection failed: %s",
+		"ai.error.cancelFailed":             "Cancel failed: %s",
+		"ai.error.clearFailed":              "Clear failed: %s",
+		"ai.error.newConversationFailed":    "Failed to create conversation: %s",
+		"ai.error.deleteConversationFailed": "Failed to delete conversation: %s",
+		"ai.error.renameFailed":             "Rename failed: %s",
+		"ai.notify.errorTitle":              "AI chat error",
+		"ai.notify.doneTitle":               "AI chat complete",
+		"ai.notify.hostBody":                "%s: %s",
+		"ai.notify.hostDone":                "Reply generated for %s",
+		"ai.notify.backgroundDone":          "Background reply generated",
+
+		// Remote desktop launch error (asset header strip).
+		"rdp.openFailed": "Failed to launch remote desktop: %s",
+	}
+)
+
+func init() {
+	add(ZhCN, aiZh)
+	add(EnUS, aiEn)
+}

@@ -9,6 +9,7 @@ import (
 
 	"nextopsx/internal/app"
 	"nextopsx/internal/backend"
+	"nextopsx/internal/i18n"
 	"nextopsx/internal/views"
 )
 
@@ -60,25 +61,21 @@ func main() {
 		tray, err := mygo.NewTray(mygo.TrayOptions{
 			Icon:    trayIcon,
 			ToolTip: "NextOpsX",
-			Menu: mygo.NewMenu([]*mygo.MenuItem{
-				{Label: "打开 NextOpsX", Click: func(*mygo.MenuItem, *mygo.Window) {
-					win.Show()
-					win.Focus()
-				}},
-				{Label: "设置…", Click: func(*mygo.MenuItem, *mygo.Window) {
-					a.Post(func() { a.OpenSettings(a.Settings.Tab) })
-					win.Show()
-					win.Focus()
-				}},
-				mygo.Separator(),
-				{Role: mygo.RoleQuit},
-			}),
+			Menu:    trayMenu(a, win),
 		})
 		if err != nil {
 			log.Println("tray:", err)
 		} else {
 			appTray = tray
 		}
+
+		// 语言切换后重建菜单栏与托盘菜单。
+		a.SetChromeRebuilder(func() {
+			installMenu(a)
+			if appTray != nil {
+				appTray.SetMenu(trayMenu(a, win))
+			}
+		})
 
 		win.OnClosed(func() {
 			a.Disconnect()
@@ -100,29 +97,46 @@ func installMenu(a *app.App) {
 	}
 	menu := mygo.NewMenu([]*mygo.MenuItem{
 		{Role: mygo.RoleAppMenu},
-		{Label: "文件", Submenu: []*mygo.MenuItem{
-			{Label: "新建资产", Accelerator: "CmdOrCtrl+N", Click: run(a.OpenNewHostForm)},
-			{Label: "新建目录", Accelerator: "CmdOrCtrl+Shift+N", Click: run(a.OpenNewFolderForm)},
+		{Label: i18n.T("menu.file"), Submenu: []*mygo.MenuItem{
+			{Label: i18n.T("menu.newAsset"), Accelerator: "CmdOrCtrl+N", Click: run(a.OpenNewHostForm)},
+			{Label: i18n.T("menu.newFolder"), Accelerator: "CmdOrCtrl+Shift+N", Click: run(a.OpenNewFolderForm)},
 			mygo.Separator(),
-			{Label: "设置…", Accelerator: "CmdOrCtrl+,", Click: run(func() {
+			{Label: i18n.T("menu.settings"), Accelerator: "CmdOrCtrl+,", Click: run(func() {
 				a.OpenSettings(a.Settings.Tab)
 			})},
 			mygo.Separator(),
 			{Role: mygo.RoleQuit},
 		}},
 		{Role: mygo.RoleEditMenu},
-		{Label: "视图", Submenu: []*mygo.MenuItem{
-			{Label: "资产", Accelerator: "CmdOrCtrl+1", Click: run(a.CloseSettings)},
+		{Label: i18n.T("menu.view"), Submenu: []*mygo.MenuItem{
+			{Label: i18n.T("menu.assets"), Accelerator: "CmdOrCtrl+1", Click: run(a.CloseSettings)},
 			mygo.Separator(),
-			{Label: "设置 · 常规", Click: run(func() { a.OpenSettings(app.SettingsGeneral) })},
-			{Label: "设置 · 模型", Click: run(func() { a.OpenSettings(app.SettingsModel) })},
-			{Label: "设置 · 技能", Click: run(func() { a.OpenSettings(app.SettingsSkills) })},
-			{Label: "设置 · 审批", Click: run(func() { a.OpenSettings(app.SettingsPolicy) })},
-			{Label: "设置 · 审计", Click: run(func() { a.OpenSettings(app.SettingsAudit) })},
+			{Label: i18n.T("menu.settings.general"), Click: run(func() { a.OpenSettings(app.SettingsGeneral) })},
+			{Label: i18n.T("menu.settings.model"), Click: run(func() { a.OpenSettings(app.SettingsModel) })},
+			{Label: i18n.T("menu.settings.skills"), Click: run(func() { a.OpenSettings(app.SettingsSkills) })},
+			{Label: i18n.T("menu.settings.policy"), Click: run(func() { a.OpenSettings(app.SettingsPolicy) })},
+			{Label: i18n.T("menu.settings.audit"), Click: run(func() { a.OpenSettings(app.SettingsAudit) })},
 			mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen},
 		}},
 		{Role: mygo.RoleWindowMenu},
 	})
 	mygo.App.SetMenu(menu)
+}
+
+// trayMenu builds the tray menu. It is rebuilt when the UI language changes.
+func trayMenu(a *app.App, win *mygo.Window) *mygo.Menu {
+	return mygo.NewMenu([]*mygo.MenuItem{
+		{Label: i18n.T("tray.open"), Click: func(*mygo.MenuItem, *mygo.Window) {
+			win.Show()
+			win.Focus()
+		}},
+		{Label: i18n.T("tray.settings"), Click: func(*mygo.MenuItem, *mygo.Window) {
+			a.Post(func() { a.OpenSettings(a.Settings.Tab) })
+			win.Show()
+			win.Focus()
+		}},
+		mygo.Separator(),
+		{Role: mygo.RoleQuit},
+	})
 }

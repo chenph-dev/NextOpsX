@@ -1,11 +1,11 @@
 package app
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/egoist/mygo"
 
+	"nextopsx/internal/i18n"
 	"nextopsx/internal/skill"
 )
 
@@ -39,7 +39,7 @@ func (a *App) LoadSkills() {
 	a.Skills.Notice = ""
 	if a.Backend == nil {
 		a.Skills.Loading = false
-		a.Skills.Err = "后端未初始化"
+		a.Skills.Err = i18n.T("settings.err.backendNotInitialized")
 		return
 	}
 	b := a.Backend
@@ -51,7 +51,7 @@ func (a *App) LoadSkills() {
 			}
 			a.Skills.Loading = false
 			if err != nil {
-				a.Skills.Err = "读取技能失败：" + err.Error()
+				a.Skills.Err = i18n.Tf("settings.err.loadSkillsFailed", err.Error())
 				return
 			}
 			a.Skills.Items = items
@@ -80,7 +80,7 @@ func (a *App) SelectSkill(name string) {
 	a.Skills.mdSeq++
 	seq := a.Skills.mdSeq
 	if a.Backend == nil {
-		a.Skills.MarkdownErr = "后端未初始化"
+		a.Skills.MarkdownErr = i18n.T("settings.err.backendNotInitialized")
 		return
 	}
 	a.Skills.MarkdownLoading = true
@@ -93,7 +93,7 @@ func (a *App) SelectSkill(name string) {
 			}
 			a.Skills.MarkdownLoading = false
 			if err != nil {
-				a.Skills.MarkdownErr = "读取 SKILL.md 失败：" + err.Error()
+				a.Skills.MarkdownErr = i18n.Tf("settings.err.readSkillMarkdownFailed", err.Error())
 				return
 			}
 			a.Skills.Markdown = md
@@ -104,18 +104,18 @@ func (a *App) SelectSkill(name string) {
 // InstallSkillZip asks for a ZIP file and installs it.
 func (a *App) InstallSkillZip() {
 	if a.Backend == nil {
-		a.Skills.Err = "后端未初始化"
+		a.Skills.Err = i18n.T("settings.err.backendNotInitialized")
 		return
 	}
 	b := a.Backend
 	go func() {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-			Title:       "选择技能 ZIP",
-			ButtonLabel: "安装",
-			Filters:     []mygo.FileFilter{{Name: "技能包", Extensions: []string{"zip"}}},
+			Title:       i18n.T("settings.skills.selectZipTitle"),
+			ButtonLabel: i18n.T("settings.skills.installButton"),
+			Filters:     []mygo.FileFilter{{Name: i18n.T("settings.skills.zipFilter"), Extensions: []string{"zip"}}},
 		})
 		if err != nil {
-			a.Post(func() { a.Skills.Err = "选择文件失败：" + err.Error() })
+			a.Post(func() { a.Skills.Err = i18n.Tf("settings.err.selectFileFailed", err.Error()) })
 			return
 		}
 		if len(paths) == 0 {
@@ -123,29 +123,29 @@ func (a *App) InstallSkillZip() {
 		}
 		info, err := os.Stat(paths[0])
 		if err != nil {
-			a.Post(func() { a.Skills.Err = "读取文件失败：" + err.Error() })
+			a.Post(func() { a.Skills.Err = i18n.Tf("settings.err.readFileFailed", err.Error()) })
 			return
 		}
 		if info.Size() > maxSkillZipBytes {
 			a.Post(func() {
-				a.Skills.Err = fmt.Sprintf("ZIP 文件过大（上限 %d MB）", maxSkillZipBytes>>20)
+				a.Skills.Err = i18n.Tf("settings.err.zipTooLarge", maxSkillZipBytes>>20)
 			})
 			return
 		}
 		data, err := os.ReadFile(paths[0])
 		if err != nil {
-			a.Post(func() { a.Skills.Err = "读取文件失败：" + err.Error() })
+			a.Post(func() { a.Skills.Err = i18n.Tf("settings.err.readFileFailed", err.Error()) })
 			return
 		}
 		s, err := b.InstallSkill(data)
 		a.Post(func() {
 			if err != nil {
-				a.Skills.Err = "安装失败：" + err.Error()
+				a.Skills.Err = i18n.Tf("settings.err.installSkillFailed", err.Error())
 				return
 			}
 			a.LoadSkills()
 			a.SelectSkill(s.Name)
-			a.Skills.Notice = "已安装技能 " + s.Name
+			a.Skills.Notice = i18n.Tf("settings.err.skillInstalled", s.Name)
 		})
 	}()
 }
@@ -162,7 +162,7 @@ func (a *App) SetSkillEnabled(name string, enabled bool) {
 		a.Post(func() {
 			if err != nil {
 				a.LoadSkills()
-				a.Skills.Err = "更新技能失败：" + err.Error()
+				a.Skills.Err = i18n.Tf("settings.err.updateSkillFailed", err.Error())
 				return
 			}
 			for _, s := range a.Skills.Items {
@@ -170,12 +170,12 @@ func (a *App) SetSkillEnabled(name string, enabled bool) {
 					s.Enabled = enabled
 				}
 			}
-			state := "已停用 "
+			noticeKey := "settings.err.skillDisabled"
 			if enabled {
-				state = "已启用 "
+				noticeKey = "settings.err.skillEnabled"
 			}
 			a.Skills.Err = ""
-			a.Skills.Notice = state + name
+			a.Skills.Notice = i18n.Tf(noticeKey, name)
 		})
 	}()
 }
@@ -200,7 +200,7 @@ func (a *App) ConfirmDeleteSkill() {
 		a.Post(func() {
 			a.Skills.ConfirmDelete = ""
 			if err != nil {
-				a.Skills.Err = "删除技能失败：" + err.Error()
+				a.Skills.Err = i18n.Tf("settings.err.deleteSkillFailed", err.Error())
 				return
 			}
 			if a.Skills.Selected == name {
@@ -208,7 +208,7 @@ func (a *App) ConfirmDeleteSkill() {
 				a.Skills.Markdown = ""
 			}
 			a.LoadSkills()
-			a.Skills.Notice = "已删除技能 " + name
+			a.Skills.Notice = i18n.Tf("settings.err.skillDeleted", name)
 		})
 	}()
 }

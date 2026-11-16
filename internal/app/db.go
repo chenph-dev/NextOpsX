@@ -14,6 +14,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"nextopsx/internal/dbexec"
+	"nextopsx/internal/i18n"
 	hoststore "nextopsx/internal/store/hosts"
 )
 
@@ -123,7 +124,7 @@ func (a *App) loadDBSchema(hostID string) {
 	seq := a.DB.schemaSeq
 	if a.Backend == nil {
 		a.DB.SchemaLoading = false
-		a.DB.SchemaErr = "后端未初始化"
+		a.DB.SchemaErr = i18n.T("db.backendNotReady")
 		return
 	}
 	b := a.Backend
@@ -135,7 +136,7 @@ func (a *App) loadDBSchema(hostID string) {
 			}
 			a.DB.SchemaLoading = false
 			if err != nil {
-				a.DB.SchemaErr = "加载结构失败：" + err.Error()
+				a.DB.SchemaErr = i18n.Tf("db.schema.loadFailed", err.Error())
 				return
 			}
 			a.DB.SchemaErr = ""
@@ -218,8 +219,8 @@ func newDBQueryTab(key, title string) *DBTab {
 		Key: key, Kind: DBTabQuery, Title: title,
 		Editor: &editor.State{
 			Buffer:      buf,
-			Label:       "SQL 查询",
-			Placeholder: "输入 SQL，点击「执行」运行",
+			Label:       i18n.T("db.editor.label"),
+			Placeholder: i18n.T("db.editor.placeholder"),
 		},
 	}
 }
@@ -227,9 +228,9 @@ func newDBQueryTab(key, title string) *DBTab {
 // NewDBQueryTab adds and activates a query tab.
 func (a *App) NewDBQueryTab() {
 	a.DB.tabSeq++
-	title := "查询"
+	title := i18n.T("db.tab.query")
 	if n := a.DB.tabSeq; n > 1 {
-		title = fmt.Sprintf("查询 %d", n)
+		title = i18n.Tf("db.tab.queryNumbered", n)
 	}
 	tab := newDBQueryTab(fmt.Sprintf("db-q-%d", a.DB.tabSeq), title)
 	a.DB.Tabs = append(a.DB.Tabs, tab)
@@ -315,7 +316,7 @@ func (a *App) runDBCommand(tab *DBTab, sqlText string) {
 	seq := tab.seq
 	if a.Backend == nil {
 		tab.Running = false
-		tab.Err = "后端未初始化"
+		tab.Err = i18n.T("db.backendNotReady")
 		return
 	}
 	b := a.Backend
@@ -398,7 +399,7 @@ func (a *App) loadDBTablePage(tab *DBTab, page int, recount bool) {
 	seq := tab.seq
 	if a.Backend == nil {
 		tab.Running = false
-		tab.Err = "后端未初始化"
+		tab.Err = i18n.T("db.backendNotReady")
 		return
 	}
 	needCount := recount || !tab.HasTotal
@@ -582,11 +583,11 @@ func dbResultCSV(columns []string, rows [][]any) (string, error) {
 func (a *App) ExportActiveDBResult() {
 	tab := a.ActiveDBTab()
 	if tab == nil || tab.Result == nil || len(tab.Result.Columns) == 0 {
-		a.DB.Err = "当前没有可导出的查询结果"
+		a.DB.Err = i18n.T("db.export.empty")
 		return
 	}
 	if tab.Running || (tab.Kind == DBTabTable && tab.ResultPage != tab.Page) {
-		a.DB.Err = "数据正在加载，请稍后再导出"
+		a.DB.Err = i18n.T("db.export.loading")
 		return
 	}
 	columns := tab.Result.Columns
@@ -603,13 +604,13 @@ func (a *App) ExportActiveDBResult() {
 	a.DB.Notice = ""
 	go func() {
 		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
-			Title:       "导出 CSV",
+			Title:       i18n.T("db.export.dialog.title"),
 			DefaultPath: name + ".csv",
-			ButtonLabel: "导出",
+			ButtonLabel: i18n.T("db.export.dialog.button"),
 			Filters:     []mygo.FileFilter{{Name: "CSV", Extensions: []string{"csv"}}},
 		})
 		if err != nil {
-			a.Post(func() { a.DB.Err = "导出失败：" + err.Error() })
+			a.Post(func() { a.DB.Err = i18n.Tf("db.export.failed", err.Error()) })
 			return
 		}
 		if strings.TrimSpace(path) == "" {
@@ -620,26 +621,26 @@ func (a *App) ExportActiveDBResult() {
 		}
 		content, err := dbResultCSV(columns, rows)
 		if err != nil {
-			a.Post(func() { a.DB.Err = "生成 CSV 失败：" + err.Error() })
+			a.Post(func() { a.DB.Err = i18n.Tf("db.export.csvFailed", err.Error()) })
 			return
 		}
 		if err := os.WriteFile(path, append([]byte("\uFEFF"), []byte(content)...), 0o644); err != nil {
-			a.Post(func() { a.DB.Err = "写入文件失败：" + err.Error() })
+			a.Post(func() { a.DB.Err = i18n.Tf("db.export.writeFailed", err.Error()) })
 			return
 		}
 		a.Post(func() {
 			a.DB.Err = ""
-			note := fmt.Sprintf("已导出 %d 行", len(rows))
+			note := i18n.Tf("db.export.notice.rows", len(rows))
 			if kind == DBTabTable {
-				note = fmt.Sprintf("已导出第 %d 页 %d 行", page+1, len(rows))
+				note = i18n.Tf("db.export.notice.page", page+1, len(rows))
 				if hasTotal {
-					note += fmt.Sprintf("（共 %d 行，仅当前页）", total)
+					note += i18n.Tf("db.export.notice.total", total)
 				}
 			}
 			if truncated {
-				note += "；结果已截断"
+				note += i18n.T("db.export.notice.truncated")
 			}
-			a.DB.Notice = note + "：" + path
+			a.DB.Notice = note + i18n.T("db.notice.separator") + path
 		})
 	}()
 }

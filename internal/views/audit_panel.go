@@ -7,27 +7,28 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/i18n"
 )
 
 // auditSettings is the AI call audit section of the settings page.
 func auditSettings(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Fill().MinWidth(0).Children(func() {
 		ui.Row(c).Padding(8, 14).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "AI 调用记录").FontSize(fontSize(13)).Bold()
+			ui.Text(c, i18n.T("settings.audit.title")).FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
-			ui.Button(c, "刷新").OnClick(a.LoadAudit)
+			ui.Button(c, i18n.T("settings.audit.refresh")).OnClick(a.LoadAudit)
 		})
 		ui.Divider(c)
 		switch {
 		case a.Audit.Loading && len(a.Audit.Logs) == 0:
 			ui.Row(c).Grow(1).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "读取审计日志…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.T("settings.audit.loading")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.Audit.Err != "" && len(a.Audit.Logs) == 0:
 			ui.Column(c).Padding(16).Gap(6).Children(func() {
 				dbErrorText(c, a.Audit.Err, t)
-				ui.Button(c, "重试").OnClick(a.LoadAudit)
+				ui.Button(c, i18n.T("settings.audit.retry")).OnClick(a.LoadAudit)
 			})
 		default:
 			if a.Audit.Err != "" {
@@ -38,8 +39,8 @@ func auditSettings(c *ui.Context, a *app.App, t *ui.Theme) {
 			ui.Divider(c)
 			if len(a.Audit.Logs) == 0 {
 				ui.Column(c).Padding(16).Gap(6).Children(func() {
-					ui.Text(c, "还没有调用记录").FontSize(fontSize(13)).TextColor(t.TextMuted)
-					ui.Text(c, "使用 AI 对话后，模型与工具调用会记录在这里。").
+					ui.Text(c, i18n.T("settings.audit.emptyTitle")).FontSize(fontSize(13)).TextColor(t.TextMuted)
+					ui.Text(c, i18n.T("settings.audit.emptyHint")).
 						FontSize(fontSize(12)).TextColor(t.TextMuted)
 				})
 				return
@@ -53,12 +54,12 @@ func auditSettings(c *ui.Context, a *app.App, t *ui.Theme) {
 func auditSummary(c *ui.Context, a *app.App, t *ui.Theme) {
 	s := a.Audit.Summary
 	ui.Row(c).Padding(10, 16).Gap(20).AlignItems(ui.Center).Children(func() {
-		auditStat(c, t, "调用", fmt.Sprintf("%d", s.TotalCalls))
-		auditStat(c, t, "模型", fmt.Sprintf("%d", s.ModelCalls))
-		auditStat(c, t, "工具", fmt.Sprintf("%d", s.ToolCalls))
-		auditStat(c, t, "Tokens 入", fmt.Sprintf("%d", s.TokensIn))
-		auditStat(c, t, "Tokens 出", fmt.Sprintf("%d", s.TokensOut))
-		auditStat(c, t, "Tokens 合计", fmt.Sprintf("%d", s.TokensTotal))
+		auditStat(c, t, i18n.T("settings.audit.calls"), fmt.Sprintf("%d", s.TotalCalls))
+		auditStat(c, t, i18n.T("settings.audit.models"), fmt.Sprintf("%d", s.ModelCalls))
+		auditStat(c, t, i18n.T("settings.audit.tools"), fmt.Sprintf("%d", s.ToolCalls))
+		auditStat(c, t, i18n.T("settings.audit.tokensIn"), fmt.Sprintf("%d", s.TokensIn))
+		auditStat(c, t, i18n.T("settings.audit.tokensOut"), fmt.Sprintf("%d", s.TokensOut))
+		auditStat(c, t, i18n.T("settings.audit.tokensTotal"), fmt.Sprintf("%d", s.TokensTotal))
 	})
 }
 
@@ -71,15 +72,15 @@ func auditStat(c *ui.Context, t *ui.Theme, label, value string) {
 
 func auditTable(c *ui.Context, a *app.App, t *ui.Theme) {
 	cols := []ui.TableColumn{
-		{Title: "时间", Width: 110},
-		{Title: "组件", Width: 64},
-		{Title: "名称", Width: 130},
-		{Title: "实现", Width: 110},
-		{Title: "入", Width: 72, Align: ui.End},
-		{Title: "出", Width: 72, Align: ui.End},
-		{Title: "合计", Width: 82, Align: ui.End},
-		{Title: "耗时", Width: 80, Align: ui.End},
-		{Title: "状态", Width: 64},
+		{Title: i18n.T("settings.audit.col.time"), Width: 110},
+		{Title: i18n.T("settings.audit.col.component"), Width: 64},
+		{Title: i18n.T("settings.audit.col.name"), Width: 130},
+		{Title: i18n.T("settings.audit.col.provider"), Width: 110},
+		{Title: i18n.T("settings.audit.col.in"), Width: 72, Align: ui.End},
+		{Title: i18n.T("settings.audit.col.out"), Width: 72, Align: ui.End},
+		{Title: i18n.T("settings.audit.col.total"), Width: 82, Align: ui.End},
+		{Title: i18n.T("settings.audit.col.duration"), Width: 80, Align: ui.End},
+		{Title: i18n.T("settings.audit.col.status"), Width: 64},
 	}
 	a.Audit.List.Selected = &a.Audit.Selected
 	// 以记录 ID 作为行标识，刷新后选中项跟随记录而不是下标。
@@ -99,12 +100,12 @@ func auditTable(c *ui.Context, a *app.App, t *ui.Theme) {
 			ui.Text(c, time.Unix(l.Ts, 0).Format("01-02 15:04:05")).
 				FontSize(fontSize(12)).SingleLine()
 		case 1:
-			component := "其他"
+			component := i18n.T("settings.audit.componentOther")
 			switch l.Component {
 			case "model":
-				component = "模型"
+				component = i18n.T("settings.audit.componentModel")
 			case "tool":
-				component = "工具"
+				component = i18n.T("settings.audit.componentTool")
 			}
 			ui.Text(c, component).FontSize(fontSize(12)).SingleLine()
 		case 2:
@@ -121,9 +122,9 @@ func auditTable(c *ui.Context, a *app.App, t *ui.Theme) {
 			ui.Text(c, fmt.Sprintf("%dms", l.DurationMS)).FontSize(fontSize(12)).SingleLine()
 		case 8:
 			if l.OK {
-				ui.Text(c, "成功").FontSize(fontSize(12)).TextColor(t.Success).SingleLine()
+				ui.Text(c, i18n.T("settings.audit.success")).FontSize(fontSize(12)).TextColor(t.Success).SingleLine()
 			} else {
-				ui.Text(c, "失败").FontSize(fontSize(12)).TextColor(t.Danger).SingleLine()
+				ui.Text(c, i18n.T("settings.audit.failure")).FontSize(fontSize(12)).TextColor(t.Danger).SingleLine()
 			}
 		}
 	}).Grow(1).MinWidth(0)
@@ -136,14 +137,14 @@ func auditDetail(c *ui.Context, a *app.App, t *ui.Theme) {
 	l := a.Audit.Logs[a.Audit.Selected]
 	ui.Divider(c)
 	ui.Column(c).Padding(6, 16).Gap(2).Children(func() {
-		line := fmt.Sprintf("会话 %s · %s",
+		line := i18n.Tf("settings.audit.sessionLine",
 			l.SessionID, time.Unix(l.Ts, 0).Format("2006-01-02 15:04:05"))
 		if l.SessionID == "" {
 			line = time.Unix(l.Ts, 0).Format("2006-01-02 15:04:05")
 		}
 		ui.Text(c, line).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 		if l.Error != "" {
-			ui.Text(c, "错误："+l.Error).FontSize(fontSize(12)).TextColor(t.Danger).Wrap()
+			ui.Text(c, i18n.Tf("settings.audit.error", l.Error)).FontSize(fontSize(12)).TextColor(t.Danger).Wrap()
 		}
 	})
 }

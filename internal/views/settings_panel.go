@@ -5,6 +5,7 @@ import (
 
 	"nextopsx/internal/app"
 	"nextopsx/internal/assets"
+	"nextopsx/internal/i18n"
 )
 
 // SettingsView is the full-window settings page: a section nav on the left
@@ -63,18 +64,18 @@ func settingsNav(c *ui.Context, a *app.App, t *ui.Theme) {
 				if s := assets.ObjectSVG("back"); s != nil {
 					ui.Icon(c, s).Size(13, 13)
 				}
-				ui.Text(c, "返回").FontSize(fontSize(13)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.T("settings.back")).FontSize(fontSize(13)).TextColor(t.TextMuted)
 			})
 		})
 		ui.Row(c).Padding(14, 8).Children(func() {
-			ui.Text(c, "设置").FontSize(fontSize(11)).TextColor(t.TextMuted)
+			ui.Text(c, i18n.T("settings.title")).FontSize(fontSize(11)).TextColor(t.TextMuted)
 		})
 		ui.Column(c).Padding(6).Gap(2).Children(func() {
-			settingsNavItem(c, a, t, app.SettingsGeneral, "通用", "sliders")
-			settingsNavItem(c, a, t, app.SettingsModel, "模型", "cpu")
-			settingsNavItem(c, a, t, app.SettingsSkills, "技能", "spark")
-			settingsNavItem(c, a, t, app.SettingsPolicy, "审批", "shield")
-			settingsNavItem(c, a, t, app.SettingsAudit, "审计", "chart")
+			settingsNavItem(c, a, t, app.SettingsGeneral, i18n.T("settings.nav.general"), "sliders")
+			settingsNavItem(c, a, t, app.SettingsModel, i18n.T("settings.nav.model"), "cpu")
+			settingsNavItem(c, a, t, app.SettingsSkills, i18n.T("settings.nav.skills"), "spark")
+			settingsNavItem(c, a, t, app.SettingsPolicy, i18n.T("settings.nav.policy"), "shield")
+			settingsNavItem(c, a, t, app.SettingsAudit, i18n.T("settings.nav.audit"), "chart")
 		})
 		ui.Spacer(c)
 		ui.Divider(c)
@@ -121,15 +122,15 @@ func settingsPageHeader(c *ui.Context, a *app.App, t *ui.Theme) {
 func settingsSectionMeta(tab app.SettingsTab) (title, icon string) {
 	switch tab {
 	case app.SettingsGeneral:
-		return "通用", "sliders"
+		return i18n.T("settings.nav.general"), "sliders"
 	case app.SettingsSkills:
-		return "技能", "spark"
+		return i18n.T("settings.nav.skills"), "spark"
 	case app.SettingsPolicy:
-		return "审批", "shield"
+		return i18n.T("settings.nav.policy"), "shield"
 	case app.SettingsAudit:
-		return "审计", "chart"
+		return i18n.T("settings.nav.audit"), "chart"
 	default:
-		return "模型", "cpu"
+		return i18n.T("settings.nav.model"), "cpu"
 	}
 }
 

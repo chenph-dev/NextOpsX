@@ -3,11 +3,13 @@ package views
 import (
 	"testing"
 	"time"
+	"unicode"
 
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
 	"nextopsx/internal/backend"
+	"nextopsx/internal/i18n"
 	hoststore "nextopsx/internal/store/hosts"
 )
 
@@ -233,5 +235,31 @@ func TestEditHostFormAndDeleteDialog(t *testing.T) {
 	}
 	if a.Hosts.DeleteOpen {
 		t.Fatal("delete dialog did not close")
+	}
+}
+
+func TestHostFormEnglishLabels(t *testing.T) {
+	t.Cleanup(func() { i18n.SetLanguage(i18n.ZhCN) })
+	i18n.SetLanguage(i18n.EnUS)
+	a := &app.App{}
+	a.Settings.Language = "en-US"
+	a.Settings.LanguageIndex = 1
+	a.OpenNewHostForm()
+	tt := ui.NewTester(Shell(a), 1000, 800)
+	tt.Frame()
+	for _, want := range []string{
+		"New asset", "Name", "Protocol", "Address", "Port", "User",
+		"Auth", "Password", "Auto-approve", "Test connection", "Save", "Cancel",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+	for _, text := range tt.Texts() {
+		for _, r := range text {
+			if unicode.Is(unicode.Han, r) {
+				t.Fatalf("untranslated Chinese in English host form: %q", text)
+			}
+		}
 	}
 }

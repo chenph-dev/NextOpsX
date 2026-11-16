@@ -1,5 +1,7 @@
 package app
 
+import "nextopsx/internal/i18n"
+
 // OpenRDP launches the Windows Remote Desktop client for the selected WinRM
 // asset. Errors are surfaced in the asset header's error strip.
 func (a *App) OpenRDP() {
@@ -17,7 +19,7 @@ func (a *App) OpenRDP() {
 				if a.Selected == nil || a.Selected.ID != hostID {
 					return
 				}
-				a.ErrMsg = "启动远程桌面失败：" + err.Error()
+				a.ErrMsg = i18n.Tf("rdp.openFailed", err.Error())
 			})
 		}
 	}()

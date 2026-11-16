@@ -1,11 +1,10 @@
 package views
 
 import (
-	"fmt"
-
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/i18n"
 )
 
 // ESPanel is the Elasticsearch index browser, DSL query, cluster info and
@@ -16,14 +15,14 @@ func ESPanel(c *ui.Context, a *app.App) {
 		ui.Row(c).Padding(6, 10).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, "Elasticsearch · "+a.ES.Label).FontSize(fontSize(13)).Bold().SingleLine()
 			ui.Spacer(c)
-			ui.Button(c, "刷新索引").FontSize(fontSize(12)).OnClick(a.ESRefreshIndices)
+			ui.Button(c, i18n.T("es.action.refreshIndices")).FontSize(fontSize(12)).OnClick(a.ESRefreshIndices)
 		})
 		ui.Divider(c)
 		ui.Row(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
 			esIndexPane(c, a, t)
 			ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
 				ui.Row(c).Padding(4, 8).Background(t.Surface).Children(func() {
-					tabs := ui.Tabs(c, &a.ES.MainTab, "DSL 查询", "集群信息")
+					tabs := ui.Tabs(c, &a.ES.MainTab, i18n.T("es.tab.query"), i18n.T("es.tab.info"))
 					if tabs.Changed() && a.ES.MainTab == 1 {
 						a.ESLoadInfo()
 					}
@@ -45,25 +44,25 @@ func esIndexPane(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Width(260).FillHeight().Background(t.Surface).
 		Border(1, t.Border).Children(func() {
 		ui.Row(c).Padding(6, 8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, fmt.Sprintf("索引 (%d)", len(a.ES.Indices))).FontSize(fontSize(13)).Bold()
+			ui.Text(c, i18n.Tf("es.indices.title", len(a.ES.Indices))).FontSize(fontSize(13)).Bold()
 		})
 		ui.Divider(c)
 		switch {
 		case a.ES.IndicesLoading:
 			ui.Row(c).Padding(16).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "读取索引…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.T("es.indices.loading")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.ES.IndicesErr != "":
 			ui.Column(c).Padding(8).Gap(6).Children(func() {
 				dbErrorText(c, a.ES.IndicesErr, t)
-				ui.Button(c, "重试").OnClick(a.ESRefreshIndices)
+				ui.Button(c, i18n.T("es.action.retry")).OnClick(a.ESRefreshIndices)
 			})
 		case len(a.ES.Indices) == 0:
-			ui.Text(c, "没有索引").FontSize(fontSize(12)).TextColor(t.TextMuted).Padding(8)
+			ui.Text(c, i18n.T("es.indices.empty")).FontSize(fontSize(12)).TextColor(t.TextMuted).Padding(8)
 		default:
 			a.ES.IndexGrid.Selected = &a.ES.IndexRow
-			cols := []ui.TableColumn{{Title: "索引", MinWidth: 220}}
+			cols := []ui.TableColumn{{Title: i18n.T("es.indices.column"), MinWidth: 220}}
 			table := ui.Table(c, &a.ES.IndexGrid, cols, len(a.ES.Indices),
 				func(row, col int) {
 					if row < 0 || row >= len(a.ES.Indices) {
@@ -82,13 +81,13 @@ func esIndexPane(c *ui.Context, a *app.App, t *ui.Theme) {
 func esQuery(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Grow(1).MinWidth(0).Padding(8).Gap(6).Children(func() {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			label := "索引：未选择"
+			label := i18n.T("es.query.noIndex")
 			if a.ES.SelectedIndex != "" {
-				label = "索引：" + a.ES.SelectedIndex
+				label = i18n.Tf("es.query.index", a.ES.SelectedIndex)
 			}
 			ui.Text(c, label).FontSize(fontSize(13)).TextColor(t.TextMuted).SingleLine().MaxWidth(420)
 			ui.Spacer(c)
-			run := ui.PrimaryButton(c, "执行查询").FontSize(fontSize(12))
+			run := ui.PrimaryButton(c, i18n.T("es.action.runQuery")).FontSize(fontSize(12))
 			if a.ES.SelectedIndex == "" || a.ES.QueryRunning {
 				run = run.Disabled(true)
 			}
@@ -101,14 +100,14 @@ func esQuery(c *ui.Context, a *app.App, t *ui.Theme) {
 		case a.ES.QueryRunning:
 			ui.Row(c).Padding(20).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "查询中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.T("es.query.running")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.ES.QueryErr != "":
 			dbErrorText(c, a.ES.QueryErr, t)
 		case a.ES.QueryResult != nil:
 			ResultGridView(c, &a.ES.QueryGrid, a.ES.QueryResult, t)
 		default:
-			dbHint(c, "选择索引并输入 Query DSL 后执行。", t)
+			dbHint(c, i18n.T("es.query.hint"), t)
 		}
 	})
 }
@@ -116,20 +115,20 @@ func esQuery(c *ui.Context, a *app.App, t *ui.Theme) {
 func esInfo(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Grow(1).MinWidth(0).Padding(8).Gap(6).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "集群信息").FontSize(fontSize(13)).Bold()
+			ui.Text(c, i18n.T("es.info.title")).FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
-			ui.Button(c, "刷新").FontSize(fontSize(12)).OnClick(a.ESLoadInfo)
+			ui.Button(c, i18n.T("es.action.refresh")).FontSize(fontSize(12)).OnClick(a.ESLoadInfo)
 		})
 		switch {
 		case a.ES.InfoLoading:
 			ui.Row(c).Padding(20).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "读取集群信息…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.T("es.info.loading")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.ES.InfoErr != "":
 			dbErrorText(c, a.ES.InfoErr, t)
 		case len(a.ES.Info) == 0:
-			dbHint(c, "没有可展示的集群指标。", t)
+			dbHint(c, i18n.T("es.info.empty"), t)
 		default:
 			ui.Scroll(c).Grow(1).Children(func() {
 				ui.Column(c).Gap(2).Children(func() {
@@ -151,9 +150,9 @@ func esCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Height(240).Shrink(0).Background(t.Surface).
 		Border(1, t.Border).Radius(4).Children(func() {
 		ui.Row(c).Padding(4, 8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "REST 命令终端").FontSize(fontSize(13)).Bold()
+			ui.Text(c, i18n.T("es.command.title")).FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
-			history := ui.Button(c, fmt.Sprintf("历史 (%d)", len(a.ES.CommandHistory))).
+			history := ui.Button(c, i18n.Tf("es.command.historyCount", len(a.ES.CommandHistory))).
 				FontSize(fontSize(11))
 			history = history.OnClick(func() {
 				a.ES.HistoryOpen = !a.ES.HistoryOpen
@@ -169,14 +168,14 @@ func esCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 				case a.ES.CommandRunning:
 					ui.Row(c).Padding(8).Children(func() {
 						ui.Spinner(c)
-						ui.Text(c, "执行中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+						ui.Text(c, i18n.T("es.command.running")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 					})
 				case a.ES.CommandErr != "":
 					dbErrorText(c, a.ES.CommandErr, t)
 				case a.ES.CommandResult != nil:
 					ResultGridView(c, &a.ES.CommandGrid, a.ES.CommandResult, t)
 				default:
-					dbHint(c, "输入 REST 命令；首行为路径，后续行为 JSON body。", t)
+					dbHint(c, i18n.T("es.command.hint"), t)
 				}
 			})
 		})
@@ -185,8 +184,8 @@ func esCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 			c.Key("es-command")
 			ui.TextArea(c, &a.ES.Command).Grow(1).Lines(2, 6).
 				Font("monospace").FontSize(fontSize(12)).
-				Placeholder("_cat/indices?format=json\n或 logs-*/_search\n{\"query\":{\"match_all\":{}}}")
-			run := ui.PrimaryButton(c, "执行").FontSize(fontSize(12))
+				Placeholder(i18n.T("es.command.placeholder"))
+			run := ui.PrimaryButton(c, i18n.T("es.action.execute")).FontSize(fontSize(12))
 			if a.ES.CommandRunning {
 				run = run.Disabled(true)
 			}
@@ -197,9 +196,9 @@ func esCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 
 func esHistory(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Width(500).MaxHeight(320).Padding(8).Gap(4).Children(func() {
-		ui.Text(c, "命令历史").FontSize(fontSize(13)).Bold()
+		ui.Text(c, i18n.T("es.command.historyTitle")).FontSize(fontSize(13)).Bold()
 		if len(a.ES.CommandHistory) == 0 {
-			ui.Text(c, "暂无历史").FontSize(fontSize(12)).TextColor(t.TextMuted)
+			ui.Text(c, i18n.T("es.command.historyEmpty")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			return
 		}
 		ui.Scroll(c).MaxHeight(260).Children(func() {
@@ -226,7 +225,7 @@ func esStatusBar(c *ui.Context, a *app.App, t *ui.Theme) {
 		}
 		text := a.ES.Notice
 		if text == "" {
-			text = "就绪"
+			text = i18n.T("es.status.ready")
 		}
 		ui.Text(c, text).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 	})

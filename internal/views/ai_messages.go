@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/i18n"
 	convstore "nextopsx/internal/store/conversations"
 )
 
@@ -51,7 +52,7 @@ func aiMessage(c *ui.Context, a *app.App, i int, t *ui.Theme) {
 func aiUserBubble(c *ui.Context, text string, t *ui.Theme) {
 	svc := c.Services()
 	ui.Row(c).Justify(ui.End).Gap(6).AlignItems(ui.Center).Children(func() {
-		ui.Button(c, "复制").FontSize(fontSize(12)).OnClick(func() { svc.WriteClipboard(text) })
+		ui.Button(c, i18n.T("ai.action.copy")).FontSize(fontSize(12)).OnClick(func() { svc.WriteClipboard(text) })
 		ui.Column(c).MaxWidth(560).Padding(8, 10).Radius(8).
 			Background(t.Accent).Children(func() {
 			ui.Text(c, text).TextColor(t.AccentText).FontSize(fontSize(13)).Wrap()
@@ -66,7 +67,7 @@ func aiAssistantBubble(c *ui.Context, text string, t *ui.Theme) {
 			Background(t.Surface).Children(func() {
 			MarkdownView(c, text)
 		})
-		ui.Button(c, "复制").FontSize(fontSize(12)).OnClick(func() { svc.WriteClipboard(text) })
+		ui.Button(c, i18n.T("ai.action.copy")).FontSize(fontSize(12)).OnClick(func() { svc.WriteClipboard(text) })
 	})
 }
 
@@ -145,18 +146,18 @@ func toolOutputBlock(c *ui.Context, a *app.App, msg convstore.Message, t *ui.The
 	} else if msg.ToolName != "" {
 		head += msg.ToolName
 	} else {
-		head += "工具输出"
+		head += i18n.T("ai.tool.output")
 	}
 	switch {
 	case meta.Status == app.AIStatusRejected:
-		head += " · 已拒绝"
+		head += i18n.T("ai.tool.rejected")
 	case meta.Cancelled:
-		head += " · 已取消"
+		head += i18n.T("ai.tool.cancelled")
 	case msg.ToolResult != "":
 		head += fmt.Sprintf(" · exit %d", meta.ExitCode)
 	}
 	if lines := countOutputLines(msg.Content); lines > 0 {
-		head += fmt.Sprintf(" · %d 行", lines)
+		head += i18n.Tf("ai.tool.lines", lines)
 	}
 	ui.Button(c, head).FontSize(fontSize(12)).SingleLine().OnClick(func() {
 		a.ToggleToolOutput(msg.ID)
@@ -166,7 +167,7 @@ func toolOutputBlock(c *ui.Context, a *app.App, msg convstore.Message, t *ui.The
 	}
 	content := msg.Content
 	if strings.TrimSpace(content) == "" {
-		content = "(无输出)"
+		content = i18n.T("ai.tool.noOutput")
 	}
 	ui.Scroll(c).MaxHeight(260).Children(func() {
 		ui.Column(c).Background(t.Background).Border(1, t.Border).Radius(4).

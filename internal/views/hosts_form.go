@@ -1,12 +1,12 @@
 package views
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/i18n"
 )
 
 // HostsDialogs renders the asset form, rename/move dialogs and the delete
@@ -24,21 +24,22 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 		t := c.Theme()
 		ui.Column(c).Width(620).Padding(20).Gap(12).Children(func() {
 			ui.Column(c).Gap(2).Children(func() {
-				title := "新建资产"
+				title := i18n.T("hosts.form.title.new")
 				switch {
 				case f.IsFolder:
-					title = "新建目录"
+					title = i18n.T("hosts.form.title.newFolder")
 				case f.EditingID != "":
-					title = "编辑资产"
+					title = i18n.T("hosts.form.title.edit")
 				}
 				ui.Text(c, title).FontSize(fontSize(17)).Bold()
-				ui.Text(c, "位置："+a.HostFormParentLabel()).
+				ui.Text(c, i18n.Tf("hosts.form.location", a.HostFormParentLabel())).
 					FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 
 			nameInput := func() {
 				c.Key("host-form-name")
-				ui.TextInput(c, &f.Name).Grow(1).Label("名称").Placeholder("如 web-01")
+				ui.TextInput(c, &f.Name).Grow(1).Label(i18n.T("hosts.form.name")).
+					Placeholder(i18n.T("hosts.form.namePlaceholder"))
 			}
 			protocolInput := func() {
 				options := a.HostProtocolOptions()
@@ -47,14 +48,14 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 					values = append(values, o.Value)
 				}
 				c.Key("host-form-protocol")
-				sel := ui.Select(c, &f.Protocol, values).Label("协议").Grow(1)
+				sel := ui.Select(c, &f.Protocol, values).Label(i18n.T("hosts.form.protocol")).Grow(1)
 				if sel.Changed() {
 					a.SyncHostProtocol()
 				}
 			}
 
 			if f.IsFolder {
-				formRow(c, t, "名称", nameInput)
+				formRow(c, t, i18n.T("hosts.form.name"), nameInput)
 				if f.Err != "" {
 					ui.Text(c, f.Err).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
 				}
@@ -63,37 +64,43 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 				return
 			}
 
-			formPair(c, func() { formField(c, t, "名称", nameInput) },
-				func() { formField(c, t, "协议", protocolInput) })
+			formPair(c, func() { formField(c, t, i18n.T("hosts.form.name"), nameInput) },
+				func() { formField(c, t, i18n.T("hosts.form.protocol"), protocolInput) })
 
 			if a.HostFormNeedsHost() {
 				formPair(c,
 					func() {
-						formField(c, t, "地址", func() {
+						formField(c, t, i18n.T("hosts.form.address"), func() {
 							c.Key("host-form-addr")
-							ui.TextInput(c, &f.Addr).Grow(1).Label("地址").Placeholder("10.0.0.5")
+							ui.TextInput(c, &f.Addr).Grow(1).Label(i18n.T("hosts.form.address")).
+								Placeholder("10.0.0.5")
 						})
 					},
 					func() {
-						formField(c, t, "端口", func() {
+						formField(c, t, i18n.T("hosts.form.port"), func() {
 							c.Key("host-form-port")
-							ui.TextInput(c, &f.Port).Grow(1).Label("端口").Placeholder("22")
+							ui.TextInput(c, &f.Port).Grow(1).Label(i18n.T("hosts.form.port")).
+								Placeholder("22")
 						})
 					})
 
 				userInput := func() {
 					c.Key("host-form-user")
-					ui.TextInput(c, &f.User).Grow(1).Label("用户").Placeholder("root")
+					ui.TextInput(c, &f.User).Grow(1).Label(i18n.T("hosts.form.user")).Placeholder("root")
 				}
 				switch {
 				case a.HostFormIsSSH():
 					formPair(c,
-						func() { formField(c, t, "用户", userInput) },
+						func() { formField(c, t, i18n.T("hosts.form.user"), userInput) },
 						func() {
-							formField(c, t, "认证", func() {
+							formField(c, t, i18n.T("hosts.form.auth"), func() {
 								c.Key("host-form-auth")
-								sel := ui.Select(c, &f.AuthLabel, []string{"密码", "私钥"}).
-									Label("认证方式").Grow(1)
+								// Picker labels are display-only; SyncHostAuth maps either
+								// language back to the canonical AuthType.
+								sel := ui.Select(c, &f.AuthLabel, []string{
+									i18n.T("hosts.auth.password"), i18n.T("hosts.auth.privateKey"),
+								}).
+									Label(i18n.T("hosts.form.authMethod")).Grow(1)
 								if sel.Changed() {
 									a.SyncHostAuth()
 								}
@@ -101,27 +108,28 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 						})
 				case a.HostFormIsWinRM():
 					formPair(c,
-						func() { formField(c, t, "用户", userInput) },
+						func() { formField(c, t, i18n.T("hosts.form.user"), userInput) },
 						func() {
-							formField(c, t, "RDP 端口", func() {
+							formField(c, t, i18n.T("hosts.form.rdpPort"), func() {
 								c.Key("host-form-rdp")
-								ui.TextInput(c, &f.RdpPort).Grow(1).Label("RDP 端口").Placeholder("3389")
+								ui.TextInput(c, &f.RdpPort).Grow(1).Label(i18n.T("hosts.form.rdpPort")).
+									Placeholder("3389")
 							})
 						})
 				default:
-					formRow(c, t, "用户", userInput)
+					formRow(c, t, i18n.T("hosts.form.user"), userInput)
 				}
 
-				secretLabel := "凭据"
+				secretLabel := i18n.T("hosts.form.credential")
 				secretPlaceholder := ""
 				if a.HostFormIsSSH() && f.AuthType == "privatekey" {
 					secretPlaceholder = "-----BEGIN ... PRIVATE KEY-----"
 				}
 				if f.EditingID != "" {
 					if a.HostFormIsSSH() && f.AuthType == "privatekey" {
-						secretPlaceholder = "留空表示保留原私钥"
+						secretPlaceholder = i18n.T("hosts.form.keepPrivateKey")
 					} else {
-						secretPlaceholder = "留空表示保留原密码"
+						secretPlaceholder = i18n.T("hosts.form.keepPassword")
 					}
 				}
 				formRow(c, t, secretLabel, func() {
@@ -135,7 +143,7 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 					}
 				})
 				if f.EditingID != "" {
-					ui.Text(c, "编辑时凭据留空表示保留原值。").
+					ui.Text(c, i18n.T("hosts.form.editKeepHint")).
 						FontSize(fontSize(12)).TextColor(t.TextMuted).Padding(0, 0, 0, 96)
 				}
 			}
@@ -153,7 +161,7 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 							c.Key("host-param-" + p.Key)
 							ui.TextInput(c, &p.Value).Grow(1).Label(p.Label).
 								Placeholder(p.Placeholder)
-							ui.Button(c, "选择文件").OnClick(func() {
+							ui.Button(c, i18n.T("hosts.form.chooseFile")).OnClick(func() {
 								a.PickHostParamFile(index)
 							})
 						})
@@ -165,22 +173,26 @@ func hostFormDialog(c *ui.Context, a *app.App) {
 				})
 			}
 
-			formRow(c, t, "自动放行", func() {
+			formRow(c, t, i18n.T("hosts.form.autoApprove"), func() {
 				c.Key("host-form-auto")
+				// See the auth picker: labels are display-only and mapped
+				// back to the canonical value by SyncHostAutoApprove.
 				sel := ui.Select(c, &f.AutoApproveLabel,
-					[]string{"继承全局", "自动放行", "人工审批"}).Width(220)
+					[]string{
+						i18n.T("hosts.auto.inherit"), i18n.T("hosts.auto.allow"), i18n.T("hosts.auto.manual"),
+					}).Width(220)
 				if sel.Changed() {
 					a.SyncHostAutoApprove()
 				}
 			})
-			ui.Text(c, "继承全局：按审批策略；自动放行：只读命令免审批；人工审批：全部命令先确认。").
+			ui.Text(c, i18n.T("hosts.form.autoApproveHint")).
 				FontSize(fontSize(12)).TextColor(t.TextMuted).Wrap().Padding(0, 0, 0, 96)
 
 			if f.TestMsg != "" {
 				color := t.TextMuted
 				if f.TestOK {
 					color = t.Success
-				} else if !strings.HasPrefix(f.TestMsg, "正在") {
+				} else if !strings.HasPrefix(f.TestMsg, i18n.T("hosts.test.testingPrefix")) {
 					color = t.Danger
 				}
 				ui.Text(c, f.TestMsg).FontSize(fontSize(13)).TextColor(color).Wrap().
@@ -221,16 +233,16 @@ func formPair(c *ui.Context, left, right func()) {
 func formFooter(c *ui.Context, a *app.App, t *ui.Theme, f *app.HostForm, canTest bool) {
 	ui.Row(c).AlignItems(ui.Center).Children(func() {
 		if canTest {
-			test := ui.Button(c, "测试连接").Width(100)
+			test := ui.Button(c, i18n.T("hosts.form.test")).Width(100)
 			if f.Busy {
 				test = test.Disabled(true)
 			}
 			test.OnClick(a.TestHostConnection)
 		}
 		ui.Spacer(c)
-		cancel := ui.Button(c, "取消").Width(84)
+		cancel := ui.Button(c, i18n.T("hosts.form.cancel")).Width(84)
 		cancel.OnClick(a.CloseHostForm)
-		save := ui.PrimaryButton(c, "保存").Width(84)
+		save := ui.PrimaryButton(c, i18n.T("hosts.form.save")).Width(84)
 		if f.Busy {
 			save = save.Disabled(true)
 		}
@@ -242,12 +254,12 @@ func renameDialog(c *ui.Context, a *app.App) {
 	ui.Modal(c, &a.Hosts.RenameOpen, func() {
 		t := c.Theme()
 		ui.Column(c).Width(420).Padding(18).Gap(10).Children(func() {
-			ui.Text(c, "重命名").FontSize(fontSize(16)).Bold()
+			ui.Text(c, i18n.T("hosts.form.renameTitle")).FontSize(fontSize(16)).Bold()
 			c.Key("host-rename-name")
-			ui.TextInput(c, &a.Hosts.RenameName).Label("新名称").Grow(1)
+			ui.TextInput(c, &a.Hosts.RenameName).Label(i18n.T("hosts.form.newName")).Grow(1)
 			ui.Row(c).Justify(ui.End).Gap(8).Children(func() {
-				ui.Button(c, "取消").OnClick(func() { a.Hosts.RenameOpen = false })
-				ui.PrimaryButton(c, "保存").OnClick(a.SaveRename)
+				ui.Button(c, i18n.T("hosts.form.cancel")).OnClick(func() { a.Hosts.RenameOpen = false })
+				ui.PrimaryButton(c, i18n.T("hosts.form.save")).OnClick(a.SaveRename)
 			})
 			if a.Hosts.Err != "" {
 				ui.Text(c, a.Hosts.Err).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
@@ -260,12 +272,12 @@ func moveDialog(c *ui.Context, a *app.App) {
 	ui.Modal(c, &a.Hosts.MoveOpen, func() {
 		t := c.Theme()
 		ui.Column(c).Width(460).Padding(18).Gap(8).Children(func() {
-			ui.Text(c, "移动到目录").FontSize(fontSize(16)).Bold()
-			ui.Text(c, "选择目标目录；根目录表示移到最外层。").
+			ui.Text(c, i18n.T("hosts.form.moveTitle")).FontSize(fontSize(16)).Bold()
+			ui.Text(c, i18n.T("hosts.form.moveHint")).
 				FontSize(fontSize(12)).TextColor(t.TextMuted)
 			ui.Scroll(c).MaxHeight(300).Children(func() {
 				ui.Column(c).Gap(4).Children(func() {
-					ui.Button(c, "根目录").OnClick(func() { a.MoveNodeTo("") })
+					ui.Button(c, i18n.T("hosts.root")).OnClick(func() { a.MoveNodeTo("") })
 					for _, n := range a.MoveTargets() {
 						id := n.ID
 						ui.Button(c, n.Name).OnClick(func() { a.MoveNodeTo(id) })
@@ -273,7 +285,7 @@ func moveDialog(c *ui.Context, a *app.App) {
 				})
 			})
 			ui.Row(c).Justify(ui.End).Children(func() {
-				ui.Button(c, "取消").OnClick(func() { a.Hosts.MoveOpen = false })
+				ui.Button(c, i18n.T("hosts.form.cancel")).OnClick(func() { a.Hosts.MoveOpen = false })
 			})
 			if a.Hosts.Err != "" {
 				ui.Text(c, a.Hosts.Err).FontSize(fontSize(13)).TextColor(t.Danger).Wrap()
@@ -283,14 +295,14 @@ func moveDialog(c *ui.Context, a *app.App) {
 }
 
 func deleteDialog(c *ui.Context, a *app.App) {
-	title := "删除资产"
-	message := fmt.Sprintf("确定删除「%s」吗？此操作无法撤销。", a.Hosts.DeleteName)
+	title := i18n.T("hosts.form.deleteHostTitle")
+	message := i18n.Tf("hosts.form.deleteHostMessage", a.Hosts.DeleteName)
 	if a.Hosts.DeleteIsFolder {
-		title = "删除目录"
-		message = fmt.Sprintf("确定删除目录「%s」吗？其中的资产和子目录也会一并删除，无法撤销。",
-			a.Hosts.DeleteName)
+		title = i18n.T("hosts.form.deleteFolderTitle")
+		message = i18n.Tf("hosts.form.deleteFolderMessage", a.Hosts.DeleteName)
 	}
-	if ui.AlertDialog(c, &a.Hosts.DeleteOpen, title, message, "取消", "确认删除") == 1 {
+	if ui.AlertDialog(c, &a.Hosts.DeleteOpen, title, message,
+		i18n.T("hosts.form.cancel"), i18n.T("hosts.form.deleteConfirm")) == 1 {
 		a.ConfirmDeleteNode()
 	}
 }

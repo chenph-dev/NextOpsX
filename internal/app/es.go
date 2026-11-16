@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/dbexec"
+	"nextopsx/internal/i18n"
 	hoststore "nextopsx/internal/store/hosts"
 )
 
@@ -143,7 +144,7 @@ func (a *App) ESRefreshIndices() {
 	a.ES.Notice = ""
 	if a.Backend == nil {
 		a.ES.IndicesLoading = false
-		a.ES.IndicesErr = "后端未初始化"
+		a.ES.IndicesErr = i18n.T("es.error.backendUninitialized")
 		return
 	}
 	b := a.Backend
@@ -155,7 +156,7 @@ func (a *App) ESRefreshIndices() {
 			}
 			a.ES.IndicesLoading = false
 			if err != nil {
-				a.ES.IndicesErr = "读取索引失败：" + err.Error()
+				a.ES.IndicesErr = i18n.Tf("es.error.indicesFailed", err.Error())
 				return
 			}
 			indices := esIndexNames(res)
@@ -165,7 +166,7 @@ func (a *App) ESRefreshIndices() {
 				a.ESSelectedIndexChanged("")
 			}
 			a.syncESIndexRow()
-			a.ES.Notice = fmt.Sprintf("索引已刷新（%d）", len(indices))
+			a.ES.Notice = i18n.Tf("es.notice.refreshed", len(indices))
 		})
 	}()
 }
@@ -238,11 +239,11 @@ func (a *App) ESRunQuery() {
 	index := strings.TrimSpace(a.ES.SelectedIndex)
 	body := strings.TrimSpace(a.ES.QueryDSL)
 	if index == "" {
-		a.ES.Err = "请先选择索引"
+		a.ES.Err = i18n.T("es.error.selectIndex")
 		return
 	}
 	if body == "" {
-		a.ES.Err = "请输入 Query DSL"
+		a.ES.Err = i18n.T("es.error.enterDSL")
 		return
 	}
 	hostID := a.ES.HostID
@@ -254,7 +255,7 @@ func (a *App) ESRunQuery() {
 	a.ES.Err = ""
 	if a.Backend == nil {
 		a.ES.QueryRunning = false
-		a.ES.QueryErr = "后端未初始化"
+		a.ES.QueryErr = i18n.T("es.error.backendUninitialized")
 		return
 	}
 	b := a.Backend
@@ -271,7 +272,7 @@ func (a *App) ESRunQuery() {
 			}
 			a.ES.QueryResult = res
 			if res != nil {
-				a.ES.Notice = fmt.Sprintf("查询完成（%d 行）", len(res.Rows))
+				a.ES.Notice = i18n.Tf("es.notice.queryDone", len(res.Rows))
 			}
 		})
 	}()
@@ -289,7 +290,7 @@ func (a *App) ESLoadInfo() {
 	a.ES.InfoErr = ""
 	if a.Backend == nil {
 		a.ES.InfoLoading = false
-		a.ES.InfoErr = "后端未初始化"
+		a.ES.InfoErr = i18n.T("es.error.backendUninitialized")
 		return
 	}
 	b := a.Backend
@@ -301,7 +302,7 @@ func (a *App) ESLoadInfo() {
 			}
 			a.ES.InfoLoading = false
 			if err != nil {
-				a.ES.InfoErr = "读取集群信息失败：" + err.Error()
+				a.ES.InfoErr = i18n.Tf("es.error.infoFailed", err.Error())
 				return
 			}
 			a.ES.Info = esHealthMetrics(res)
@@ -344,7 +345,7 @@ func (a *App) ESRunCommand() {
 	a.ES.Err = ""
 	if a.Backend == nil {
 		a.ES.CommandRunning = false
-		a.ES.CommandErr = "后端未初始化"
+		a.ES.CommandErr = i18n.T("es.error.backendUninitialized")
 		return
 	}
 	b := a.Backend
@@ -359,7 +360,7 @@ func (a *App) ESRunCommand() {
 				a.ES.CommandErr = err.Error()
 			} else {
 				a.ES.CommandResult = res
-				a.ES.Notice = "命令执行完成"
+				a.ES.Notice = i18n.T("es.notice.commandDone")
 			}
 			a.ES.CommandHistory = append([]string{cmd},
 				firstNStrings(a.ES.CommandHistory, 49)...)

@@ -79,6 +79,19 @@ func TestSetScaleNormalizes(t *testing.T) {
 	}
 }
 
+func TestSetLanguageNormalizes(t *testing.T) {
+	a := &App{}
+	t.Cleanup(func() { a.SetLanguage("zh-CN") })
+	a.SetLanguage("en-US")
+	if a.Settings.Language != "en-US" || a.Settings.LanguageIndex != 1 {
+		t.Fatalf("language = %q index = %d", a.Settings.Language, a.Settings.LanguageIndex)
+	}
+	a.SetLanguage("fr-FR")
+	if a.Settings.Language != "zh-CN" || a.Settings.LanguageIndex != 0 {
+		t.Fatalf("invalid language = %q index = %d", a.Settings.Language, a.Settings.LanguageIndex)
+	}
+}
+
 func TestParseWhitelistKeepsSpaces(t *testing.T) {
 	got := parseWhitelist("df -h\nfree -m,uptime\n\ndf -h\r\n")
 	want := []string{"df -h", "free -m", "uptime"}

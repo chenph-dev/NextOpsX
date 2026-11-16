@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"nextopsx/internal/i18n"
 	sftppkg "nextopsx/internal/sftp"
 	hoststore "nextopsx/internal/store/hosts"
 )
@@ -91,7 +92,7 @@ func (a *App) loadSFTPDir(hostID, dir string) {
 	a.SFTP.LoadErr = ""
 	if a.Backend == nil {
 		a.SFTP.Loading = false
-		a.SFTP.LoadErr = "后端未初始化"
+		a.SFTP.LoadErr = i18n.T("sftp.backendNotReady")
 		return
 	}
 	b := a.Backend
@@ -103,7 +104,7 @@ func (a *App) loadSFTPDir(hostID, dir string) {
 			}
 			a.SFTP.Loading = false
 			if err != nil {
-				a.SFTP.LoadErr = "列目录失败：" + err.Error()
+				a.SFTP.LoadErr = i18n.Tf("sftp.error.listDir", err.Error())
 				return
 			}
 			a.SFTP.Entries = entries
@@ -181,14 +182,14 @@ func (a *App) SFTPOpenNewFolder() {
 func (a *App) SFTPCreateFolder() {
 	name := strings.TrimSpace(a.SFTP.NewFolderName)
 	if name == "" {
-		a.SFTP.Err = "请输入目录名称"
+		a.SFTP.Err = i18n.T("sftp.error.folderNameRequired")
 		return
 	}
 	hostID := a.SFTP.HostID
 	dir := a.SFTPPathFor(name)
 	a.SFTP.Err = ""
 	if a.Backend == nil {
-		a.SFTP.Err = "后端未初始化"
+		a.SFTP.Err = i18n.T("sftp.backendNotReady")
 		return
 	}
 	b := a.Backend
@@ -199,7 +200,7 @@ func (a *App) SFTPCreateFolder() {
 				return
 			}
 			if err != nil {
-				a.SFTP.Err = "新建目录失败：" + err.Error()
+				a.SFTP.Err = i18n.Tf("sftp.error.createFolder", err.Error())
 				return
 			}
 			a.SFTP.NewFolderOpen = false
@@ -224,17 +225,17 @@ func (a *App) SFTPRename() {
 	name := strings.TrimSpace(a.SFTP.RenameName)
 	oldPath := a.SFTP.RenamePath
 	if oldPath == "" {
-		a.SFTP.Err = "没有可重命名的条目"
+		a.SFTP.Err = i18n.T("sftp.error.noRenameEntry")
 		return
 	}
 	if name == "" {
-		a.SFTP.Err = "请输入新名称"
+		a.SFTP.Err = i18n.T("sftp.error.newNameRequired")
 		return
 	}
 	hostID := a.SFTP.HostID
 	newPath := path.Join(path.Dir(oldPath), name)
 	if a.Backend == nil {
-		a.SFTP.Err = "后端未初始化"
+		a.SFTP.Err = i18n.T("sftp.backendNotReady")
 		return
 	}
 	b := a.Backend
@@ -245,7 +246,7 @@ func (a *App) SFTPRename() {
 				return
 			}
 			if err != nil {
-				a.SFTP.Err = "重命名失败：" + err.Error()
+				a.SFTP.Err = i18n.Tf("sftp.error.rename", err.Error())
 				return
 			}
 			a.SFTP.RenameOpen = false
@@ -281,7 +282,7 @@ func (a *App) SFTPConfirmDelete() {
 				return
 			}
 			if err != nil {
-				a.SFTP.Err = "删除失败：" + err.Error()
+				a.SFTP.Err = i18n.Tf("sftp.error.delete", err.Error())
 				return
 			}
 			a.SFTP.DeletePath = ""
@@ -301,11 +302,11 @@ func (a *App) SFTPUpload() {
 	b := a.Backend
 	go func() {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-			Title:       "选择要上传的文件",
-			ButtonLabel: "上传",
+			Title:       i18n.T("sftp.dialog.upload.title"),
+			ButtonLabel: i18n.T("sftp.action.upload"),
 		})
 		if err != nil {
-			a.Post(func() { a.SFTP.Err = "选择文件失败：" + err.Error() })
+			a.Post(func() { a.SFTP.Err = i18n.Tf("sftp.error.selectFile", err.Error()) })
 			return
 		}
 		if len(paths) == 0 {
@@ -313,7 +314,7 @@ func (a *App) SFTPUpload() {
 		}
 		a.Post(func() {
 			if hostID != a.SFTP.HostID || seq != a.SFTP.listSeq || dir != a.SFTP.Path {
-				a.SFTP.Err = "目录已切换，请重新上传"
+				a.SFTP.Err = i18n.T("sftp.error.dirChanged")
 				return
 			}
 			go func() {
@@ -323,10 +324,10 @@ func (a *App) SFTPUpload() {
 						return
 					}
 					if err != nil {
-						a.SFTP.Err = "上传失败：" + err.Error()
+						a.SFTP.Err = i18n.Tf("sftp.error.upload", err.Error())
 						return
 					}
-					a.SFTP.Notice = "已加入上传队列（" + id + "）"
+					a.SFTP.Notice = i18n.Tf("sftp.notice.uploadQueued", id)
 					a.SFTPRefreshTasks()
 				})
 			}()
@@ -346,12 +347,12 @@ func (a *App) SFTPDownload() {
 	b := a.Backend
 	go func() {
 		local, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
-			Title:       "选择保存位置",
+			Title:       i18n.T("sftp.dialog.download.title"),
 			DefaultPath: filepath.Base(e.Name),
-			ButtonLabel: "下载",
+			ButtonLabel: i18n.T("sftp.action.download"),
 		})
 		if err != nil {
-			a.Post(func() { a.SFTP.Err = "选择保存位置失败：" + err.Error() })
+			a.Post(func() { a.SFTP.Err = i18n.Tf("sftp.error.selectSaveLocation", err.Error()) })
 			return
 		}
 		if strings.TrimSpace(local) == "" {
@@ -363,10 +364,10 @@ func (a *App) SFTPDownload() {
 				return
 			}
 			if err != nil {
-				a.SFTP.Err = "下载失败：" + err.Error()
+				a.SFTP.Err = i18n.Tf("sftp.error.download", err.Error())
 				return
 			}
-			a.SFTP.Notice = "已加入下载队列（" + id + "）"
+			a.SFTP.Notice = i18n.Tf("sftp.notice.downloadQueued", id)
 			a.SFTPRefreshTasks()
 		})
 	}()
@@ -406,13 +407,13 @@ func (a *App) HandleSFTPEvent(event string, task sftppkg.TaskInfo) {
 		if found && prevStatus != task.Status {
 			switch task.Status {
 			case string(sftppkg.TaskDone):
-				a.notifyUser("传输完成", sftpTaskName(task))
+				a.notifyUser(i18n.T("sftp.notify.done"), sftpTaskName(task))
 			case string(sftppkg.TaskError):
 				body := sftpTaskName(task)
 				if task.Error != "" {
-					body += "：" + task.Error
+					body += i18n.T("sftp.notify.errorSeparator") + task.Error
 				}
-				a.notifyUser("传输失败", body)
+				a.notifyUser(i18n.T("sftp.notify.failed"), body)
 			}
 		}
 	})
@@ -425,7 +426,7 @@ func sftpTaskName(t sftppkg.TaskInfo) string {
 		name = filepath.Base(t.LocalPath)
 	}
 	if name == "" || name == "." || name == "/" {
-		return "文件传输"
+		return i18n.T("sftp.taskName.fallback")
 	}
 	return name
 }
@@ -464,7 +465,7 @@ func (a *App) sftpTaskAction(id, action string) {
 		a.Post(func() {
 			a.SFTP.Tasks = tasks
 			if err != nil {
-				a.SFTP.Err = "任务操作失败：" + err.Error()
+				a.SFTP.Err = i18n.Tf("sftp.error.taskAction", err.Error())
 			}
 		})
 	}()
@@ -528,17 +529,17 @@ func (a *App) SFTPPathFor(name string) string {
 func SFTPStatusText(status string) string {
 	switch status {
 	case string(sftppkg.TaskQueued):
-		return "排队中"
+		return i18n.T("sftp.status.queued")
 	case string(sftppkg.TaskRunning):
-		return "传输中"
+		return i18n.T("sftp.status.running")
 	case string(sftppkg.TaskPaused):
-		return "已暂停"
+		return i18n.T("sftp.status.paused")
 	case string(sftppkg.TaskCancelled):
-		return "已取消"
+		return i18n.T("sftp.status.cancelled")
 	case string(sftppkg.TaskDone):
-		return "已完成"
+		return i18n.T("sftp.status.done")
 	case string(sftppkg.TaskError):
-		return "失败"
+		return i18n.T("sftp.status.error")
 	default:
 		return status
 	}

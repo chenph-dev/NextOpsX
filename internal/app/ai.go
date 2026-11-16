@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/einoagent/session"
+	"nextopsx/internal/i18n"
 	configstore "nextopsx/internal/store/config"
 	convstore "nextopsx/internal/store/conversations"
 )
@@ -172,7 +173,7 @@ func (a *App) attachAI(hostID string) {
 			a.AI.providerSeq++
 			a.applyAIProvider(prov, provOK)
 			if err != nil {
-				a.AI.Err = "打开 AI 会话失败：" + err.Error()
+				a.AI.Err = i18n.Tf("ai.error.openSessionFailed", err.Error())
 				return
 			}
 			a.AI.SessionID = sid
@@ -332,13 +333,13 @@ func (a *App) notifyTurnResult(errMsg string, cancelled bool, hostID string) {
 	case errMsg != "":
 		body := errMsg
 		if host != "" {
-			body = "「" + host + "」：" + body
+			body = i18n.Tf("ai.notify.hostBody", host, body)
 		}
-		a.notifyUser("AI 对话出错", body)
+		a.notifyUser(i18n.T("ai.notify.errorTitle"), body)
 	case host != "":
-		a.notifyUser("AI 对话完成", "「"+host+"」的回复已生成")
+		a.notifyUser(i18n.T("ai.notify.doneTitle"), i18n.Tf("ai.notify.hostDone", host))
 	default:
-		a.notifyUser("AI 对话完成", "后台对话的回复已生成")
+		a.notifyUser(i18n.T("ai.notify.doneTitle"), i18n.T("ai.notify.backgroundDone"))
 	}
 }
 
@@ -605,7 +606,7 @@ func (a *App) SendAIMessage() {
 					return
 				}
 				a.AI.Messages = removeAIMessage(a.AI.Messages, localID)
-				a.AI.Err = "发送失败：" + err.Error()
+				a.AI.Err = i18n.Tf("ai.error.sendFailed", err.Error())
 				a.AI.ErrCancelled = false
 				// Some pre-flight failures return before emitting a state
 				// event; without this the composer would stay disabled.
@@ -651,7 +652,7 @@ func (a *App) ApproveAICommand() {
 			a.AI.approveBusy = false
 			if err != nil && sid == a.AI.SessionID {
 				a.AI.CommandStatus = AIStatusPending
-				a.AI.Err = "批准失败：" + err.Error()
+				a.AI.Err = i18n.Tf("ai.error.approveFailed", err.Error())
 				a.saveAISnapshot()
 			}
 		})
@@ -678,7 +679,7 @@ func (a *App) RejectAICommand() {
 			a.AI.approveBusy = false
 			if err != nil && sid == a.AI.SessionID {
 				a.AI.CommandStatus = AIStatusPending
-				a.AI.Err = "拒绝失败：" + err.Error()
+				a.AI.Err = i18n.Tf("ai.error.rejectFailed", err.Error())
 				a.saveAISnapshot()
 			}
 		})
@@ -705,7 +706,7 @@ func (a *App) ApproveAIPlan() {
 			a.AI.approveBusy = false
 			if err != nil && sid == a.AI.SessionID {
 				a.AI.PlanStatus = AIStatusPending
-				a.AI.Err = "批准计划失败：" + err.Error()
+				a.AI.Err = i18n.Tf("ai.error.approvePlanFailed", err.Error())
 				a.saveAISnapshot()
 			}
 		})
@@ -732,7 +733,7 @@ func (a *App) RejectAIPlan() {
 			a.AI.approveBusy = false
 			if err != nil && sid == a.AI.SessionID {
 				a.AI.PlanStatus = AIStatusPending
-				a.AI.Err = "拒绝计划失败：" + err.Error()
+				a.AI.Err = i18n.Tf("ai.error.rejectPlanFailed", err.Error())
 				a.saveAISnapshot()
 			}
 		})
@@ -750,7 +751,7 @@ func (a *App) CancelAIRun() {
 		if err := b.CancelAIRun(sid); err != nil {
 			a.Post(func() {
 				if sid == a.AI.SessionID {
-					a.AI.Err = "取消失败：" + err.Error()
+					a.AI.Err = i18n.Tf("ai.error.cancelFailed", err.Error())
 				}
 			})
 		}
@@ -771,7 +772,7 @@ func (a *App) ClearAIConversation() {
 				return
 			}
 			if err != nil {
-				a.AI.Err = "清空失败：" + err.Error()
+				a.AI.Err = i18n.Tf("ai.error.clearFailed", err.Error())
 				return
 			}
 			a.AI.Messages = nil
@@ -798,7 +799,7 @@ func (a *App) NewAIConversation() {
 	}
 	b := a.Backend
 	go func() {
-		sid, err := b.NewAISession(host, "AI 对话")
+		sid, err := b.NewAISession(host, i18n.T("ai.conversation.defaultTitle"))
 		convs, _ := b.ListAIConversations(host)
 		var prov configstore.AIProvider
 		var provErr error
@@ -810,7 +811,7 @@ func (a *App) NewAIConversation() {
 				return
 			}
 			if err != nil {
-				a.AI.Err = "新建对话失败：" + err.Error()
+				a.AI.Err = i18n.Tf("ai.error.newConversationFailed", err.Error())
 				return
 			}
 			a.AI.providerSeq++
@@ -867,7 +868,7 @@ func (a *App) DeleteAIConversation(sid string) {
 				return
 			}
 			if err != nil {
-				a.AI.Err = "删除对话失败：" + err.Error()
+				a.AI.Err = i18n.Tf("ai.error.deleteConversationFailed", err.Error())
 				return
 			}
 			a.AI.DeleteConfirm = ""
@@ -922,7 +923,7 @@ func (a *App) RenameAIConversation(sid, title string) {
 				return
 			}
 			if err != nil {
-				a.AI.Err = "重命名失败：" + err.Error()
+				a.AI.Err = i18n.Tf("ai.error.renameFailed", err.Error())
 				return
 			}
 			a.AI.RenameID = ""

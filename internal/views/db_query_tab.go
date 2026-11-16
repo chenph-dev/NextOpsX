@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/i18n"
 )
 
 // DBQueryTab is the SQL editor above its result grid.
@@ -23,7 +24,7 @@ func DBQueryTab(c *ui.Context, a *app.App, tab *app.DBTab, t *ui.Theme) {
 			if tab.Running {
 				ui.Row(c).Padding(20).Center().Children(func() {
 					ui.Spinner(c)
-					ui.Text(c, "执行中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+					ui.Text(c, i18n.T("db.query.running")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 				})
 				return
 			}
@@ -32,7 +33,7 @@ func DBQueryTab(c *ui.Context, a *app.App, tab *app.DBTab, t *ui.Theme) {
 				return
 			}
 			if tab.Result == nil {
-				dbHint(c, "执行查询后在此显示结果。", t)
+				dbHint(c, i18n.T("db.query.empty"), t)
 				return
 			}
 			dbResultMeta(c, tab, t)
@@ -47,7 +48,7 @@ func DBTableTab(c *ui.Context, a *app.App, tab *app.DBTab, t *ui.Theme) {
 		ui.Row(c).MinWidth(0).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, tab.TableName).FontSize(fontSize(13)).Bold().SingleLine()
 			if tab.HasTotal {
-				ui.Text(c, fmt.Sprintf("共 %d 行", tab.Total)).FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.Tf("db.table.total", tab.Total)).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			}
 			if tab.DurationMS > 0 {
 				ui.Text(c, fmt.Sprintf("%dms", tab.DurationMS)).FontSize(fontSize(12)).TextColor(t.TextMuted)
@@ -55,18 +56,18 @@ func DBTableTab(c *ui.Context, a *app.App, tab *app.DBTab, t *ui.Theme) {
 			ui.Spacer(c)
 
 			ui.Row(c).Gap(4).AlignItems(ui.Center).Shrink(0).Children(func() {
-				prev := ui.Button(c, "上一页")
+				prev := ui.Button(c, i18n.T("db.table.prev"))
 				if tab.Running || tab.Page <= 0 {
 					prev = prev.Disabled(true)
 				}
 				prev.OnClick(func() { a.DBTablePage(-1) })
 				ui.Text(c, dbPageLabel(tab.Page, tab.PageSize, tab.HasTotal, tab.Total)).FontSize(fontSize(12))
-				next := ui.Button(c, "下一页")
+				next := ui.Button(c, i18n.T("db.table.next"))
 				if !dbTableCanNext(tab) {
 					next = next.Disabled(true)
 				}
 				next.OnClick(func() { a.DBTablePage(1) })
-				ui.Button(c, "刷新").OnClick(a.RefreshActiveDBTable)
+				ui.Button(c, i18n.T("db.table.refresh")).OnClick(a.RefreshActiveDBTable)
 			})
 		})
 
@@ -74,14 +75,14 @@ func DBTableTab(c *ui.Context, a *app.App, tab *app.DBTab, t *ui.Theme) {
 		case tab.Running:
 			ui.Row(c).Padding(20).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "加载中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.T("db.table.loading")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case tab.Err != "":
 			dbErrorText(c, tab.Err, t)
 		case tab.Result != nil:
 			dbResultGrid(c, tab, t)
 		default:
-			dbHint(c, "加载表数据…", t)
+			dbHint(c, i18n.T("db.table.loadingHint"), t)
 		}
 	})
 }

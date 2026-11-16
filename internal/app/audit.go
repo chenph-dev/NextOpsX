@@ -3,6 +3,7 @@ package app
 import (
 	"github.com/egoist/mygo/ui"
 
+	"nextopsx/internal/i18n"
 	logsstore "nextopsx/internal/store/logs"
 )
 
@@ -29,7 +30,7 @@ func (a *App) LoadAudit() {
 	a.Audit.Err = ""
 	if a.Backend == nil {
 		a.Audit.Loading = false
-		a.Audit.Err = "后端未初始化"
+		a.Audit.Err = i18n.T("settings.err.backendNotInitialized")
 		return
 	}
 	b := a.Backend
@@ -42,12 +43,12 @@ func (a *App) LoadAudit() {
 			}
 			a.Audit.Loading = false
 			if err != nil {
-				a.Audit.Err = "读取审计日志失败：" + err.Error()
+				a.Audit.Err = i18n.Tf("settings.err.loadAuditFailed", err.Error())
 				return
 			}
 			a.Audit.Logs = list
 			if sumErr != nil {
-				a.Audit.Err = "读取 token 统计失败：" + sumErr.Error()
+				a.Audit.Err = i18n.Tf("settings.err.loadTokenStatsFailed", sumErr.Error())
 			} else {
 				a.Audit.Summary = summary
 			}

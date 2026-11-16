@@ -1,12 +1,11 @@
 package views
 
 import (
-	"fmt"
-
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
 	"nextopsx/internal/assets"
+	"nextopsx/internal/i18n"
 )
 
 // DBWorkbench is the native database workbench: schema tree, query tabs and
@@ -29,8 +28,8 @@ func DBWorkbench(c *ui.Context, a *app.App) {
 				tab := a.ActiveDBTab()
 				if tab == nil {
 					ui.Column(c).Fill().Center().Gap(6).Children(func() {
-						ui.Text(c, "没有打开的标签").FontSize(fontSize(13)).TextColor(t.TextMuted)
-						ui.Text(c, "点击标签栏右侧的 + 新建查询。").
+						ui.Text(c, i18n.T("db.empty.title")).FontSize(fontSize(13)).TextColor(t.TextMuted)
+						ui.Text(c, i18n.T("db.empty.hint")).
 							FontSize(fontSize(12)).TextColor(t.TextMuted)
 					})
 					return
@@ -49,17 +48,17 @@ func DBWorkbench(c *ui.Context, a *app.App) {
 func dbToolbar(c *ui.Context, a *app.App, t *ui.Theme) {
 	active := a.ActiveDBTab()
 	ui.Row(c).Padding(6, 10).Gap(6).AlignItems(ui.Center).Children(func() {
-		run := ui.PrimaryButton(c, "执行")
+		run := ui.PrimaryButton(c, i18n.T("db.toolbar.run"))
 		if active == nil || active.Kind != app.DBTabQuery || active.Running {
 			run = run.Disabled(true)
 		}
 		run.OnClick(a.RunActiveDBTab)
 
-		ui.Button(c, "刷新结构").OnClick(a.RefreshDBSchema)
+		ui.Button(c, i18n.T("db.toolbar.refreshSchema")).OnClick(a.RefreshDBSchema)
 
-		exportLabel := "导出 CSV"
+		exportLabel := i18n.T("db.toolbar.exportCSV")
 		if active != nil && active.Kind == app.DBTabTable {
-			exportLabel = "导出本页"
+			exportLabel = i18n.T("db.toolbar.exportPage")
 		}
 		export := ui.Button(c, exportLabel)
 		if active == nil || active.Result == nil || len(active.Result.Columns) == 0 ||
@@ -108,7 +107,7 @@ func dbTabStrip(c *ui.Context, a *app.App, t *ui.Theme) {
 						title.OnClick(func() { a.ActivateDBTab(i) })
 
 						close := ui.ButtonBase(c).Size(18, 18).Radius(4).
-							Tooltip("关闭标签")
+							Tooltip(i18n.T("db.tab.close"))
 						close.Children(func() {
 							ui.Text(c, "×").FontSize(fontSize(13)).TextColor(t.TextMuted)
 						})
@@ -117,7 +116,7 @@ func dbTabStrip(c *ui.Context, a *app.App, t *ui.Theme) {
 				}
 
 				plus := ui.ButtonBase(c).Size(28, 28).Radius(6).
-					Tooltip("新建查询")
+					Tooltip(i18n.T("db.tab.newQuery"))
 				plus.Children(func() {
 					ui.Text(c, "+").FontSize(fontSize(17)).TextColor(t.TextMuted)
 				})
@@ -140,7 +139,7 @@ func dbStatusBar(c *ui.Context, a *app.App, t *ui.Theme) {
 		}
 		text := a.DB.Notice
 		if text == "" {
-			text = "就绪"
+			text = i18n.T("db.status.ready")
 		}
 		ui.Text(c, text).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 	})
@@ -152,14 +151,14 @@ func dbResultMeta(c *ui.Context, tab *app.DBTab, t *ui.Theme) {
 			return
 		}
 		if len(tab.Result.Columns) > 0 {
-			ui.Text(c, fmt.Sprintf("%d 行 · %dms", len(tab.Result.Rows), tab.DurationMS)).
+			ui.Text(c, i18n.Tf("db.result.rows", len(tab.Result.Rows), tab.DurationMS)).
 				FontSize(fontSize(12)).TextColor(t.TextMuted)
 			if tab.Result.Truncated {
-				ui.Text(c, "结果已截断").FontSize(fontSize(12)).TextColor(t.Warning)
+				ui.Text(c, i18n.T("db.result.truncated")).FontSize(fontSize(12)).TextColor(t.Warning)
 			}
 			return
 		}
-		ui.Text(c, fmt.Sprintf("影响 %d 行 · %dms", tab.Result.RowsAffected, tab.DurationMS)).
+		ui.Text(c, i18n.Tf("db.result.affected", tab.Result.RowsAffected, tab.DurationMS)).
 			FontSize(fontSize(12)).TextColor(t.TextMuted)
 	})
 }
@@ -189,9 +188,9 @@ func dbPageLabel(page, size int, hasTotal bool, total int64) string {
 		if pages < 1 {
 			pages = 1
 		}
-		return fmt.Sprintf("第 %d / %d 页", page+1, pages)
+		return i18n.Tf("db.page.of", page+1, pages)
 	}
-	return fmt.Sprintf("第 %d 页", page+1)
+	return i18n.Tf("db.page.current", page+1)
 }
 
 func dbTableCanNext(tab *app.DBTab) bool {

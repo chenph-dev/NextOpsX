@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/plugins/terminal"
 
 	"nextopsx/internal/backend"
+	"nextopsx/internal/i18n"
 	configstore "nextopsx/internal/store/config"
 	hoststore "nextopsx/internal/store/hosts"
 )
@@ -51,6 +52,10 @@ type App struct {
 	up     Updater
 	writes sync.WaitGroup           // 退出前等待短小的异步写（主题等）落库
 	notify func(title, body string) // 桌面通知（由 main 注入；可空）
+
+	// rebuildChrome rebuilds native chrome whose labels depend on the
+	// language (menu bar, tray). main installs it; nil in tests.
+	rebuildChrome func()
 }
 
 // New loads the asset tree and creates the app state.
@@ -66,15 +71,22 @@ func New(b *backend.Backend) (*App, error) {
 	if ui, err := b.GetUISettings(); err == nil {
 		a.Settings.Theme = ui.Theme
 		a.Settings.Scale = ui.Scale
+		a.Settings.Language = ui.Language
 	} else {
-		a.Settings.UIErr = "读取界面设置失败：" + err.Error()
+		a.Settings.UIErr = i18n.Tf("app.readUISettingsFailed", err.Error())
 	}
 	if a.Settings.Theme == "" {
 		a.Settings.Theme = "system"
 	}
+	if a.Settings.Language == "" {
+		a.Settings.Language = string(i18n.Default)
+	}
 	a.Settings.Scale = configstore.NormalizeScale(a.Settings.Scale)
 	a.Settings.ThemeIndex = ThemeIndex(a.Settings.Theme)
 	a.Settings.ScaleIndex = ScaleIndex(a.Settings.Scale)
+	a.Settings.Language = configstore.NormalizeLanguage(a.Settings.Language)
+	a.Settings.LanguageIndex = i18n.LangIndex(i18n.Lang(a.Settings.Language))
+	i18n.SetLanguage(i18n.Lang(a.Settings.Language))
 	a.ensureHostConnectors()
 	b.SetAIEventSink(a.HandleAIEvent)
 	b.SetSFTPEventSink(a.HandleSFTPEvent)
@@ -104,6 +116,12 @@ func (a *App) Attach(up Updater) {
 // notifications.
 func (a *App) SetNotifier(fn func(title, body string)) {
 	a.notify = fn
+}
+
+// SetChromeRebuilder installs the callback that rebuilds language-dependent
+// native chrome (menu bar and tray). main sets it once the window exists.
+func (a *App) SetChromeRebuilder(fn func()) {
+	a.rebuildChrome = fn
 }
 
 func (a *App) notifyUser(title, body string) {
@@ -182,7 +200,7 @@ func (a *App) Connect(n *hoststore.TreeNode) {
 	go func() {
 		conn, err := a.Backend.OpenTerminalConn(n.ID, 80, 24)
 		if err != nil {
-			a.Fail("连接失败: " + err.Error())
+			a.Fail(i18n.Tf("app.connectFailed", err.Error()))
 			return
 		}
 		a.Post(func() {
@@ -190,7 +208,7 @@ func (a *App) Connect(n *hoststore.TreeNode) {
 			if err != nil {
 				_ = conn.Close()
 				a.Busy = false
-				a.ErrMsg = "创建终端失败: " + err.Error()
+				a.ErrMsg = i18n.Tf("app.terminalFailed", err.Error())
 				return
 			}
 			a.Term = term

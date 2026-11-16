@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/i18n"
 	configstore "nextopsx/internal/store/config"
 )
 
@@ -115,24 +116,24 @@ func Shell(a *app.App) func(*ui.Context) {
 			ui.Column(c).Width(280).FillHeight().Background(t.Surface).
 				Border(1, t.Border).Children(func() {
 				ui.Row(c).Padding(12).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, "资产").FontSize(fontSize(16)).Bold()
+					ui.Text(c, i18n.T("shell.assets")).FontSize(fontSize(16)).Bold()
 					ui.Text(c, fmt.Sprintf("%d", countHosts(a.Roots))).TextColor(t.TextMuted)
 					ui.Spacer(c)
-					ui.Button(c, "＋资产").FontSize(fontSize(12)).OnClick(a.OpenNewHostForm)
-					ui.Button(c, "＋目录").FontSize(fontSize(12)).OnClick(a.OpenNewFolderForm)
+					ui.Button(c, i18n.T("shell.newAsset")).FontSize(fontSize(12)).OnClick(a.OpenNewHostForm)
+					ui.Button(c, i18n.T("shell.newFolder")).FontSize(fontSize(12)).OnClick(a.OpenNewFolderForm)
 				})
 				tree := ui.Scroll(c).Grow(1)
 				tree.ContextMenu(func(m *ui.Menu) {
-					if m.Item("新建资产").Chosen() {
+					if m.Item(i18n.T("shell.newAssetMenu")).Chosen() {
 						a.Select(nil)
 						a.OpenNewHostForm()
 					}
-					if m.Item("新建目录").Chosen() {
+					if m.Item(i18n.T("shell.newFolderMenu")).Chosen() {
 						a.Select(nil)
 						a.OpenNewFolderForm()
 					}
 					m.Separator()
-					if m.Item("刷新").Chosen() {
+					if m.Item(i18n.T("shell.refresh")).Chosen() {
 						a.RefreshHosts()
 					}
 				})
@@ -141,7 +142,7 @@ func Shell(a *app.App) func(*ui.Context) {
 				})
 				ui.Divider(c)
 				ui.Row(c).Padding(8).Children(func() {
-					ui.Button(c, "设置").Grow(1).
+					ui.Button(c, i18n.T("shell.settings")).Grow(1).
 						OnClick(func() { a.OpenSettings(a.Settings.Tab) })
 				})
 			})
@@ -158,20 +159,20 @@ func Shell(a *app.App) func(*ui.Context) {
 							FontSize(fontSize(13)).TextColor(t.TextMuted)
 						ui.Spacer(c)
 						if a.Selected.Protocol == "winrm" {
-							ui.Button(c, "远程桌面").FontSize(fontSize(12)).OnClick(a.OpenRDP)
+							ui.Button(c, i18n.T("shell.remoteDesktop")).FontSize(fontSize(12)).OnClick(a.OpenRDP)
 						}
-						labels := []string{"终端", "AI 对话"}
+						labels := []string{i18n.T("shell.tab.terminal"), i18n.T("shell.tab.ai")}
 						switch {
 						case a.IsRedisProtocol(a.Selected.Protocol):
-							labels = []string{"Redis", "AI 对话"}
+							labels = []string{"Redis", i18n.T("shell.tab.ai")}
 						case a.IsESProtocol(a.Selected.Protocol):
-							labels = []string{"ES", "AI 对话"}
+							labels = []string{"ES", i18n.T("shell.tab.ai")}
 						case a.IsDBProtocol(a.Selected.Protocol):
-							labels = []string{"数据库", "AI 对话"}
+							labels = []string{i18n.T("shell.tab.database"), i18n.T("shell.tab.ai")}
 						case a.IsSSHProtocol(a.Selected.Protocol):
-							labels = []string{"终端", "AI 对话", "SFTP"}
+							labels = []string{i18n.T("shell.tab.terminal"), i18n.T("shell.tab.ai"), "SFTP"}
 						default:
-							labels = []string{"概览", "AI 对话"}
+							labels = []string{i18n.T("shell.tab.overview"), i18n.T("shell.tab.ai")}
 						}
 						tabs := ui.Tabs(c, &a.RightTab, labels...)
 						if tabs.Changed() {
@@ -186,7 +187,7 @@ func Shell(a *app.App) func(*ui.Context) {
 						}
 						return
 					}
-					ui.Text(c, "目录").FontSize(fontSize(13)).TextColor(t.TextMuted)
+					ui.Text(c, i18n.T("shell.folder")).FontSize(fontSize(13)).TextColor(t.TextMuted)
 				})
 				if a.ErrMsg != "" {
 					ui.Row(c).Padding(0, 16).Children(func() {

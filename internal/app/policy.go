@@ -3,6 +3,7 @@ package app
 import (
 	"strings"
 
+	"nextopsx/internal/i18n"
 	configstore "nextopsx/internal/store/config"
 )
 
@@ -28,7 +29,7 @@ func (a *App) LoadApprovalPolicy() {
 	a.Policy.Notice = ""
 	if a.Backend == nil {
 		a.Policy.Loading = false
-		a.Policy.Err = "后端未初始化"
+		a.Policy.Err = i18n.T("settings.err.backendNotInitialized")
 		return
 	}
 	b := a.Backend
@@ -40,7 +41,7 @@ func (a *App) LoadApprovalPolicy() {
 			}
 			a.Policy.Loading = false
 			if err != nil {
-				a.Policy.Err = "读取审批策略失败：" + err.Error()
+				a.Policy.Err = i18n.Tf("settings.err.loadPolicyFailed", err.Error())
 				return
 			}
 			a.Policy.Loaded = true
@@ -53,11 +54,11 @@ func (a *App) LoadApprovalPolicy() {
 // SaveApprovalPolicy persists the global approval policy.
 func (a *App) SaveApprovalPolicy() {
 	if a.Backend == nil {
-		a.Policy.Err = "后端未初始化"
+		a.Policy.Err = i18n.T("settings.err.backendNotInitialized")
 		return
 	}
 	if !a.Policy.Loaded {
-		a.Policy.Err = "审批策略尚未加载，请先重试"
+		a.Policy.Err = i18n.T("settings.err.policyNotLoaded")
 		return
 	}
 	// 使保存开始前就已发出的读取失效，避免旧快照覆盖表单。
@@ -75,13 +76,13 @@ func (a *App) SaveApprovalPolicy() {
 		a.Post(func() {
 			a.Policy.Saving = false
 			if err != nil {
-				a.Policy.Err = "保存审批策略失败：" + err.Error()
+				a.Policy.Err = i18n.Tf("settings.err.savePolicyFailed", err.Error())
 				return
 			}
 			// 保存期间可能又发起了读取；再推进一次使它们失效。
 			a.Policy.seq++
 			a.Policy.Loaded = true
-			a.Policy.Notice = "审批策略已保存"
+			a.Policy.Notice = i18n.T("settings.err.policySaved")
 		})
 	}()
 }

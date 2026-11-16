@@ -10,6 +10,7 @@ import (
 
 	"nextopsx/internal/app"
 	"nextopsx/internal/einoagent/session"
+	"nextopsx/internal/i18n"
 )
 
 // AIPanel is the native AI chat: header, message stream, composer.
@@ -20,7 +21,7 @@ func AIPanel(c *ui.Context, a *app.App) {
 		if a.AI.Loading {
 			ui.Row(c).Padding(24).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "正在载入会话…").TextColor(t.TextMuted)
+				ui.Text(c, i18n.T("ai.loading")).TextColor(t.TextMuted)
 			})
 			return
 		}
@@ -42,29 +43,29 @@ func aiHeader(c *ui.Context, a *app.App, t *ui.Theme) {
 					ui.Text(c, a.AI.Model).FontSize(fontSize(12)).TextColor(t.TextMuted)
 				}
 			} else {
-				ui.Text(c, "未配置 AI").FontSize(fontSize(12)).TextColor(t.Warning)
+				ui.Text(c, i18n.T("ai.header.unconfigured")).FontSize(fontSize(12)).TextColor(t.Warning)
 			}
 		}
 		ui.Spacer(c)
 
 		if a.AI.Busy() {
-			ui.Button(c, "取消").OnClick(a.CancelAIRun)
+			ui.Button(c, i18n.T("ai.action.cancel")).OnClick(a.CancelAIRun)
 		}
-		ui.Button(c, "新对话").OnClick(a.NewAIConversation)
+		ui.Button(c, i18n.T("ai.action.newConversation")).OnClick(a.NewAIConversation)
 
-		history := ui.Button(c, "历史")
+		history := ui.Button(c, i18n.T("ai.action.history"))
 		history = history.OnClick(func() { a.AI.HistoryOpen = !a.AI.HistoryOpen })
 		ui.Popover(c, history, &a.AI.HistoryOpen, func() {
 			aiHistoryPanel(c, a, t)
 		})
 
-		clear := ui.Button(c, "清空")
+		clear := ui.Button(c, i18n.T("ai.action.clear"))
 		if a.AI.Busy() || a.AI.State == session.StateAwaitingApproval || len(a.AI.Messages) == 0 {
 			clear = clear.Disabled(true)
 		}
 		clear.OnClick(a.ClearAIConversation)
 
-		ui.Button(c, "设置").OnClick(func() { a.OpenSettings(app.SettingsModel) })
+		ui.Button(c, i18n.T("ai.action.settings")).OnClick(func() { a.OpenSettings(app.SettingsModel) })
 	})
 	ui.Divider(c)
 }
@@ -104,11 +105,11 @@ func aiProviderSelect(c *ui.Context, a *app.App, t *ui.Theme) {
 func aiStateBadge(a *app.App, t *ui.Theme) (string, ui.Color) {
 	switch a.AI.State {
 	case session.StateThinking:
-		return "思考中…", t.Accent
+		return i18n.T("ai.state.thinking"), t.Accent
 	case session.StateAwaitingApproval:
-		return "等待审批", t.Warning
+		return i18n.T("ai.state.awaitingApproval"), t.Warning
 	case session.StateRunning:
-		return "执行中…", t.Success
+		return i18n.T("ai.state.running"), t.Success
 	default:
 		return "", t.TextMuted
 	}
@@ -151,7 +152,7 @@ func aiMessageStream(c *ui.Context, a *app.App, t *ui.Theme) {
 			if a.AI.State == session.StateThinking && a.AI.Streaming == "" {
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 					ui.Spinner(c)
-					ui.Text(c, "思考中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+					ui.Text(c, i18n.T("ai.state.thinking")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 				})
 			}
 			if a.AI.RunningCommand != "" {
@@ -174,16 +175,16 @@ func aiErrorText(c *ui.Context, a *app.App, t *ui.Theme) {
 
 func aiUnconfigured(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Padding(24).Gap(10).Center().Children(func() {
-		ui.Text(c, "尚未配置 AI 后端").FontSize(fontSize(15)).Bold()
-		ui.Text(c, "填写协议、模型名称和 API Key 后即可开始对话。").
+		ui.Text(c, i18n.T("ai.empty.unconfiguredTitle")).FontSize(fontSize(15)).Bold()
+		ui.Text(c, i18n.T("ai.empty.unconfiguredHint")).
 			FontSize(fontSize(13)).TextColor(t.TextMuted)
-		ui.PrimaryButton(c, "配置 AI").OnClick(func() { a.OpenSettings(app.SettingsModel) })
+		ui.PrimaryButton(c, i18n.T("ai.empty.configure")).OnClick(func() { a.OpenSettings(app.SettingsModel) })
 	})
 }
 
 func aiEmptyState(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Padding(16).Gap(10).Children(func() {
-		ui.Text(c, "向 AI 描述要执行的运维任务，命令会先交由你审批。").
+		ui.Text(c, i18n.T("ai.empty.hint")).
 			FontSize(fontSize(13)).TextColor(t.TextMuted)
 		for _, s := range aiSuggestions(a.SelectedProtocol()) {
 			suggestion := s
@@ -195,15 +196,20 @@ func aiEmptyState(c *ui.Context, a *app.App, t *ui.Theme) {
 func aiSuggestions(protocol string) []string {
 	switch protocol {
 	case "winrm":
-		return []string{"查看系统信息", "检查磁盘空间", "查看最近的系统事件"}
+		return []string{i18n.T("ai.suggestion.systemInfo"), i18n.T("ai.suggestion.diskSpace"),
+			i18n.T("ai.suggestion.systemEvents")}
 	case "mysql", "postgres", "sqlite", "clickhouse", "sqlserver":
-		return []string{"列出当前数据库的表", "查看表结构", "统计各表行数"}
+		return []string{i18n.T("ai.suggestion.dbTables"), i18n.T("ai.suggestion.dbSchema"),
+			i18n.T("ai.suggestion.dbRowCounts")}
 	case "redis":
-		return []string{"查看 Redis INFO", "列出部分 key", "查看内存使用"}
+		return []string{i18n.T("ai.suggestion.redisInfo"), i18n.T("ai.suggestion.redisKeys"),
+			i18n.T("ai.suggestion.redisMemory")}
 	case "elasticsearch":
-		return []string{"查看集群健康状态", "列出索引", "搜索最近文档"}
+		return []string{i18n.T("ai.suggestion.esHealth"), i18n.T("ai.suggestion.esIndices"),
+			i18n.T("ai.suggestion.esSearch")}
 	default:
-		return []string{"查看磁盘空间", "查看系统负载", "查看最近的系统日志", "检查 Docker 容器"}
+		return []string{i18n.T("ai.suggestion.diskUsage"), i18n.T("ai.suggestion.load"),
+			i18n.T("ai.suggestion.logs"), i18n.T("ai.suggestion.docker")}
 	}
 }
 
@@ -230,14 +236,14 @@ func aiRunningBlock(c *ui.Context, a *app.App, t *ui.Theme) {
 func aiComposer(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Divider(c)
 	ui.Row(c).Padding(8, 12).Gap(8).AlignItems(ui.Center).Children(func() {
-		placeholder := "输入消息，Enter 发送；/clear 清空，/new 新对话"
+		placeholder := i18n.T("ai.composer.placeholder")
 		switch {
 		case !a.AI.Configured:
-			placeholder = "请先配置 AI 后端"
+			placeholder = i18n.T("ai.composer.unconfigured")
 		case a.AI.State == session.StateAwaitingApproval:
-			placeholder = "请先处理上方的审批卡"
+			placeholder = i18n.T("ai.composer.awaitingApproval")
 		case a.AI.Busy():
-			placeholder = "AI 正在处理，可点击「取消」中止"
+			placeholder = i18n.T("ai.composer.busy")
 		}
 		c.Key("ai-input")
 		input := ui.TextInput(c, &a.AI.Input).Grow(1).
@@ -247,7 +253,7 @@ func aiComposer(c *ui.Context, a *app.App, t *ui.Theme) {
 		}
 		input.OnSubmit(a.SendAIMessage)
 
-		send := ui.PrimaryButton(c, "发送")
+		send := ui.PrimaryButton(c, i18n.T("ai.action.send"))
 		if a.AI.InputDisabled() || strings.TrimSpace(a.AI.Input) == "" {
 			send = send.Disabled(true)
 		}
@@ -258,12 +264,12 @@ func aiComposer(c *ui.Context, a *app.App, t *ui.Theme) {
 func aiHistoryPanel(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Width(340).MaxHeight(420).Padding(10).Gap(6).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "历史对话").FontSize(fontSize(13)).Bold()
+			ui.Text(c, i18n.T("ai.history.title")).FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
-			ui.Button(c, "新对话").OnClick(a.NewAIConversation)
+			ui.Button(c, i18n.T("ai.action.newConversation")).OnClick(a.NewAIConversation)
 		})
 		if len(a.AI.Conversations) == 0 {
-			ui.Text(c, "暂无历史对话").FontSize(fontSize(13)).TextColor(t.TextMuted)
+			ui.Text(c, i18n.T("ai.history.empty")).FontSize(fontSize(13)).TextColor(t.TextMuted)
 			return
 		}
 		ui.Scroll(c).MaxHeight(340).Children(func() {
@@ -281,10 +287,10 @@ func aiHistoryRow(c *ui.Context, a *app.App, id, title string, t *ui.Theme) {
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 			c.Key("ai-rename-" + id)
 			ui.TextInput(c, &a.AI.RenameTitle).Grow(1)
-			ui.Button(c, "保存").OnClick(func() {
+			ui.Button(c, i18n.T("ai.action.save")).OnClick(func() {
 				a.RenameAIConversation(id, a.AI.RenameTitle)
 			})
-			ui.Button(c, "取消").OnClick(func() {
+			ui.Button(c, i18n.T("ai.action.cancel")).OnClick(func() {
 				a.AI.RenameID = ""
 				a.AI.RenameTitle = ""
 			})
@@ -297,14 +303,14 @@ func aiHistoryRow(c *ui.Context, a *app.App, id, title string, t *ui.Theme) {
 			label = "● " + label
 		}
 		ui.Button(c, label).Grow(1).OnClick(func() { a.SwitchAIConversation(id) })
-		ui.Button(c, "改名").OnClick(func() {
+		ui.Button(c, i18n.T("ai.action.rename")).OnClick(func() {
 			a.AI.RenameID = id
 			a.AI.RenameTitle = title
 			a.AI.DeleteConfirm = ""
 		})
-		del := ui.Button(c, "删除")
+		del := ui.Button(c, i18n.T("ai.action.delete"))
 		if a.AI.DeleteConfirm == id {
-			del = ui.Button(c, "确认删除")
+			del = ui.Button(c, i18n.T("ai.action.confirmDelete"))
 		}
 		del.OnClick(func() {
 			if a.AI.DeleteConfirm != id {

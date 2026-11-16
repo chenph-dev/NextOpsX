@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/dbexec"
+	"nextopsx/internal/i18n"
 	hoststore "nextopsx/internal/store/hosts"
 )
 
@@ -186,7 +187,7 @@ func (a *App) refreshRedisKeys(reset, clearSelection bool) {
 
 	if a.Backend == nil {
 		a.Redis.KeysLoading = false
-		a.Redis.KeysErr = "后端未初始化"
+		a.Redis.KeysErr = i18n.T("redis.error.backendUninitialized")
 		return
 	}
 	b := a.Backend
@@ -198,7 +199,7 @@ func (a *App) refreshRedisKeys(reset, clearSelection bool) {
 			}
 			a.Redis.KeysLoading = false
 			if err != nil {
-				a.Redis.KeysErr = "扫描键失败：" + err.Error()
+				a.Redis.KeysErr = i18n.Tf("redis.error.scanFailed", err.Error())
 				return
 			}
 			next, keys := redisScanResult(res)
@@ -228,7 +229,7 @@ func (a *App) RedisSelectKey(key string) {
 	a.Redis.TTLOpen = false
 	if a.Backend == nil {
 		a.Redis.Detail.Loading = false
-		a.Redis.Detail.Err = "后端未初始化"
+		a.Redis.Detail.Err = i18n.T("redis.error.backendUninitialized")
 		return
 	}
 	b := a.Backend
@@ -324,7 +325,7 @@ func (a *App) RedisConfirmDelete() {
 				return
 			}
 			if err != nil {
-				a.Redis.Err = "删除失败：" + err.Error()
+				a.Redis.Err = i18n.Tf("redis.error.deleteFailed", err.Error())
 				return
 			}
 			a.Redis.ConfirmDeleteKey = ""
@@ -333,7 +334,7 @@ func (a *App) RedisConfirmDelete() {
 				a.Redis.Detail = RedisDetail{}
 			}
 			a.refreshRedisKeys(true, false)
-			a.Redis.Notice = "已删除 " + key
+			a.Redis.Notice = i18n.Tf("redis.notice.deleted", key)
 		})
 	}()
 }
@@ -368,11 +369,11 @@ func (a *App) RedisSaveValue() {
 				return
 			}
 			if err != nil {
-				a.Redis.Err = "保存失败：" + err.Error()
+				a.Redis.Err = i18n.Tf("redis.error.saveFailed", err.Error())
 				return
 			}
 			a.Redis.EditOpen = false
-			a.Redis.Notice = "已保存 " + key
+			a.Redis.Notice = i18n.Tf("redis.notice.saved", key)
 			if a.Redis.SelectedKey == key {
 				a.RedisSelectKey(key)
 			}
@@ -384,7 +385,7 @@ func (a *App) RedisSaveValue() {
 func (a *App) RedisOpenTTL() {
 	d := a.Redis.Detail
 	if d.Key == "" || d.Loading || d.Type == "" {
-		a.Redis.Err = "键信息尚未加载完成"
+		a.Redis.Err = i18n.T("redis.error.keyNotReady")
 		return
 	}
 	a.Redis.TTLKey = d.Key
@@ -401,11 +402,11 @@ func (a *App) RedisSaveTTL() {
 	hostID := a.Redis.HostID
 	seconds, err := strconv.ParseInt(strings.TrimSpace(a.Redis.TTLValue), 10, 64)
 	if err != nil {
-		a.Redis.Err = "TTL 需要是整数秒"
+		a.Redis.Err = i18n.T("redis.error.ttlNotInteger")
 		return
 	}
 	if seconds == 0 {
-		a.Redis.Err = "TTL 0 会立即删除键；请使用删除按钮，或输入正数/-1"
+		a.Redis.Err = i18n.T("redis.error.ttlZero")
 		return
 	}
 	if key == "" || hostID == "" || a.Backend == nil {
@@ -420,11 +421,11 @@ func (a *App) RedisSaveTTL() {
 				return
 			}
 			if err != nil {
-				a.Redis.Err = "设置 TTL 失败：" + err.Error()
+				a.Redis.Err = i18n.Tf("redis.error.ttlFailed", err.Error())
 				return
 			}
 			a.Redis.TTLOpen = false
-			a.Redis.Notice = "已更新 TTL：" + key
+			a.Redis.Notice = i18n.Tf("redis.notice.ttlUpdated", key)
 			if a.Redis.SelectedKey == key {
 				a.RedisSelectKey(key)
 			}
@@ -444,7 +445,7 @@ func (a *App) RedisLoadInfo() {
 	a.Redis.InfoErr = ""
 	if a.Backend == nil {
 		a.Redis.InfoLoading = false
-		a.Redis.InfoErr = "后端未初始化"
+		a.Redis.InfoErr = i18n.T("redis.error.backendUninitialized")
 		return
 	}
 	b := a.Backend
@@ -456,7 +457,7 @@ func (a *App) RedisLoadInfo() {
 			}
 			a.Redis.InfoLoading = false
 			if err != nil {
-				a.Redis.InfoErr = "读取 INFO 失败：" + err.Error()
+				a.Redis.InfoErr = i18n.Tf("redis.error.infoFailed", err.Error())
 				return
 			}
 			a.Redis.Info = redisParseInfo(redisFirstCell(res))
@@ -479,7 +480,7 @@ func (a *App) RedisRunCommand() {
 	a.Redis.CommandResult = nil
 	if a.Backend == nil {
 		a.Redis.CommandRunning = false
-		a.Redis.CommandErr = "后端未初始化"
+		a.Redis.CommandErr = i18n.T("redis.error.backendUninitialized")
 		return
 	}
 	b := a.Backend
@@ -565,9 +566,9 @@ func redisTTLCommand(key string, seconds int64) string {
 func RedisTTLText(ttl int64) string {
 	switch ttl {
 	case -1:
-		return "永久"
+		return i18n.T("redis.ttl.permanent")
 	case -2:
-		return "不存在"
+		return i18n.T("redis.ttl.missing")
 	default:
 		return strconv.FormatInt(ttl, 10) + "s"
 	}

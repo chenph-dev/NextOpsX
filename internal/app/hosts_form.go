@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"github.com/egoist/mygo"
 
 	"nextopsx/internal/connector"
+	"nextopsx/internal/i18n"
 	hoststore "nextopsx/internal/store/hosts"
 )
 
@@ -168,7 +170,7 @@ func (a *App) IsSSHProtocol(protocol string) bool {
 // HostFormParentLabel names the folder a new asset goes into.
 func (a *App) HostFormParentLabel() string {
 	if a.Hosts.Form.ParentID == "" {
-		return "根目录"
+		return i18n.T("hosts.root")
 	}
 	if a.Selected != nil && a.Selected.ID == a.Hosts.Form.ParentID {
 		return a.Selected.Name
@@ -176,7 +178,7 @@ func (a *App) HostFormParentLabel() string {
 	if n := findTreeNode(a.Roots, a.Hosts.Form.ParentID); n != nil {
 		return n.Name
 	}
-	return "根目录"
+	return i18n.T("hosts.root")
 }
 
 // nextHostFormSeq returns a monotonically increasing id for one opening of
@@ -197,8 +199,8 @@ func (a *App) OpenNewHostForm() {
 	a.Hosts.Err = ""
 	a.Hosts.Form = HostForm{
 		Open: true, Protocol: "ssh", Port: "22", User: "root",
-		AuthType: "password", AuthLabel: "密码",
-		AutoApprove: "inherit", AutoApproveLabel: "继承全局", RdpPort: "3389",
+		AuthType: "password", AuthLabel: i18n.T("hosts.auth.password"),
+		AutoApprove: "inherit", AutoApproveLabel: i18n.T("hosts.auto.inherit"), RdpPort: "3389",
 		ParentID: a.selectedParentID(),
 		Params:   hostParamFields(a.hostConnector("ssh"), nil),
 	}
@@ -214,7 +216,7 @@ func (a *App) OpenNewFolderForm() {
 	a.Hosts.Err = ""
 	a.Hosts.Form = HostForm{
 		Open: true, IsFolder: true,
-		AutoApprove: "inherit", AutoApproveLabel: "继承全局",
+		AutoApprove: "inherit", AutoApproveLabel: i18n.T("hosts.auto.inherit"),
 		ParentID: a.selectedParentID(),
 	}
 	a.Hosts.Form.seq = a.nextHostFormSeq()
@@ -285,7 +287,7 @@ func (a *App) SyncHostProtocol() {
 	}
 	if !a.HostFormIsSSH() {
 		f.AuthType = "password"
-		f.AuthLabel = "密码"
+		f.AuthLabel = i18n.T("hosts.auth.password")
 	}
 	if a.HostFormNeedsHost() {
 		f.Port = strconv.Itoa(defaultPort(f.Protocol))
@@ -351,14 +353,16 @@ func (a *App) SyncHostAutoApprove() {
 
 func authDisplay(auth string) string {
 	if strings.EqualFold(auth, "privatekey") {
-		return "私钥"
+		return i18n.T("hosts.auth.privateKey")
 	}
-	return "密码"
+	return i18n.T("hosts.auth.password")
 }
 
+// canonicalAuth maps picker labels from either language, plus stored values,
+// to the canonical auth type.
 func canonicalAuth(v string) string {
 	switch v {
-	case "privatekey", "私钥":
+	case "privatekey", "私钥", "Private key":
 		return "privatekey"
 	default:
 		return "password"
@@ -367,30 +371,41 @@ func canonicalAuth(v string) string {
 
 func canonicalAutoApprove(v string) string {
 	switch v {
-	case "on", "自动放行":
+	case "on", "自动放行", "Auto-approve":
 		return "on"
-	case "off", "人工审批":
+	case "off", "人工审批", "Manual approval":
 		return "off"
 	default:
 		return "inherit"
 	}
 }
 
-// AuthDisplay returns the Chinese label for an auth type.
+// AuthDisplay returns the display label for an auth type.
 func (a *App) AuthDisplay(auth string) string { return authDisplay(auth) }
 
-// AutoApproveDisplay returns the Chinese label for an auto-approve value.
+// AutoApproveDisplay returns the display label for an auto-approve value.
 func (a *App) AutoApproveDisplay(v string) string { return autoApproveDisplay(v) }
 
 func autoApproveDisplay(v string) string {
 	switch canonicalAutoApprove(v) {
 	case "on":
-		return "自动放行"
+		return i18n.T("hosts.auto.allow")
 	case "off":
-		return "人工审批"
+		return i18n.T("hosts.auto.manual")
 	default:
-		return "继承全局"
+		return i18n.T("hosts.auto.inherit")
 	}
+}
+
+// syncHostFormLabels refreshes the picker labels after a language change.
+// The canonical AuthType/AutoApprove values are authoritative, so a label
+// selected in the previous language is replaced without losing the choice.
+func (a *App) syncHostFormLabels() {
+	if !a.Hosts.Form.Open {
+		return
+	}
+	a.Hosts.Form.AuthLabel = authDisplay(a.Hosts.Form.AuthType)
+	a.Hosts.Form.AutoApproveLabel = autoApproveDisplay(a.Hosts.Form.AutoApprove)
 }
 
 func hostParamFields(c *connector.Connector, existing map[string]any) []HostParamField {
@@ -421,7 +436,7 @@ func (a *App) hostInputFromForm() (hoststore.HostInput, error) {
 	f := &a.Hosts.Form
 	name := strings.TrimSpace(f.Name)
 	if name == "" {
-		return hoststore.HostInput{}, fmt.Errorf("请输入名称")
+		return hoststore.HostInput{}, errors.New(i18n.T("hosts.err.nameRequired"))
 	}
 	autoApprove := canonicalAutoApprove(f.AutoApprove)
 	if f.AutoApproveLabel != "" {
@@ -441,16 +456,16 @@ func (a *App) hostInputFromForm() (hoststore.HostInput, error) {
 	if needsHost {
 		in.Addr = strings.TrimSpace(f.Addr)
 		if in.Addr == "" {
-			return in, fmt.Errorf("请输入地址")
+			return in, errors.New(i18n.T("hosts.err.addrRequired"))
 		}
 		port, err := strconv.Atoi(strings.TrimSpace(f.Port))
 		if err != nil || port < 1 || port > 65535 {
-			return in, fmt.Errorf("端口需为 1-65535")
+			return in, errors.New(i18n.T("hosts.err.portRange"))
 		}
 		in.Port = port
 		in.User = strings.TrimSpace(f.User)
 		if in.User == "" {
-			return in, fmt.Errorf("请输入用户名")
+			return in, errors.New(i18n.T("hosts.err.userRequired"))
 		}
 		auth := canonicalAuth(f.AuthType)
 		if f.AuthLabel != "" {
@@ -460,17 +475,17 @@ func (a *App) hostInputFromForm() (hoststore.HostInput, error) {
 			auth = "password"
 		}
 		if auth != "password" && auth != "privatekey" {
-			return in, fmt.Errorf("请选择认证方式")
+			return in, errors.New(i18n.T("hosts.err.authRequired"))
 		}
 		if f.EditingID == "" && strings.TrimSpace(f.Secret) == "" {
-			return in, fmt.Errorf("请输入密码或私钥")
+			return in, errors.New(i18n.T("hosts.err.secretRequired"))
 		}
 		if f.EditingID != "" && strings.TrimSpace(f.Secret) == "" {
 			if f.OriginalProtocol != "" && in.Protocol != f.OriginalProtocol {
-				return in, fmt.Errorf("切换协议后请重新输入凭据")
+				return in, errors.New(i18n.T("hosts.err.secretAfterProtocol"))
 			}
 			if f.OriginalAuthType != "" && auth != f.OriginalAuthType {
-				return in, fmt.Errorf("切换认证方式后请重新输入凭据")
+				return in, errors.New(i18n.T("hosts.err.secretAfterAuth"))
 			}
 		}
 		in.AuthType = auth
@@ -482,7 +497,7 @@ func (a *App) hostInputFromForm() (hoststore.HostInput, error) {
 	for _, p := range f.Params {
 		v := strings.TrimSpace(p.Value)
 		if p.Required && v == "" {
-			return in, fmt.Errorf("请填写%s", p.Label)
+			return in, errors.New(i18n.Tf("hosts.err.paramRequired", p.Label))
 		}
 		if v != "" {
 			params[p.Key] = v
@@ -532,7 +547,7 @@ func (a *App) SaveHostForm() {
 				f.Busy = false
 				f.Err = ""
 				if err != nil {
-					f.Err = "保存失败：" + err.Error()
+					f.Err = i18n.Tf("hosts.err.saveFailed", err.Error())
 				}
 			}
 			if err != nil {
@@ -569,19 +584,19 @@ func (a *App) TestHostConnection() {
 		return
 	}
 	if a.HostFormNeedsHost() && strings.TrimSpace(in.Secret) == "" && f.EditingID != "" {
-		f.TestMsg = "编辑已有资产时，请重新输入密码/私钥后再测试"
+		f.TestMsg = i18n.T("hosts.test.needSecret")
 		f.TestOK = false
 		return
 	}
 	if a.Backend == nil {
-		f.TestMsg = "无法测试：后端未初始化"
+		f.TestMsg = i18n.T("hosts.test.noBackend")
 		f.TestOK = false
 		return
 	}
 	seq := f.seq
 	f.Err = ""
 	f.Busy = true
-	f.TestMsg = "正在测试连接…"
+	f.TestMsg = i18n.T("hosts.test.testing")
 	b := a.Backend
 	go func() {
 		ok, err := b.TestConnection(in)
@@ -592,15 +607,15 @@ func (a *App) TestHostConnection() {
 			}
 			f.Busy = false
 			if err != nil {
-				f.TestMsg = "连接失败：" + err.Error()
+				f.TestMsg = i18n.Tf("hosts.test.failedWith", err.Error())
 				f.TestOK = false
 				return
 			}
 			if ok {
-				f.TestMsg = "连接成功"
+				f.TestMsg = i18n.T("hosts.test.ok")
 				f.TestOK = true
 			} else {
-				f.TestMsg = "连接失败"
+				f.TestMsg = i18n.T("hosts.test.failed")
 				f.TestOK = false
 			}
 		})
@@ -614,10 +629,10 @@ func (a *App) PickHostParamFile(index int) {
 	}
 	go func() {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-			Title:       "选择文件",
-			ButtonLabel: "选择",
+			Title:       i18n.T("hosts.fileDialog.title"),
+			ButtonLabel: i18n.T("hosts.fileDialog.button"),
 			Filters: []mygo.FileFilter{
-				{Name: "SQLite 数据库", Extensions: []string{"db", "sqlite", "sqlite3"}},
+				{Name: i18n.T("hosts.fileDialog.sqlite"), Extensions: []string{"db", "sqlite", "sqlite3"}},
 			},
 		})
 		if err != nil || len(paths) == 0 {
@@ -639,7 +654,7 @@ func (a *App) TermHostLabel() string {
 	if n := findTreeNode(a.Roots, a.TermHostID); n != nil {
 		return n.Name
 	}
-	return "未知资产"
+	return i18n.T("hosts.unknown")
 }
 
 // RefreshHosts reloads the tree, keeping the current selection when it
@@ -658,7 +673,7 @@ func (a *App) refreshHosts(selectID string) {
 		roots, err := b.ListHosts()
 		a.Post(func() {
 			if err != nil {
-				a.Hosts.Err = "刷新资产失败：" + err.Error()
+				a.Hosts.Err = i18n.Tf("hosts.err.refreshFailed", err.Error())
 				return
 			}
 			a.Roots = roots
@@ -754,7 +769,7 @@ func (a *App) ConfirmDeleteNode() {
 		err := b.DeleteNode(id)
 		a.Post(func() {
 			if err != nil {
-				a.Hosts.Err = "删除失败：" + err.Error()
+				a.Hosts.Err = i18n.Tf("hosts.err.deleteFailed", err.Error())
 				return
 			}
 			if disconnectTerm {
@@ -791,7 +806,7 @@ func (a *App) SaveRename() {
 		return
 	}
 	if name == "" {
-		a.Hosts.Err = "请输入名称"
+		a.Hosts.Err = i18n.T("hosts.err.nameRequired")
 		return
 	}
 	if a.Backend == nil {
@@ -803,7 +818,7 @@ func (a *App) SaveRename() {
 		err := b.RenameNode(id, name)
 		a.Post(func() {
 			if err != nil {
-				a.Hosts.Err = "重命名失败：" + err.Error()
+				a.Hosts.Err = i18n.Tf("hosts.err.renameFailed", err.Error())
 				return
 			}
 			a.Hosts.Err = ""
@@ -858,7 +873,7 @@ func (a *App) MoveNodeTo(parentID string) {
 		err := b.MoveNode(id, parentID)
 		a.Post(func() {
 			if err != nil {
-				a.Hosts.Err = "移动失败：" + err.Error()
+				a.Hosts.Err = i18n.Tf("hosts.err.moveFailed", err.Error())
 				return
 			}
 			a.Hosts.Err = ""

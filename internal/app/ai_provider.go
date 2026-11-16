@@ -2,6 +2,7 @@ package app
 
 import (
 	"nextopsx/internal/einoagent/session"
+	"nextopsx/internal/i18n"
 	configstore "nextopsx/internal/store/config"
 )
 
@@ -100,7 +101,7 @@ func (a *App) runAISwitch(sid string, prev configstore.AIProvider) {
 						a.runAISwitch(sid, prev)
 					}
 				} else {
-					a.AI.Err = "切换供应商失败：" + err.Error()
+					a.AI.Err = i18n.Tf("settings.err.switchProviderFailed", err.Error())
 				}
 				return
 			}

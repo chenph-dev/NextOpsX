@@ -2,10 +2,12 @@ package views
 
 import (
 	"testing"
+	"unicode"
 
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/i18n"
 	configstore "nextopsx/internal/store/config"
 	logsstore "nextopsx/internal/store/logs"
 )
@@ -128,5 +130,59 @@ func TestSettingsNewProviderDraft(t *testing.T) {
 	}
 	if tt.HasText("删除") {
 		t.Errorf("新建草稿不应显示「删除」: %q", tt.Texts())
+	}
+}
+
+func TestLanguageSwitchRendersEnglish(t *testing.T) {
+	t.Cleanup(func() { i18n.SetLanguage(i18n.ZhCN) })
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsGeneral
+	a.Settings.Theme = "system"
+	a.Settings.Scale = 100
+	a.Settings.Language = "en-US"
+	a.Settings.LanguageIndex = 1
+	i18n.SetLanguage(i18n.EnUS)
+
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"Settings", "General", "Language", "Theme", "System", "UI scale", "Data",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+	if tt.HasText("设置") {
+		t.Errorf("Chinese nav label leaked into English UI: %q", tt.Texts())
+	}
+
+	if err := tt.Click("简体中文"); err != nil {
+		t.Fatal(err)
+	}
+	if i18n.Current() != i18n.ZhCN || a.Settings.Language != "zh-CN" {
+		t.Fatalf("language = %q setting = %q", i18n.Current(), a.Settings.Language)
+	}
+	tt.Frame()
+	if !tt.HasText("设置") || !tt.HasText("通用") {
+		t.Fatalf("Chinese UI missing after switch: %q", tt.Texts())
+	}
+}
+
+// TestShellEnglishHasNoChinese renders the asset tree and welcome view in
+// English and fails on any Chinese text that was not migrated.
+func TestShellEnglishHasNoChinese(t *testing.T) {
+	t.Cleanup(func() { i18n.SetLanguage(i18n.ZhCN) })
+	i18n.SetLanguage(i18n.EnUS)
+	a := &app.App{}
+	a.Settings.Language = "en-US"
+	a.Settings.LanguageIndex = 1
+	a.Settings.Theme = "system"
+	a.Settings.Scale = 100
+	tt := ui.NewTester(Shell(a), 1200, 800)
+	for _, text := range tt.Texts() {
+		for _, r := range text {
+			if unicode.Is(unicode.Han, r) {
+				t.Fatalf("untranslated Chinese in English shell: %q", text)
+			}
+		}
 	}
 }

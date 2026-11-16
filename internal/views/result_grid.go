@@ -1,13 +1,13 @@
 package views
 
 import (
-	"fmt"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
 	"nextopsx/internal/dbexec"
+	"nextopsx/internal/i18n"
 )
 
 // ResultGridView renders a structured query result in a virtualized table.
@@ -20,7 +20,7 @@ func ResultGridView(c *ui.Context, grid *ui.ListState, res *dbexec.Result, t *ui
 	cols := make([]ui.TableColumn, len(res.Columns))
 	for i, name := range res.Columns {
 		if name == "" {
-			name = fmt.Sprintf("列 %d", i+1)
+			name = i18n.Tf("db.result.column", i+1)
 		}
 		cols[i] = ui.TableColumn{Title: name, MinWidth: resultColumnMinWidth(name)}
 	}
@@ -32,7 +32,7 @@ func ResultGridView(c *ui.Context, grid *ui.ListState, res *dbexec.Result, t *ui
 	ui.Table(c, grid, cols, rows, func(row, col int) {
 		if placeholder {
 			if col == 0 {
-				ui.Text(c, "(无数据)").FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
+				ui.Text(c, i18n.T("db.result.empty")).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 			} else {
 				ui.Text(c, "").SingleLine()
 			}

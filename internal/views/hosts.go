@@ -5,6 +5,7 @@ import (
 
 	"nextopsx/internal/app"
 	"nextopsx/internal/assets"
+	"nextopsx/internal/i18n"
 	hoststore "nextopsx/internal/store/hosts"
 )
 
@@ -42,7 +43,7 @@ func buildNodes(c *ui.Context, a *app.App, nodes []hoststore.TreeNode) {
 		if isFolder {
 			item.ContextMenu(func(m *ui.Menu) { folderMenu(m, a, n) })
 		} else {
-			item = item.Tooltip("协议：" + a.HostProtocolName(n.Protocol))
+			item = item.Tooltip(i18n.Tf("hosts.tooltip.protocol", a.HostProtocolName(n.Protocol)))
 			item.ContextMenu(func(m *ui.Menu) { hostMenu(m, a, n) })
 		}
 		if item.Clicked() {
@@ -64,25 +65,25 @@ func hostTreeIcon(c *ui.Context, n *hoststore.TreeNode) {
 }
 
 func folderMenu(m *ui.Menu, a *app.App, n *hoststore.TreeNode) {
-	if m.Item("在此新建资产").Chosen() {
+	if m.Item(i18n.T("hosts.menu.newAssetHere")).Chosen() {
 		a.Select(n)
 		a.OpenNewHostForm()
 	}
-	if m.Item("在此新建目录").Chosen() {
+	if m.Item(i18n.T("hosts.menu.newFolderHere")).Chosen() {
 		a.Select(n)
 		a.OpenNewFolderForm()
 	}
 	m.Separator()
-	if m.Item("重命名").Chosen() {
+	if m.Item(i18n.T("hosts.menu.rename")).Chosen() {
 		a.Select(n)
 		a.OpenRenameDialog()
 	}
-	if m.Item("移动").Chosen() {
+	if m.Item(i18n.T("hosts.menu.move")).Chosen() {
 		a.Select(n)
 		a.OpenMoveDialog()
 	}
 	m.Separator()
-	if m.Item("删除").Chosen() {
+	if m.Item(i18n.T("hosts.menu.delete")).Chosen() {
 		a.Select(n)
 		a.OpenDeleteDialog()
 	}
@@ -90,27 +91,27 @@ func folderMenu(m *ui.Menu, a *app.App, n *hoststore.TreeNode) {
 
 func hostMenu(m *ui.Menu, a *app.App, n *hoststore.TreeNode) {
 	if a.IsSSHProtocol(n.Protocol) {
-		if m.Item("打开终端").Chosen() {
+		if m.Item(i18n.T("hosts.menu.openTerminal")).Chosen() {
 			a.Select(n)
 			a.RightTab = 0
 			a.Connect(n)
 		}
 	}
-	if m.Item("打开 AI 对话").Chosen() {
+	if m.Item(i18n.T("hosts.menu.openAI")).Chosen() {
 		a.Select(n)
 		a.RightTab = 1
 	}
 	m.Separator()
-	if m.Item("编辑").Chosen() {
+	if m.Item(i18n.T("hosts.menu.edit")).Chosen() {
 		a.Select(n)
 		a.OpenEditHostForm()
 	}
-	if m.Item("移动").Chosen() {
+	if m.Item(i18n.T("hosts.menu.move")).Chosen() {
 		a.Select(n)
 		a.OpenMoveDialog()
 	}
 	m.Separator()
-	if m.Item("删除").Chosen() {
+	if m.Item(i18n.T("hosts.menu.delete")).Chosen() {
 		a.Select(n)
 		a.OpenDeleteDialog()
 	}

@@ -1,14 +1,16 @@
 package configstore
 
 import (
+	"nextopsx/internal/i18n"
 	"nextopsx/internal/store"
 )
 
 // uiSettingsModel 界面偏好单行表（id=1）。
 type uiSettingsModel struct {
-	ID    int    `gorm:"column:id;primaryKey"`
-	Theme string `gorm:"column:theme"`
-	Scale int    `gorm:"column:scale"`
+	ID       int    `gorm:"column:id;primaryKey"`
+	Theme    string `gorm:"column:theme"`
+	Scale    int    `gorm:"column:scale"`
+	Language string `gorm:"column:language"`
 }
 
 func (uiSettingsModel) TableName() string { return "ui_settings" }
@@ -49,11 +51,17 @@ func NormalizeScale(scale int) int {
 	return ScaleDefault
 }
 
+// NormalizeLanguage 把未知语言回落为默认语言（zh-CN）。
+func NormalizeLanguage(lang string) string {
+	return string(i18n.Normalize(i18n.Lang(lang)))
+}
+
 // UISettings 界面偏好 DTO。Theme: "system" | "light" | "dark"；
-// Scale 是界面缩放百分比。
+// Scale 是界面缩放百分比；Language: "zh-CN" | "en-US"。
 type UISettings struct {
-	Theme string `json:"theme"`
-	Scale int    `json:"scale"`
+	Theme    string `json:"theme"`
+	Scale    int    `json:"scale"`
+	Language string `json:"language"`
 }
 
 // UISettingsStore 提供界面偏好读写。
@@ -66,7 +74,7 @@ func NewUISettingsStore(app *store.DB) *UISettingsStore {
 	return &UISettingsStore{app: app}
 }
 
-// GetUISettings 读取界面偏好；无记录或非法值回落到跟随系统。
+// GetUISettings 读取界面偏好；无记录或非法值回落到默认值。
 func (s *UISettingsStore) GetUISettings() (UISettings, error) {
 	// Find（而非 First）让「还没有记录」不产生 record-not-found 错误与日志。
 	var m uiSettingsModel
@@ -74,11 +82,14 @@ func (s *UISettingsStore) GetUISettings() (UISettings, error) {
 		return UISettings{}, err
 	}
 	if m.ID == 0 {
-		return UISettings{Theme: ThemeSystem, Scale: ScaleDefault}, nil
+		return UISettings{
+			Theme: ThemeSystem, Scale: ScaleDefault, Language: string(i18n.Default),
+		}, nil
 	}
 	return UISettings{
-		Theme: NormalizeTheme(m.Theme),
-		Scale: NormalizeScale(m.Scale),
+		Theme:    NormalizeTheme(m.Theme),
+		Scale:    NormalizeScale(m.Scale),
+		Language: NormalizeLanguage(m.Language),
 	}, nil
 }
 
@@ -86,5 +97,6 @@ func (s *UISettingsStore) GetUISettings() (UISettings, error) {
 func (s *UISettingsStore) SaveUISettings(u UISettings) error {
 	return s.app.GORM().Save(&uiSettingsModel{
 		ID: 1, Theme: NormalizeTheme(u.Theme), Scale: NormalizeScale(u.Scale),
+		Language: NormalizeLanguage(u.Language),
 	}).Error
 }

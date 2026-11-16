@@ -3,6 +3,7 @@ package app
 import (
 	"strings"
 
+	"nextopsx/internal/i18n"
 	configstore "nextopsx/internal/store/config"
 )
 
@@ -33,13 +34,15 @@ type SettingsState struct {
 	Notice string
 
 	// 通用：界面偏好。
-	Theme      string // system | light | dark
-	ThemeIndex int    // 0 system, 1 light, 2 dark（Segmented 的绑定值）
-	Scale      int    // 界面缩放百分比：90/100/110/125
-	ScaleIndex int    // Scales 的下标（Segmented 的绑定值）
-	UISaving   bool
-	UIErr      string
-	DataDir    string
+	Theme         string // system | light | dark
+	ThemeIndex    int    // 0 system, 1 light, 2 dark（Segmented 的绑定值）
+	Scale         int    // 界面缩放百分比：90/100/110/125
+	ScaleIndex    int    // Scales 的下标（Segmented 的绑定值）
+	Language      string // zh-CN | en-US
+	LanguageIndex int    // i18n.Languages 的下标（Segmented 的绑定值）
+	UISaving      bool
+	UIErr         string
+	DataDir       string
 
 	// 模型分区：供应商列表与编辑草稿。
 	Providers        []configstore.AIProvider
@@ -140,6 +143,22 @@ func (a *App) SetScale(scale int) {
 	a.saveUIPrefs()
 }
 
+// SetLanguage switches the UI language immediately and persists it. Views
+// rebuild every frame; the menu and tray are rebuilt through the hook main
+// installs.
+func (a *App) SetLanguage(lang string) {
+	lang = configstore.NormalizeLanguage(lang)
+	a.Settings.Language = lang
+	a.Settings.LanguageIndex = i18n.LangIndex(i18n.Lang(lang))
+	a.Settings.UIErr = ""
+	i18n.SetLanguage(i18n.Lang(lang))
+	a.syncHostFormLabels()
+	a.saveUIPrefs()
+	if a.rebuildChrome != nil {
+		a.rebuildChrome()
+	}
+}
+
 // saveUIPrefs persists theme and scale. While a save is in flight the latest
 // values are queued, so the last click wins.
 func (a *App) saveUIPrefs() {
@@ -148,8 +167,9 @@ func (a *App) saveUIPrefs() {
 	}
 	a.Settings.UISaving = true
 	prefs := configstore.UISettings{
-		Theme: a.Settings.Theme,
-		Scale: a.Settings.Scale,
+		Theme:    a.Settings.Theme,
+		Scale:    a.Settings.Scale,
+		Language: a.Settings.Language,
 	}
 	a.writes.Add(1)
 	b := a.Backend
@@ -159,11 +179,12 @@ func (a *App) saveUIPrefs() {
 		a.Post(func() {
 			a.Settings.UISaving = false
 			if err != nil {
-				a.Settings.UIErr = "保存界面设置失败：" + err.Error()
+				a.Settings.UIErr = i18n.Tf("settings.general.saveFailed", err.Error())
 			} else {
 				a.Settings.UIErr = ""
 			}
-			if a.Settings.Theme != prefs.Theme || a.Settings.Scale != prefs.Scale {
+			if a.Settings.Theme != prefs.Theme || a.Settings.Scale != prefs.Scale ||
+				a.Settings.Language != prefs.Language {
 				a.saveUIPrefs()
 			}
 		})
@@ -178,7 +199,7 @@ func (a *App) LoadAIProviders() {
 	a.Settings.ProvidersErr = ""
 	if a.Backend == nil {
 		a.Settings.ProvidersLoading = false
-		a.Settings.ProvidersErr = "后端未初始化"
+		a.Settings.ProvidersErr = i18n.T("settings.err.backendNotInitialized")
 		return
 	}
 	b := a.Backend
@@ -190,7 +211,7 @@ func (a *App) LoadAIProviders() {
 			}
 			a.Settings.ProvidersLoading = false
 			if err != nil {
-				a.Settings.ProvidersErr = "读取供应商失败：" + err.Error()
+				a.Settings.ProvidersErr = i18n.Tf("settings.err.loadProvidersFailed", err.Error())
 				return
 			}
 			a.Settings.Providers = list
@@ -212,7 +233,7 @@ func (a *App) SelectAIProvider(id string) {
 		return
 	}
 	if a.Backend == nil {
-		a.Settings.ProvidersErr = "后端未初始化"
+		a.Settings.ProvidersErr = i18n.T("settings.err.backendNotInitialized")
 		return
 	}
 	a.Settings.draftSeq++
@@ -230,7 +251,7 @@ func (a *App) SelectAIProvider(id string) {
 			}
 			a.Settings.DraftLoading = false
 			if err != nil {
-				a.Settings.ProvidersErr = "读取供应商失败：" + err.Error()
+				a.Settings.ProvidersErr = i18n.Tf("settings.err.loadProvidersFailed", err.Error())
 				// 清掉旧草稿，避免把另一个供应商的数据保存到当前选中项。
 				a.Settings.Draft = configstore.AIProvider{ID: id}
 				return
@@ -269,11 +290,11 @@ func (a *App) SaveAIProvider() {
 	d.APIKey = strings.TrimSpace(d.APIKey)
 	a.Settings.Notice = ""
 	if d.Name == "" || d.Protocol == "" || d.Model == "" {
-		a.Settings.ProvidersErr = "请填写名称、协议与模型"
+		a.Settings.ProvidersErr = i18n.T("settings.err.providerRequired")
 		return
 	}
 	if a.Backend == nil {
-		a.Settings.ProvidersErr = "后端未初始化"
+		a.Settings.ProvidersErr = i18n.T("settings.err.backendNotInitialized")
 		return
 	}
 	a.Settings.ProvidersErr = ""
@@ -281,7 +302,7 @@ func (a *App) SaveAIProvider() {
 	isNew := a.Settings.DraftIsNew
 	if !isNew && (d.ID == "" || d.ID != a.Settings.SelectedProvider) {
 		a.Settings.DraftSaving = false
-		a.Settings.ProvidersErr = "供应商尚未加载完成"
+		a.Settings.ProvidersErr = i18n.T("settings.err.providerNotLoaded")
 		return
 	}
 	// 保存期间用户可能切换/新建了草稿；用序号判断是否还应回填编辑区。
@@ -298,10 +319,10 @@ func (a *App) SaveAIProvider() {
 		a.Post(func() {
 			a.Settings.DraftSaving = false
 			if err != nil {
-				a.Settings.ProvidersErr = "保存供应商失败：" + err.Error()
+				a.Settings.ProvidersErr = i18n.Tf("settings.err.saveProviderFailed", err.Error())
 				return
 			}
-			a.Settings.Notice = "供应商已保存"
+			a.Settings.Notice = i18n.T("settings.err.providerSaved")
 			a.LoadAIProviders()
 			if draftSeq == a.Settings.draftSeq {
 				a.Settings.DraftIsNew = false
@@ -332,10 +353,10 @@ func (a *App) ConfirmDeleteAIProvider() {
 		a.Post(func() {
 			a.Settings.ConfirmDelete = ""
 			if err != nil {
-				a.Settings.ProvidersErr = "删除供应商失败：" + err.Error()
+				a.Settings.ProvidersErr = i18n.Tf("settings.err.deleteProviderFailed", err.Error())
 				return
 			}
-			a.Settings.Notice = "供应商已删除"
+			a.Settings.Notice = i18n.T("settings.err.providerDeleted")
 			if a.Settings.SelectedProvider == id {
 				a.Settings.SelectedProvider = ""
 				a.Settings.Draft = configstore.AIProvider{}
@@ -357,10 +378,10 @@ func (a *App) SetDefaultAIProvider(id string) {
 		err := b.SetDefaultAIProvider(id)
 		a.Post(func() {
 			if err != nil {
-				a.Settings.ProvidersErr = "设置默认供应商失败：" + err.Error()
+				a.Settings.ProvidersErr = i18n.Tf("settings.err.setDefaultProviderFailed", err.Error())
 				return
 			}
-			a.Settings.Notice = "已设为默认供应商"
+			a.Settings.Notice = i18n.T("settings.err.defaultProviderSet")
 			a.LoadAIProviders()
 			if a.Settings.SelectedProvider != "" {
 				a.SelectAIProvider(a.Settings.SelectedProvider)

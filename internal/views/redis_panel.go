@@ -1,11 +1,10 @@
 package views
 
 import (
-	"fmt"
-
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/i18n"
 )
 
 // RedisPanel is the Redis key browser, key detail/info and command terminal.
@@ -18,7 +17,8 @@ func RedisPanel(c *ui.Context, a *app.App) {
 			redisKeysPane(c, a, t)
 			ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
 				ui.Row(c).Padding(4, 8).Background(t.Surface).Children(func() {
-					tabs := ui.Tabs(c, &a.Redis.MainTab, "键详情", "服务器信息")
+					tabs := ui.Tabs(c, &a.Redis.MainTab,
+						i18n.T("redis.tab.detail"), i18n.T("redis.tab.info"))
 					if tabs.Changed() && a.Redis.MainTab == 1 {
 						a.RedisLoadInfo()
 					}
@@ -37,7 +37,7 @@ func redisToolbar(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Row(c).Padding(6, 10).Gap(8).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, "Redis · "+a.Redis.DBLabel).FontSize(fontSize(13)).Bold().SingleLine()
 		ui.Spacer(c)
-		ui.Button(c, "刷新键").FontSize(fontSize(12)).OnClick(a.RedisReloadKeys)
+		ui.Button(c, i18n.T("redis.action.refreshKeys")).FontSize(fontSize(12)).OnClick(a.RedisReloadKeys)
 	})
 }
 
@@ -45,18 +45,18 @@ func redisKeysPane(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Width(280).FillHeight().Background(t.Surface).
 		Border(1, t.Border).Children(func() {
 		ui.Row(c).Padding(6, 8).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, fmt.Sprintf("键 (%d)", len(a.Redis.Keys))).FontSize(fontSize(13)).Bold()
+			ui.Text(c, i18n.Tf("redis.keys.title", len(a.Redis.Keys))).FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
-			ui.Text(c, "游标 "+a.Redis.Cursor).FontSize(fontSize(11)).TextColor(t.TextMuted)
+			ui.Text(c, i18n.Tf("redis.keys.cursor", a.Redis.Cursor)).FontSize(fontSize(11)).TextColor(t.TextMuted)
 		})
 		ui.Row(c).Padding(0, 6).Gap(4).Children(func() {
 			c.Key("redis-pattern")
 			ui.TextInput(c, &a.Redis.Pattern).Grow(1).FontSize(fontSize(12)).
-				Placeholder("匹配模式，如 user:*").OnSubmit(a.RedisSearch)
-			ui.Button(c, "搜索").FontSize(fontSize(12)).OnClick(a.RedisSearch)
+				Placeholder(i18n.T("redis.keys.patternPlaceholder")).OnSubmit(a.RedisSearch)
+			ui.Button(c, i18n.T("redis.action.search")).FontSize(fontSize(12)).OnClick(a.RedisSearch)
 		})
 		ui.Row(c).Padding(0, 6, 6, 6).Children(func() {
-			next := ui.Button(c, "下一页").FontSize(fontSize(12))
+			next := ui.Button(c, i18n.T("redis.action.nextPage")).FontSize(fontSize(12))
 			if a.Redis.Cursor == "0" || a.Redis.KeysLoading {
 				next = next.Disabled(true)
 			}
@@ -67,15 +67,15 @@ func redisKeysPane(c *ui.Context, a *app.App, t *ui.Theme) {
 		case a.Redis.KeysLoading:
 			ui.Row(c).Padding(16).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "扫描中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.T("redis.keys.scanning")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.Redis.KeysErr != "":
 			ui.Column(c).Padding(8).Gap(6).Children(func() {
 				dbErrorText(c, a.Redis.KeysErr, t)
-				ui.Button(c, "重试").OnClick(func() { a.RedisRefreshKeys(true) })
+				ui.Button(c, i18n.T("redis.action.retry")).OnClick(func() { a.RedisRefreshKeys(true) })
 			})
 		case len(a.Redis.Keys) == 0:
-			ui.Text(c, "没有匹配的键").FontSize(fontSize(12)).TextColor(t.TextMuted).Padding(8)
+			ui.Text(c, i18n.T("redis.keys.empty")).FontSize(fontSize(12)).TextColor(t.TextMuted).Padding(8)
 		default:
 			ui.Scroll(c).Grow(1).Children(func() {
 				ui.Column(c).Gap(1).Children(func() {
@@ -114,7 +114,7 @@ func redisMain(c *ui.Context, a *app.App, t *ui.Theme) {
 func redisDetail(c *ui.Context, a *app.App, t *ui.Theme) {
 	if a.Redis.SelectedKey == "" {
 		ui.Column(c).Grow(1).Padding(24).Center().Children(func() {
-			ui.Text(c, "选择左侧的键查看详情").FontSize(fontSize(13)).TextColor(t.TextMuted)
+			ui.Text(c, i18n.T("redis.detail.empty")).FontSize(fontSize(13)).TextColor(t.TextMuted)
 		})
 		return
 	}
@@ -123,7 +123,7 @@ func redisDetail(c *ui.Context, a *app.App, t *ui.Theme) {
 		ui.Row(c).MinWidth(0).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, d.Key).FontSize(fontSize(13)).Bold().SingleLine().MaxWidth(420)
 			if d.Type != "" {
-				ui.Text(c, "类型 "+d.Type).FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.Tf("redis.detail.type", d.Type)).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			}
 			switch {
 			case d.Loading:
@@ -134,31 +134,31 @@ func redisDetail(c *ui.Context, a *app.App, t *ui.Theme) {
 				ui.Text(c, "TTL ?").FontSize(fontSize(12)).TextColor(t.TextMuted)
 			}
 			if d.Truncated {
-				ui.Text(c, "仅显示前 200 项").FontSize(fontSize(12)).TextColor(t.Warning)
+				ui.Text(c, i18n.T("redis.detail.truncated")).FontSize(fontSize(12)).TextColor(t.Warning)
 			}
 			ui.Spacer(c)
 			if d.Type == "string" && !d.Loading {
-				ui.Button(c, "编辑值").FontSize(fontSize(12)).OnClick(a.RedisOpenEditValue)
+				ui.Button(c, i18n.T("redis.action.editValue")).FontSize(fontSize(12)).OnClick(a.RedisOpenEditValue)
 			}
-			ttl := ui.Button(c, "设置 TTL").FontSize(fontSize(12))
+			ttl := ui.Button(c, i18n.T("redis.action.setTTL")).FontSize(fontSize(12))
 			if d.Loading || d.Type == "" {
 				ttl = ttl.Disabled(true)
 			}
 			ttl.OnClick(a.RedisOpenTTL)
-			ui.Button(c, "删除").FontSize(fontSize(12)).OnClick(a.RedisOpenDelete)
+			ui.Button(c, i18n.T("redis.action.delete")).FontSize(fontSize(12)).OnClick(a.RedisOpenDelete)
 		})
 		switch {
 		case d.Loading:
 			ui.Row(c).Padding(20).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "读取键…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.T("redis.detail.loading")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case d.Err != "":
 			dbErrorText(c, d.Err, t)
 		case d.Result != nil:
 			ResultGridView(c, &a.Redis.DetailGrid, d.Result, t)
 		default:
-			dbHint(c, "该类型暂不支持预览。", t)
+			dbHint(c, i18n.T("redis.detail.unsupported"), t)
 		}
 	})
 }
@@ -166,20 +166,20 @@ func redisDetail(c *ui.Context, a *app.App, t *ui.Theme) {
 func redisInfo(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Grow(1).MinWidth(0).Padding(8).Gap(6).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "服务器信息").FontSize(fontSize(13)).Bold()
+			ui.Text(c, i18n.T("redis.info.title")).FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
-			ui.Button(c, "刷新").FontSize(fontSize(12)).OnClick(a.RedisLoadInfo)
+			ui.Button(c, i18n.T("redis.action.refresh")).FontSize(fontSize(12)).OnClick(a.RedisLoadInfo)
 		})
 		switch {
 		case a.Redis.InfoLoading:
 			ui.Row(c).Padding(20).Center().Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "读取 INFO…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.Text(c, i18n.T("redis.info.loading")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 		case a.Redis.InfoErr != "":
 			dbErrorText(c, a.Redis.InfoErr, t)
 		case len(a.Redis.Info) == 0:
-			dbHint(c, "没有可展示的 INFO 指标。", t)
+			dbHint(c, i18n.T("redis.info.empty"), t)
 		default:
 			ui.Scroll(c).Grow(1).Children(func() {
 				ui.Column(c).Gap(2).Children(func() {
@@ -202,9 +202,9 @@ func redisCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Height(220).Shrink(0).Background(t.Surface).
 		Border(1, t.Border).Radius(4).Children(func() {
 		ui.Row(c).Padding(4, 8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "命令终端").FontSize(fontSize(13)).Bold()
+			ui.Text(c, i18n.T("redis.command.title")).FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
-			history := ui.Button(c, fmt.Sprintf("历史 (%d)", len(a.Redis.CommandHistory))).
+			history := ui.Button(c, i18n.Tf("redis.command.historyCount", len(a.Redis.CommandHistory))).
 				FontSize(fontSize(11))
 			history = history.OnClick(func() {
 				a.Redis.HistoryOpen = !a.Redis.HistoryOpen
@@ -220,14 +220,14 @@ func redisCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 				case a.Redis.CommandRunning:
 					ui.Row(c).Padding(8).Children(func() {
 						ui.Spinner(c)
-						ui.Text(c, "执行中…").FontSize(fontSize(12)).TextColor(t.TextMuted)
+						ui.Text(c, i18n.T("redis.command.running")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 					})
 				case a.Redis.CommandErr != "":
 					dbErrorText(c, a.Redis.CommandErr, t)
 				case a.Redis.CommandResult != nil:
 					ResultGridView(c, &a.Redis.CommandGrid, a.Redis.CommandResult, t)
 				default:
-					dbHint(c, "输入 Redis 命令，Enter 执行。", t)
+					dbHint(c, i18n.T("redis.command.hint"), t)
 				}
 			})
 		})
@@ -236,7 +236,7 @@ func redisCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 			ui.TextInput(c, &a.Redis.Command).Grow(1).Font("monospace").
 				FontSize(fontSize(12)).Placeholder("GET key / HGETALL key / INFO …").
 				OnSubmit(a.RedisRunCommand)
-			run := ui.PrimaryButton(c, "执行").FontSize(fontSize(12))
+			run := ui.PrimaryButton(c, i18n.T("redis.action.execute")).FontSize(fontSize(12))
 			if a.Redis.CommandRunning {
 				run = run.Disabled(true)
 			}
@@ -247,9 +247,9 @@ func redisCommandTerminal(c *ui.Context, a *app.App, t *ui.Theme) {
 
 func redisHistory(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Width(460).MaxHeight(320).Padding(8).Gap(4).Children(func() {
-		ui.Text(c, "命令历史").FontSize(fontSize(13)).Bold()
+		ui.Text(c, i18n.T("redis.command.historyTitle")).FontSize(fontSize(13)).Bold()
 		if len(a.Redis.CommandHistory) == 0 {
-			ui.Text(c, "暂无历史").FontSize(fontSize(12)).TextColor(t.TextMuted)
+			ui.Text(c, i18n.T("redis.command.historyEmpty")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			return
 		}
 		ui.Scroll(c).MaxHeight(260).Children(func() {
@@ -276,7 +276,7 @@ func redisStatusBar(c *ui.Context, a *app.App, t *ui.Theme) {
 		}
 		text := a.Redis.Notice
 		if text == "" {
-			text = "就绪"
+			text = i18n.T("redis.status.ready")
 		}
 		ui.Text(c, text).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 	})
@@ -285,28 +285,28 @@ func redisStatusBar(c *ui.Context, a *app.App, t *ui.Theme) {
 func redisDialogs(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Modal(c, &a.Redis.EditOpen, func() {
 		ui.Column(c).Width(540).Padding(18).Gap(10).Children(func() {
-			ui.Text(c, "编辑字符串值").FontSize(fontSize(16)).Bold()
+			ui.Text(c, i18n.T("redis.dialog.editTitle")).FontSize(fontSize(16)).Bold()
 			ui.Text(c, a.Redis.EditKey).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 			c.Key("redis-edit-value")
 			ui.TextArea(c, &a.Redis.EditValue).Lines(3, 8).Grow(1).Font("monospace")
 			ui.Row(c).Justify(ui.End).Gap(8).Children(func() {
-				ui.Button(c, "取消").OnClick(func() { a.Redis.EditOpen = false })
-				ui.PrimaryButton(c, "保存").OnClick(a.RedisSaveValue)
+				ui.Button(c, i18n.T("redis.action.cancel")).OnClick(func() { a.Redis.EditOpen = false })
+				ui.PrimaryButton(c, i18n.T("redis.action.save")).OnClick(a.RedisSaveValue)
 			})
 		})
 	})
 	ui.Modal(c, &a.Redis.TTLOpen, func() {
 		ui.Column(c).Width(380).Padding(18).Gap(10).Children(func() {
-			ui.Text(c, "设置 TTL").FontSize(fontSize(16)).Bold()
+			ui.Text(c, i18n.T("redis.dialog.ttlTitle")).FontSize(fontSize(16)).Bold()
 			ui.Text(c, a.Redis.TTLKey).FontSize(fontSize(12)).TextColor(t.TextMuted).SingleLine()
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				c.Key("redis-ttl")
-				ui.TextInput(c, &a.Redis.TTLValue).Width(160).Label("秒数")
-				ui.Text(c, "-1 表示永久").FontSize(fontSize(12)).TextColor(t.TextMuted)
+				ui.TextInput(c, &a.Redis.TTLValue).Width(160).Label(i18n.T("redis.dialog.ttlSeconds"))
+				ui.Text(c, i18n.T("redis.dialog.ttlHint")).FontSize(fontSize(12)).TextColor(t.TextMuted)
 			})
 			ui.Row(c).Justify(ui.End).Gap(8).Children(func() {
-				ui.Button(c, "取消").OnClick(func() { a.Redis.TTLOpen = false })
-				ui.PrimaryButton(c, "保存").OnClick(a.RedisSaveTTL)
+				ui.Button(c, i18n.T("redis.action.cancel")).OnClick(func() { a.Redis.TTLOpen = false })
+				ui.PrimaryButton(c, i18n.T("redis.action.save")).OnClick(a.RedisSaveTTL)
 			})
 		})
 	})
@@ -318,9 +318,9 @@ func redisDeleteDialog(c *ui.Context, a *app.App) {
 		return
 	}
 	open := true
-	if ui.AlertDialog(c, &open, "删除键",
-		fmt.Sprintf("确定删除「%s」吗？此操作无法撤销。", a.Redis.ConfirmDeleteKey),
-		"取消", "确认删除") == 1 {
+	if ui.AlertDialog(c, &open, i18n.T("redis.dialog.deleteTitle"),
+		i18n.Tf("redis.dialog.deleteBody", a.Redis.ConfirmDeleteKey),
+		i18n.T("redis.action.cancel"), i18n.T("redis.action.confirmDelete")) == 1 {
 		a.RedisConfirmDelete()
 	}
 	if !open {

@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug NextOpsX (isolated data)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "showLog": true,
+      "env": {
+        "NEXTOPSX_DATA_DIR": "${workspaceFolder}/.debug/data"
+      }
+    },
+    {
+      "name": "Debug NextOpsX (real data)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "showLog": true
+    }
+  ]
+}

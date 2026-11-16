@@ -156,7 +156,7 @@ func aiMessageStream(c *ui.Context, a *app.App, t *ui.Theme) {
 				})
 			}
 			if a.AI.RunningCommand != "" {
-				aiRunningBlock(c, a, t)
+				aiRunningBlock(c, a)
 			}
 		})
 	})
@@ -213,24 +213,25 @@ func aiSuggestions(protocol string) []string {
 	}
 }
 
-func aiRunningBlock(c *ui.Context, a *app.App, t *ui.Theme) {
-	ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-		ui.Spinner(c)
-		ui.Text(c, "$ "+a.AI.RunningCommand).Font("monospace").FontSize(fontSize(12)).
-			TextColor(t.TextMuted).SingleLine()
-		if !a.AI.RunStartedAt.IsZero() {
-			elapsed := time.Since(a.AI.RunStartedAt).Seconds()
-			ui.Text(c, fmt.Sprintf("%.0fs", elapsed)).FontSize(fontSize(12)).TextColor(t.TextMuted)
+func aiRunningBlock(c *ui.Context, a *app.App) {
+	ui.Column(c).MaxWidthPercent(100).AlignItems(ui.Stretch).
+		Background(termBg).Border(1, termBorder).Radius(8).
+		Padding(8, 10).Gap(6).Children(func() {
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Spinner(c)
+			ui.Text(c, "$ "+truncateCommand(a.AI.RunningCommand, 72)).
+				Font("monospace").FontSize(fontSize(12)).TextColor(termFg).
+				SingleLine().Grow(1).MinWidth(0).Tooltip(a.AI.RunningCommand)
+			if !a.AI.RunStartedAt.IsZero() {
+				elapsed := time.Since(a.AI.RunStartedAt).Seconds()
+				ui.Text(c, fmt.Sprintf("%.0fs", elapsed)).FontSize(fontSize(12)).
+					TextColor(termMuted)
+			}
+		})
+		if a.AI.RunOutput != "" {
+			aiLiveTerminalOutput(c, a.AI.RunOutput, 180)
 		}
 	})
-	if a.AI.RunOutput != "" {
-		ui.Scroll(c).MaxHeight(180).Children(func() {
-			ui.Column(c).Background(t.Surface).Border(1, t.Border).Radius(4).
-				Padding(6, 8).Children(func() {
-				ui.Text(c, a.AI.RunOutput).Font("monospace").FontSize(fontSize(12)).Wrap()
-			})
-		})
-	}
 }
 
 func aiComposer(c *ui.Context, a *app.App, t *ui.Theme) {

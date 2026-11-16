@@ -1,6 +1,7 @@
 /build/
 /.mygo/
 /.agents/
+/.debug/
 mygo_windows_*.syso
 mygo-update.key
 

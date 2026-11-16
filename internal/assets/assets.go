@@ -67,14 +67,18 @@ func ProtocolBitmap(protocol string) *ui.Bitmap {
 	return bitmaps[key]
 }
 
+// SVG returns an embedded UI icon by file stem, such as "copy" or "folder".
+func SVG(name string) *ui.SVG {
+	iconsOnce.Do(loadIcons)
+	return svgs[strings.ToLower(name)]
+}
+
 // FolderSVG returns the folder icon.
 func FolderSVG() *ui.SVG {
-	iconsOnce.Do(loadIcons)
-	return svgs["folder"]
+	return SVG("folder")
 }
 
 // ObjectSVG returns one of the database object icons: table, view or field.
 func ObjectSVG(name string) *ui.SVG {
-	iconsOnce.Do(loadIcons)
-	return svgs[name]
+	return SVG(name)
 }

@@ -2,13 +2,11 @@ package views
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
-	"nextopsx/internal/i18n"
 	convstore "nextopsx/internal/store/conversations"
 )
 
@@ -40,34 +38,74 @@ func aiMessage(c *ui.Context, a *app.App, i int, t *ui.Theme) {
 				planCard(c, a, plan, status, true, t)
 			}
 		default:
-			if cmd := parseAICommand(call.Arguments); cmd != nil {
-				commandCard(c, a, cmd, cmd.Command, status, true, t)
+			cmd := parseAICommand(call.Arguments)
+			if cmd == nil {
+				return
 			}
+			// A pending command still needs the approval card. Once approved,
+			// auto-approved or rejected, the command and its output become one
+			// terminal bubble instead.
+			if status == app.AIStatusPending {
+				commandCard(c, a, cmd, cmd.Command, status, true, t)
+				return
+			}
+			tool, ok := aiToolMessageForCall(a.AI.Messages, i, call.ID)
+			if !ok {
+				// A non-pending status comes from a persisted tool result.
+				return
+			}
+			var meta aiToolMeta
+			_ = json.Unmarshal([]byte(tool.ToolResult), &meta)
+			if meta.Command == "" {
+				meta.Command = cmd.Command
+			}
+			aiTerminalBubble(c, a, tool, meta, status)
 		}
 	case "tool":
-		toolOutputBlock(c, a, msg, t)
+		// The assistant message that proposed this call already rendered the
+		// result as a terminal bubble; do not draw it twice.
+		if aiToolHandledByCall(a.AI.Messages, i) {
+			return
+		}
+		var meta aiToolMeta
+		_ = json.Unmarshal([]byte(msg.ToolResult), &meta)
+		if meta.Command != "" {
+			status := meta.Status
+			if status == "" {
+				status = msg.ApprovalStatus
+			}
+			aiTerminalBubble(c, a, msg, meta, status)
+			return
+		}
+		aiToolTextBubble(c, msg, t)
 	}
 }
 
 func aiUserBubble(c *ui.Context, text string, t *ui.Theme) {
-	svc := c.Services()
-	ui.Row(c).Justify(ui.End).Gap(6).AlignItems(ui.Center).Children(func() {
-		ui.Button(c, i18n.T("ai.action.copy")).FontSize(fontSize(12)).OnClick(func() { svc.WriteClipboard(text) })
-		ui.Column(c).MaxWidth(560).Padding(8, 10).Radius(8).
-			Background(t.Accent).Children(func() {
-			ui.Text(c, text).TextColor(t.AccentText).FontSize(fontSize(13)).Wrap()
+	ui.Column(c).AlignItems(ui.End).Gap(2).Children(func() {
+		ui.Row(c).Justify(ui.End).AlignItems(ui.Center).Children(func() {
+			ui.Column(c).MaxWidth(560).AlignItems(ui.Stretch).Padding(8, 10).Radius(8).
+				Background(t.Accent).Children(func() {
+				ui.Text(c, text).TextColor(t.AccentText).FontSize(fontSize(13)).Wrap()
+			})
+		})
+		ui.Row(c).Justify(ui.End).Children(func() {
+			aiBubbleToolbar(c, t.TextMuted, aiCopyAction(text))
 		})
 	})
 }
 
 func aiAssistantBubble(c *ui.Context, text string, t *ui.Theme) {
-	svc := c.Services()
-	ui.Row(c).Gap(6).AlignItems(ui.Start).Children(func() {
-		ui.Column(c).MaxWidth(720).Padding(8, 10).Radius(8).
-			Background(t.Surface).Children(func() {
-			MarkdownView(c, text)
+	ui.Column(c).AlignItems(ui.Start).Gap(2).Children(func() {
+		ui.Row(c).AlignItems(ui.Start).Children(func() {
+			ui.Column(c).MaxWidth(720).AlignItems(ui.Stretch).Padding(8, 10).Radius(8).
+				Background(t.Surface).Children(func() {
+				MarkdownView(c, text)
+			})
 		})
-		ui.Button(c, i18n.T("ai.action.copy")).FontSize(fontSize(12)).OnClick(func() { svc.WriteClipboard(text) })
+		ui.Row(c).Justify(ui.Start).Children(func() {
+			aiBubbleToolbar(c, t.TextMuted, aiCopyAction(text))
+		})
 	})
 }
 
@@ -110,17 +148,18 @@ func parseAIPlan(args string) *app.PlanSuggestion {
 }
 
 func aiToolStatus(msgs []convstore.Message, i int, callID string) string {
-	if i+1 < len(msgs) && msgs[i+1].Role == "tool" && msgs[i+1].ToolCallID == callID {
-		switch msgs[i+1].ApprovalStatus {
-		case app.AIStatusRejected:
-			return app.AIStatusRejected
-		case app.AIStatusAuto:
-			return app.AIStatusAuto
-		default:
-			return app.AIStatusApproved
-		}
+	tool, ok := aiToolMessageForCall(msgs, i, callID)
+	if !ok {
+		return app.AIStatusPending
 	}
-	return app.AIStatusPending
+	switch tool.ApprovalStatus {
+	case app.AIStatusRejected:
+		return app.AIStatusRejected
+	case app.AIStatusAuto:
+		return app.AIStatusAuto
+	default:
+		return app.AIStatusApproved
+	}
 }
 
 // aiToolMeta is the structured metadata persisted in Message.ToolResult.
@@ -132,49 +171,33 @@ type aiToolMeta struct {
 	Cancelled  bool   `json:"cancelled"`
 }
 
-func toolOutputBlock(c *ui.Context, a *app.App, msg convstore.Message, t *ui.Theme) {
-	var meta aiToolMeta
-	_ = json.Unmarshal([]byte(msg.ToolResult), &meta)
-	open := a.AI.ToolOpen[msg.ID]
+// aiToolMessageForCall returns the tool result that follows an assistant
+// tool call, if it is already persisted.
+func aiToolMessageForCall(msgs []convstore.Message, i int, callID string) (convstore.Message, bool) {
+	if i+1 < len(msgs) && msgs[i+1].Role == "tool" && msgs[i+1].ToolCallID == callID {
+		return msgs[i+1], true
+	}
+	return convstore.Message{}, false
+}
 
-	head := "▸ "
-	if open {
-		head = "▾ "
+// aiToolHandledByCall reports whether a tool message was already rendered
+// together with its assistant call, so the message stream can skip it.
+func aiToolHandledByCall(msgs []convstore.Message, i int) bool {
+	if i <= 0 || msgs[i-1].Role != "assistant" {
+		return false
 	}
-	if meta.Command != "" {
-		head += "$ " + meta.Command
-	} else if msg.ToolName != "" {
-		head += msg.ToolName
-	} else {
-		head += i18n.T("ai.tool.output")
+	calls := parseAIToolCalls(msgs[i-1].ToolCalls)
+	if len(calls) == 0 {
+		return false
 	}
-	switch {
-	case meta.Status == app.AIStatusRejected:
-		head += i18n.T("ai.tool.rejected")
-	case meta.Cancelled:
-		head += i18n.T("ai.tool.cancelled")
-	case msg.ToolResult != "":
-		head += fmt.Sprintf(" · exit %d", meta.ExitCode)
+	// aiMessage renders only the first call of an assistant message, and only
+	// command calls are drawn together with their tool result. Other tool
+	// results (load_skill, run_skill_script, …) are rendered on their own.
+	call := calls[0]
+	if call.ID != msgs[i].ToolCallID || parseAICommand(call.Arguments) == nil {
+		return false
 	}
-	if lines := countOutputLines(msg.Content); lines > 0 {
-		head += i18n.Tf("ai.tool.lines", lines)
-	}
-	ui.Button(c, head).FontSize(fontSize(12)).SingleLine().OnClick(func() {
-		a.ToggleToolOutput(msg.ID)
-	})
-	if !open {
-		return
-	}
-	content := msg.Content
-	if strings.TrimSpace(content) == "" {
-		content = i18n.T("ai.tool.noOutput")
-	}
-	ui.Scroll(c).MaxHeight(260).Children(func() {
-		ui.Column(c).Background(t.Background).Border(1, t.Border).Radius(4).
-			Padding(6, 8).Children(func() {
-			ui.Text(c, content).Font("monospace").FontSize(fontSize(12)).Wrap()
-		})
-	})
+	return aiToolStatus(msgs, i-1, call.ID) != app.AIStatusPending
 }
 
 func countOutputLines(s string) int {

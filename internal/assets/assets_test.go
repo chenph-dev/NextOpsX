@@ -23,7 +23,7 @@ func TestIconsLoad(t *testing.T) {
 	if ProtocolBitmap("unknown-protocol") != nil {
 		t.Error("unknown protocol should have no icon")
 	}
-	for _, name := range []string{"table", "view", "field", "file"} {
+	for _, name := range []string{"table", "view", "field", "file", "copy"} {
 		if ObjectSVG(name) == nil {
 			t.Errorf("object icon missing for %q", name)
 		}

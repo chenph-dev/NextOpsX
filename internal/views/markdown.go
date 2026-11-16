@@ -3,8 +3,8 @@ package views
 // The Markdown block/inline parser below is adapted from MyGo's
 // internal markdown parser (github.com/egoist/mygo, MIT), which renders
 // release notes. Keeping it here lets the native AI panel show headings,
-// lists, quotes, fenced code, emphasis, code spans and links without a
-// web view or an extra dependency.
+// lists, quotes, fenced code, tables, emphasis, code spans and links without
+// a web view or an extra dependency.
 
 import (
 	"fmt"
@@ -24,6 +24,16 @@ const (
 	Quote
 	Code
 	Rule
+	Table
+)
+
+// TableAlign is the alignment of a Markdown table column.
+type TableAlign uint8
+
+const (
+	AlignLeft TableAlign = iota
+	AlignCenter
+	AlignRight
 )
 
 // Block is a block of release notes.
@@ -40,6 +50,10 @@ type Block struct {
 	Ordered bool
 	Items   [][]Block
 	Blocks  []Block
+	// Header, Rows and Aligns are those of a Table.
+	Header [][]Inline
+	Rows   [][][]Inline
+	Aligns []TableAlign
 }
 
 // InlineKind is what an Inline is.
@@ -107,6 +121,11 @@ func parseBlocks(lines []string) []Block {
 			flush()
 			blocks = append(blocks, Block{Kind: Rule})
 			i++
+		case isTableStart(lines, i):
+			flush()
+			var table Block
+			table, i = parseTable(lines, i)
+			blocks = append(blocks, table)
 		case strings.HasPrefix(trimmed, ">"):
 			flush()
 			var quote []string
@@ -175,6 +194,139 @@ func parseList(lines []string, i int) (Block, int) {
 		list.Items = append(list.Items, parseBlocks(item))
 	}
 	return list, i
+}
+
+// isTableStart reports whether lines[i] is a table header followed by a
+// delimiter row.
+func isTableStart(lines []string, i int) bool {
+	if i+1 >= len(lines) || !strings.Contains(lines[i], "|") {
+		return false
+	}
+	header := splitTableRow(lines[i])
+	if len(header) == 0 {
+		return false
+	}
+	aligns, ok := tableAlignments(lines[i+1])
+	return ok && len(aligns) == len(header)
+}
+
+// parseTable parses a GFM table at lines[i].
+func parseTable(lines []string, i int) (Block, int) {
+	header := splitTableRow(lines[i])
+	aligns, _ := tableAlignments(lines[i+1])
+	b := Block{Kind: Table, Aligns: aligns}
+	for _, cell := range header {
+		b.Header = append(b.Header, parseInline(cell))
+	}
+	i += 2
+	for i < len(lines) {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || !strings.Contains(line, "|") || isBlockStart(trimmed) {
+			break
+		}
+		cells := splitTableRow(line)
+		row := make([][]Inline, len(header))
+		for j := range row {
+			if j < len(cells) {
+				row[j] = parseInline(cells[j])
+			}
+		}
+		b.Rows = append(b.Rows, row)
+		i++
+	}
+	return b, i
+}
+
+// splitTableRow splits a table row at unescaped pipes outside code spans.
+func splitTableRow(line string) []string {
+	s := strings.TrimSpace(line)
+	if strings.HasPrefix(s, "|") {
+		s = s[1:]
+	}
+	if strings.HasSuffix(s, "|") && !strings.HasSuffix(s, "\\|") {
+		s = s[:len(s)-1]
+	}
+	var cells []string
+	var b strings.Builder
+	codeDelim := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '\\' && i+1 < len(s) && s[i+1] == '|':
+			b.WriteByte('|')
+			i++
+		case c == '`':
+			n := run(s[i:], '`')
+			switch {
+			case codeDelim == 0 && hasClosingBackticks(s[i+n:], n):
+				codeDelim = n
+			case codeDelim == n:
+				codeDelim = 0
+			}
+			b.WriteString(s[i : i+n])
+			i += n - 1
+		case c == '|' && codeDelim == 0:
+			cells = append(cells, strings.TrimSpace(b.String()))
+			b.Reset()
+		default:
+			b.WriteByte(c)
+		}
+	}
+	cells = append(cells, strings.TrimSpace(b.String()))
+	return cells
+}
+
+// hasClosingBackticks reports whether s holds a run of exactly n backticks,
+// closing an inline code span. A lone unmatched backtick stays literal, so
+// pipes after it still separate table cells.
+func hasClosingBackticks(s string, n int) bool {
+	for i := 0; i < len(s); {
+		if s[i] != '`' {
+			i++
+			continue
+		}
+		m := run(s[i:], '`')
+		if m == n {
+			return true
+		}
+		i += m
+	}
+	return false
+}
+
+func tableAlignments(line string) ([]TableAlign, bool) {
+	cells := splitTableRow(line)
+	if len(cells) == 0 {
+		return nil, false
+	}
+	aligns := make([]TableAlign, len(cells))
+	for i, cell := range cells {
+		align, ok := tableAlign(cell)
+		if !ok {
+			return nil, false
+		}
+		aligns[i] = align
+	}
+	return aligns, true
+}
+
+func tableAlign(cell string) (TableAlign, bool) {
+	cell = strings.TrimSpace(cell)
+	left := strings.HasPrefix(cell, ":")
+	right := strings.HasSuffix(cell, ":")
+	core := strings.TrimSpace(strings.Trim(cell, ":"))
+	if len(core) < 1 || strings.Trim(core, "-") != "" {
+		return AlignLeft, false
+	}
+	switch {
+	case left && right:
+		return AlignCenter, true
+	case right:
+		return AlignRight, true
+	default:
+		return AlignLeft, true
+	}
 }
 
 // listMarker reports whether line starts a list item, with the indentation
@@ -524,7 +676,60 @@ func mdRenderBlocks(c *ui.Context, blocks []Block, t *ui.Theme) {
 					})
 				})
 			}
+		case Table:
+			mdTable(c, b, t)
 		}
+	}
+}
+
+func mdTable(c *ui.Context, b Block, t *ui.Theme) {
+	ui.Column(c).Border(1, t.Border).Radius(4).Children(func() {
+		mdTableRow(c, b.Header, b.Aligns, true, t)
+		for _, row := range b.Rows {
+			ui.Divider(c)
+			mdTableRow(c, row, b.Aligns, false, t)
+		}
+	})
+}
+
+func mdTableRow(c *ui.Context, cells [][]Inline, aligns []TableAlign, header bool, t *ui.Theme) {
+	ui.Row(c).AlignItems(ui.Stretch).Children(func() {
+		for i, cell := range cells {
+			align := AlignLeft
+			if i < len(aligns) {
+				align = aligns[i]
+			}
+			col := ui.Column(c).Grow(1).MinWidth(60).Padding(5, 8)
+			if header {
+				col = col.Background(t.SurfaceHover)
+			}
+			col.Children(func() {
+				mdTableCell(c, cell, align, header, t)
+			})
+		}
+	})
+}
+
+func mdTableCell(c *ui.Context, inlines []Inline, align TableAlign, header bool, t *ui.Theme) {
+	spans := mdSpans(inlines, mdStyle{}, t)
+	if len(spans) == 0 {
+		return
+	}
+	text := ui.RichText(c, spans...).FontSize(fontSize(12)).LineHeight(1.4).
+		TextAlign(mdTableAlign(align))
+	if header {
+		text = text.Bold()
+	}
+}
+
+func mdTableAlign(a TableAlign) ui.Align {
+	switch a {
+	case AlignCenter:
+		return ui.Center
+	case AlignRight:
+		return ui.End
+	default:
+		return ui.Start
 	}
 }
 

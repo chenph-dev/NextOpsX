@@ -76,6 +76,10 @@ var (
 		// Audit log.
 		"settings.audit.title":          "AI 调用记录",
 		"settings.audit.refresh":        "刷新",
+		"settings.audit.prev":           "上一页",
+		"settings.audit.next":           "下一页",
+		"settings.audit.page":           "第 %d / %d 页",
+		"settings.audit.total":          "共 %d 条",
 		"settings.audit.loading":        "读取审计日志…",
 		"settings.audit.retry":          "重试",
 		"settings.audit.emptyTitle":     "还没有调用记录",
@@ -206,6 +210,10 @@ var (
 		// Audit log.
 		"settings.audit.title":          "AI call log",
 		"settings.audit.refresh":        "Refresh",
+		"settings.audit.prev":           "Previous",
+		"settings.audit.next":           "Next",
+		"settings.audit.page":           "Page %d of %d",
+		"settings.audit.total":          "%d records",
 		"settings.audit.loading":        "Loading audit log…",
 		"settings.audit.retry":          "Retry",
 		"settings.audit.emptyTitle":     "No calls recorded yet",

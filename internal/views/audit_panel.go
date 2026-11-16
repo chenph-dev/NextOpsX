@@ -12,7 +12,7 @@ import (
 
 // auditSettings is the AI call audit section of the settings page.
 func auditSettings(c *ui.Context, a *app.App, t *ui.Theme) {
-	ui.Column(c).Fill().MinWidth(0).Children(func() {
+	ui.Column(c).Grow(1).MinHeight(0).MinWidth(0).Children(func() {
 		ui.Row(c).Padding(8, 14).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, i18n.T("settings.audit.title")).FontSize(fontSize(13)).Bold()
 			ui.Spacer(c)
@@ -46,6 +46,8 @@ func auditSettings(c *ui.Context, a *app.App, t *ui.Theme) {
 				return
 			}
 			auditTable(c, a, t)
+			ui.Divider(c)
+			auditPager(c, a, t)
 			auditDetail(c, a, t)
 		}
 	})
@@ -70,31 +72,60 @@ func auditStat(c *ui.Context, t *ui.Theme, label, value string) {
 	})
 }
 
-func auditTable(c *ui.Context, a *app.App, t *ui.Theme) {
-	cols := []ui.TableColumn{
-		{Title: i18n.T("settings.audit.col.time"), Width: 110},
-		{Title: i18n.T("settings.audit.col.component"), Width: 64},
-		{Title: i18n.T("settings.audit.col.name"), Width: 130},
-		{Title: i18n.T("settings.audit.col.provider"), Width: 110},
-		{Title: i18n.T("settings.audit.col.in"), Width: 72, Align: ui.End},
-		{Title: i18n.T("settings.audit.col.out"), Width: 72, Align: ui.End},
-		{Title: i18n.T("settings.audit.col.total"), Width: 82, Align: ui.End},
-		{Title: i18n.T("settings.audit.col.duration"), Width: 80, Align: ui.End},
-		{Title: i18n.T("settings.audit.col.status"), Width: 64},
+func auditColumns() []ui.TableColumn {
+	return []ui.TableColumn{
+		{Title: i18n.T("settings.audit.col.time"), Width: 130},
+		{Title: i18n.T("settings.audit.col.component"), Width: 80},
+		{Title: i18n.T("settings.audit.col.name"), Width: 160},
+		{Title: i18n.T("settings.audit.col.provider"), Width: 130},
+		{Title: i18n.T("settings.audit.col.in"), Width: 80, Align: ui.End},
+		{Title: i18n.T("settings.audit.col.out"), Width: 80, Align: ui.End},
+		{Title: i18n.T("settings.audit.col.total"), Width: 90, Align: ui.End},
+		{Title: i18n.T("settings.audit.col.duration"), Width: 88, Align: ui.End},
+		{Title: i18n.T("settings.audit.col.status"), Width: 74},
 	}
+}
+
+// auditPageBounds returns the clamped page and the half-open range of logs
+// shown on it.
+func auditPageBounds(a *app.App) (page, start, end, pages int) {
+	pages = a.AuditPageCount()
+	page = a.Audit.Page
+	if page < 0 {
+		page = 0
+	}
+	if page >= pages {
+		page = pages - 1
+	}
+	start = page * app.AuditPageSize
+	end = start + app.AuditPageSize
+	if end > len(a.Audit.Logs) {
+		end = len(a.Audit.Logs)
+	}
+	if start > end {
+		start = end
+	}
+	return page, start, end, pages
+}
+
+func auditTable(c *ui.Context, a *app.App, t *ui.Theme) {
+	cols := auditColumns()
+	_, start, end, _ := auditPageBounds(a)
+	pageLogs := a.Audit.Logs[start:end]
+
 	a.Audit.List.Selected = &a.Audit.Selected
 	// 以记录 ID 作为行标识，刷新后选中项跟随记录而不是下标。
 	a.Audit.List.Key = func(row int) any {
-		if row >= 0 && row < len(a.Audit.Logs) {
-			return a.Audit.Logs[row].ID
+		if row >= 0 && row < len(pageLogs) {
+			return pageLogs[row].ID
 		}
 		return row
 	}
-	ui.Table(c, &a.Audit.List, cols, len(a.Audit.Logs), func(row, col int) {
-		if row < 0 || row >= len(a.Audit.Logs) {
+	ui.Table(c, &a.Audit.List, cols, len(pageLogs), func(row, col int) {
+		if row < 0 || row >= len(pageLogs) {
 			return
 		}
-		l := a.Audit.Logs[row]
+		l := pageLogs[row]
 		switch col {
 		case 0:
 			ui.Text(c, time.Unix(l.Ts, 0).Format("01-02 15:04:05")).
@@ -127,14 +158,40 @@ func auditTable(c *ui.Context, a *app.App, t *ui.Theme) {
 				ui.Text(c, i18n.T("settings.audit.failure")).FontSize(fontSize(12)).TextColor(t.Danger).SingleLine()
 			}
 		}
-	}).Grow(1).MinWidth(0)
+	}).Grow(1).MinHeight(0).MinWidth(0)
+}
+
+func auditPager(c *ui.Context, a *app.App, t *ui.Theme) {
+	page, start, end, pages := auditPageBounds(a)
+	ui.Row(c).Padding(6, 14).Gap(8).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, i18n.Tf("settings.audit.total", len(a.Audit.Logs))).
+			FontSize(fontSize(12)).TextColor(t.TextMuted)
+		if end > start {
+			ui.Text(c, fmt.Sprintf("%d–%d", start+1, end)).
+				FontSize(fontSize(12)).TextColor(t.TextMuted)
+		}
+		ui.Spacer(c)
+		prev := ui.Button(c, i18n.T("settings.audit.prev")).FontSize(fontSize(12))
+		if page <= 0 {
+			prev = prev.Disabled(true)
+		}
+		prev.OnClick(a.AuditPrevPage)
+		ui.Text(c, i18n.Tf("settings.audit.page", page+1, pages)).FontSize(fontSize(12))
+		next := ui.Button(c, i18n.T("settings.audit.next")).FontSize(fontSize(12))
+		if page >= pages-1 {
+			next = next.Disabled(true)
+		}
+		next.OnClick(a.AuditNextPage)
+	})
 }
 
 func auditDetail(c *ui.Context, a *app.App, t *ui.Theme) {
-	if a.Audit.Selected < 0 || a.Audit.Selected >= len(a.Audit.Logs) {
+	page, _, _, _ := auditPageBounds(a)
+	i := page*app.AuditPageSize + a.Audit.Selected
+	if a.Audit.Selected < 0 || i < 0 || i >= len(a.Audit.Logs) {
 		return
 	}
-	l := a.Audit.Logs[a.Audit.Selected]
+	l := a.Audit.Logs[i]
 	ui.Divider(c)
 	ui.Column(c).Padding(6, 16).Gap(2).Children(func() {
 		line := i18n.Tf("settings.audit.sessionLine",

@@ -54,11 +54,11 @@ func TestSSHTerminal(t *testing.T) {
 	tt := ui.NewTester(func(c *ui.Context) {
 		terminal.View(c, term).Fill().AutoFocus()
 	}, 800, 500)
-	tt.Type("echo opsmate-ok")
+	tt.Type("echo nextopsx-ok")
 	tt.Key(0, ui.KeyEnter)
 
 	deadline := time.Now().Add(10 * time.Second)
-	for !strings.Contains(term.Text(), "opsmate-ok") {
+	for !strings.Contains(term.Text(), "nextopsx-ok") {
 		if time.Now().After(deadline) {
 			t.Fatalf("terminal did not show the SSH output: %q", term.Text())
 		}

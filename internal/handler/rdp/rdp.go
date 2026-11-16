@@ -1,4 +1,4 @@
-// Package rdp 提供 Windows 资产 RDP 拉起的 Wails 绑定 handler。
+// Package rdp 提供 Windows 资产 RDP 拉起的服务门面 handler。
 package rdp
 
 import (

@@ -8,7 +8,7 @@ import (
 	_ "nextopsx/internal/register" // 登记内置命令型驱动（ssh/winrm），供 ListConnectors 输出
 )
 
-// ConnectorHandler 暴露连接类型元信息给前端（wails 绑定）。
+// ConnectorHandler 暴露连接类型元信息给前端（服务门面）。
 type ConnectorHandler struct{}
 
 // NewConnectorHandler 构造 ConnectorHandler。

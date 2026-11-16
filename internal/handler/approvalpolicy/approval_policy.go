@@ -1,4 +1,4 @@
-// Package approvalpolicy 提供审批策略的 Wails 绑定 handler。
+// Package approvalpolicy 提供审批策略的服务门面 handler。
 package approvalpolicy
 
 import configstore "nextopsx/internal/store/config"

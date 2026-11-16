@@ -202,7 +202,7 @@ func TestSettingsAboutUpdateAvailable(t *testing.T) {
 }
 
 // TestShellEnglishHasNoChinese renders the asset tree and welcome view in
-// English and fails on any Chinese text that was not migrated.
+// English and fails on any Chinese text that was not translated.
 func TestShellEnglishHasNoChinese(t *testing.T) {
 	t.Cleanup(func() { i18n.SetLanguage(i18n.ZhCN) })
 	i18n.SetLanguage(i18n.EnUS)

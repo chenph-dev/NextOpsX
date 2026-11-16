@@ -1,4 +1,4 @@
-// Package db 提供数据库连接的 Wails 绑定 handler。
+// Package db 提供数据库连接的服务门面 handler。
 package db
 
 import (

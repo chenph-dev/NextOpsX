@@ -1,4 +1,4 @@
-// Package sessions 提供 AI 会话与审批的 Wails 绑定 handler。
+// Package sessions 提供 AI 会话与审批的服务门面 handler。
 package sessions
 
 import (
@@ -7,8 +7,8 @@ import (
 )
 
 // SessionsHandler 处理会话/对话相关的前端调用。
-// 事件推送不经过本 handler：SessionManager 持有 main.go 注入的
-// emitEvent 函数直接推 Wails 事件。
+// 事件推送不经过本 handler：SessionManager 持有组合根注入的
+// emitEvent 函数直接推送事件。
 type SessionsHandler struct {
 	convs          *convstore.ConvStore
 	sessionManager *session.SessionManager
@@ -30,7 +30,7 @@ func (h *SessionsHandler) NewSession(hostID, title string) (string, error) {
 }
 
 // SendMessage 发送消息。executor 由 SessionManager 通过注入的
-// ExecutorFor 工厂解析——修复旧版把 sessionID 误当 hostID 的 bug。
+// ExecutorFor 工厂解析，避免把 sessionID 误当 hostID。
 func (h *SessionsHandler) SendMessage(sid, text string) error {
 	return h.sessionManager.SendMessage(sid, text)
 }

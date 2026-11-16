@@ -1,6 +1,6 @@
 # NextOpsX（次代运维）
 
-NextOpsX 是内部旧 Wails 版本 ops-mate 的原生桌面重写版：用 MyGo 原生 UI 替代 Wails + React，去掉 WebView 依赖，保持单一 Go 代码库。
+NextOpsX 是基于 MyGo 原生 UI 的桌面运维客户端：不依赖 WebView，保持单一 Go 代码库。
 
 ## 功能
 
@@ -44,7 +44,6 @@ go test -run TestSSHTerminal -v ./internal/backend
 
 - `NEXTOPSX_DATA_DIR` 可覆盖数据目录，便于测试或便携部署。
 - 密码/私钥使用 AES-256-GCM 加密，优先存入系统 keyring，失败时回退到 `master.key`。
-- **不读取、不迁移旧 ops-mate 的数据**；两个项目的数据目录互相独立。
 
 ## 打包
 
@@ -97,7 +96,4 @@ internal/views       # MyGo 原生视图
 internal/backend     # 服务装配（不依赖 MyGo）
 internal/<domain>    # 连接器、执行器、Agent、存储
 internal/i18n        # zh-CN / en-US 字符串目录
-docs/                # 迁移计划与设计笔记（本地，不提交）
 ```
-
-迁移计划与设计笔记保存在本地 `docs/`（`.gitignore` 忽略，不随仓库发布）。

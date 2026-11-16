@@ -1,4 +1,4 @@
-// Package logs 提供 AI 审计日志的 Wails 绑定 handler。
+// Package logs 提供 AI 审计日志的服务门面 handler。
 package logs
 
 import logsstore "nextopsx/internal/store/logs"

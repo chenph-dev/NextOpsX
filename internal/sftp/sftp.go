@@ -73,7 +73,7 @@ type TaskInfo struct {
 	Error      string `json:"error,omitempty"`
 }
 
-// progressEmit 传输进度回调（handler 注入，发 Wails 事件）。
+// progressEmit 传输进度回调（由调用方注入）。
 type progressEmit func(t *Task)
 
 // Manager 管理每资产的 SFTP 连接（懒建立、复用、随应用退出释放）与传输任务。

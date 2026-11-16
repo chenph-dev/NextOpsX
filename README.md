@@ -1,4 +1,4 @@
-# NextOpsX（次代运维）
+# NextOpsX（下一代运维平台）
 
 NextOpsX 是基于 MyGo 原生 UI 的桌面运维客户端：不依赖 WebView，保持单一 Go 代码库。
 

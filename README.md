@@ -61,7 +61,7 @@ go tool mygo build -platform linux/amd64,windows/amd64,darwin/universal
 
 ## 自动更新
 
-`mygo.json` 已配置 GitHub Releases 更新源（`chenph/nextopsx`）和公钥；安装版可在「设置 → 关于」检查、下载并重启应用更新。
+`mygo.json` 已配置 GitHub Releases 更新源（`chenph-dev/NextOpsX`）和公钥；安装版可在「设置 → 关于」检查、下载并重启应用更新。
 
 签名私钥由 `mygo keygen` 生成在本机：
 
@@ -83,7 +83,7 @@ CI 发布流程：
 
 1. 把私钥内容加入仓库 secret：`gh secret set MYGO_UPDATER_PRIVATE_KEY < ~/.config/mygo/update-keys/mygo-update.key`
 2. 更新 `mygo.json` 的 `version` 和 `CHANGELOG.md` 对应小节，提交。
-3. 打 tag 并推送：`git tag v0.1.1 && git push origin v0.1.1`
+3. 打 tag 并推送：`git tag v0.1.0 && git push origin v0.1.0`
 4. `release.yml` 会在 Linux / Windows / macOS runner 上构建并上传到 draft release；检查后发布。
 5. `ci.yml` 在 push/PR 时运行 build、test 与 vet。
 

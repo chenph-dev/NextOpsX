@@ -167,6 +167,40 @@ func TestLanguageSwitchRendersEnglish(t *testing.T) {
 	}
 }
 
+func TestSettingsAboutSection(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsAbout
+	a.Settings.About = app.AboutState{Version: "0.1.0", Enabled: false}
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"关于", "版本", "0.1.0", "自动更新", "当前构建或安装方式不支持自动更新",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+	if tt.HasText("检查更新") {
+		t.Errorf("disabled build should not offer a check button: %q", tt.Texts())
+	}
+}
+
+func TestSettingsAboutUpdateAvailable(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsAbout
+	a.Settings.About = app.AboutState{
+		Version: "0.1.0", Enabled: true, Checked: true,
+		Available: true, Latest: "0.2.0", Notes: "修复若干问题",
+	}
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"发现新版本 0.2.0", "下载并安装", "更新说明", "修复若干问题",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+}
+
 // TestShellEnglishHasNoChinese renders the asset tree and welcome view in
 // English and fails on any Chinese text that was not migrated.
 func TestShellEnglishHasNoChinese(t *testing.T) {

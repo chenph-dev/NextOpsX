@@ -25,6 +25,8 @@ func SettingsView(c *ui.Context, a *app.App) {
 				policySettings(c, a, t)
 			case app.SettingsAudit:
 				auditSettings(c, a, t)
+			case app.SettingsAbout:
+				aboutSettings(c, a, t)
 			default:
 				modelSettings(c, a, t)
 			}
@@ -76,6 +78,7 @@ func settingsNav(c *ui.Context, a *app.App, t *ui.Theme) {
 			settingsNavItem(c, a, t, app.SettingsSkills, i18n.T("settings.nav.skills"), "spark")
 			settingsNavItem(c, a, t, app.SettingsPolicy, i18n.T("settings.nav.policy"), "shield")
 			settingsNavItem(c, a, t, app.SettingsAudit, i18n.T("settings.nav.audit"), "chart")
+			settingsNavItem(c, a, t, app.SettingsAbout, i18n.T("settings.nav.about"), "spark")
 		})
 		ui.Spacer(c)
 		ui.Divider(c)
@@ -129,6 +132,8 @@ func settingsSectionMeta(tab app.SettingsTab) (title, icon string) {
 		return i18n.T("settings.nav.policy"), "shield"
 	case app.SettingsAudit:
 		return i18n.T("settings.nav.audit"), "chart"
+	case app.SettingsAbout:
+		return i18n.T("settings.nav.about"), "spark"
 	default:
 		return i18n.T("settings.nav.model"), "cpu"
 	}

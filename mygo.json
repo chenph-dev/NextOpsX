@@ -2,5 +2,9 @@
   "name": "NextOpsX",
   "identifier": "dev.nextopsx.app",
   "version": "0.1.0",
-  "out": "build"
+  "out": "build",
+  "updates": {
+    "publicKey": "eSgXFeTyVtij1zU/syKa0h2Ie+wI9G1NlewJhY73Mig=",
+    "github": "chenph/nextopsx"
+  }
 }

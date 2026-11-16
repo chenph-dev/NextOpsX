@@ -26,6 +26,7 @@ const (
 	SettingsSkills
 	SettingsPolicy
 	SettingsAudit
+	SettingsAbout
 )
 
 // SettingsState is the global settings page.
@@ -43,6 +44,9 @@ type SettingsState struct {
 	UISaving      bool
 	UIErr         string
 	DataDir       string
+
+	// 关于分区：版本与自动更新。
+	About AboutState
 
 	// 模型分区：供应商列表与编辑草稿。
 	Providers        []configstore.AIProvider
@@ -73,6 +77,8 @@ func (a *App) OpenSettings(tab SettingsTab) {
 		a.LoadApprovalPolicy()
 	case SettingsAudit:
 		a.LoadAudit()
+	case SettingsAbout:
+		a.LoadAbout()
 	}
 }
 

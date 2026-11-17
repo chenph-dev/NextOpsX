@@ -78,27 +78,105 @@ func TestHandleTermKeyNavigation(t *testing.T) {
 
 func TestInputTrackerLineEditing(t *testing.T) {
 	var line string
-	tr := newInputTracker(nil, func(s string) { line = s })
+	var stale bool
+	tr := newInputTracker(nil, func(s string, s2 bool) { line, stale = s, s2 })
 	tr.observe([]byte("df -h"))
-	if line != "df -h" {
-		t.Fatalf("line = %q", line)
+	if line != "df -h" || stale {
+		t.Fatalf("line = %q stale = %v", line, stale)
 	}
 	tr.observe([]byte{0x7f})
-	if line != "df -" {
-		t.Fatalf("backspace = %q", line)
+	if line != "df -" || stale {
+		t.Fatalf("backspace = %q stale = %v", line, stale)
 	}
 	tr.observe([]byte{0x1b, '[', 'A'})
-	if line != "" {
-		t.Fatalf("arrow should clear the line, got %q", line)
+	if line != "" || !stale {
+		t.Fatalf("arrow should clear and mark the line, got %q stale = %v", line, stale)
 	}
 	tr.observe([]byte("ls"))
+	if !stale {
+		t.Fatalf("typing after an arrow must keep the line unknown, got %q", line)
+	}
 	tr.observe([]byte{0x15})
-	if line != "" {
-		t.Fatalf("ctrl-u should clear the line, got %q", line)
+	if line != "" || stale {
+		t.Fatalf("ctrl-u should reset the line, got %q stale = %v", line, stale)
 	}
 	tr.observe([]byte("pwd\r"))
-	if line != "" {
-		t.Fatalf("enter should clear the line, got %q", line)
+	if line != "" || stale {
+		t.Fatalf("enter should reset the line, got %q stale = %v", line, stale)
+	}
+}
+
+func TestInputTrackerTabMarksLineUnknown(t *testing.T) {
+	var line string
+	var stale bool
+	tr := newInputTracker(nil, func(s string, s2 bool) { line, stale = s, s2 })
+	tr.observe([]byte("cd /var/lo\t"))
+	if line != "" || !stale {
+		t.Fatalf("tab completion = %q stale = %v", line, stale)
+	}
+	tr.observe([]byte("df"))
+	if !stale {
+		t.Fatalf("typing after tab completion must stay unknown: %q", line)
+	}
+	tr.observe([]byte("\r"))
+	if stale {
+		t.Fatal("enter should start a fresh line")
+	}
+	tr.observe([]byte("free"))
+	if line != "free" || stale {
+		t.Fatalf("fresh line = %q stale = %v", line, stale)
+	}
+}
+
+func TestInputTrackerInteractiveState(t *testing.T) {
+	tr := newInputTracker(nil, nil)
+	tr.observeOutput([]byte("user@host:~$ "))
+	if tr.Interactive() {
+		t.Fatal("a shell prompt is not interactive")
+	}
+	tr.observeOutput([]byte("[sudo] password for root: "))
+	if !tr.Interactive() {
+		t.Fatal("password prompt should own the keyboard")
+	}
+	tr.observe([]byte("\r"))
+	if tr.Interactive() {
+		t.Fatal("enter should leave the password prompt")
+	}
+	tr.observeOutput([]byte("\x1b[?1049h"))
+	if !tr.Interactive() {
+		t.Fatal("alternate screen should own the keyboard")
+	}
+	tr.observeOutput([]byte("\x1b[?1049l"))
+	if tr.Interactive() {
+		t.Fatal("leaving the alternate screen should restore suggestions")
+	}
+}
+
+func TestHandleTermKeyLeavesFullScreenAlone(t *testing.T) {
+	tr := newInputTracker(nil, nil)
+	a := &App{termTracker: tr}
+	a.Completion = CompletionState{
+		Open: true, Selected: 0,
+		Items: []CommandItem{{Command: "df -h", HistoryID: "h1"}},
+	}
+	tr.observeOutput([]byte("\x1b[?1049h"))
+	if a.HandleTermKey(0, ui.KeyDown) {
+		t.Fatal("down arrow must go to the full-screen program")
+	}
+	if a.Completion.Open {
+		t.Fatal("suggestions should close in a full-screen program")
+	}
+
+	a.Completion = CompletionState{
+		Open: true, Selected: 0,
+		Items: []CommandItem{{Command: "df -h", HistoryID: "h1"}},
+	}
+	tr.observeOutput([]byte("Password: "))
+	if a.HandleTermKey(0, ui.KeyTab) {
+		t.Fatal("tab must go to the password prompt")
+	}
+	if a.Completion.Open {
+		t.Fatal("suggestions should close at a password prompt")
 	}
 }
 
@@ -138,5 +216,65 @@ func TestHandleTermKeyTogglesDrawers(t *testing.T) {
 	a.SFTP = SFTPState{HostID: "h1"}
 	if !a.HandleTermKey(ui.Ctrl|ui.Shift, ui.KeyE) || !a.Layout.SFTPOpen {
 		t.Fatalf("SFTP drawer did not open: %+v", a.Layout)
+	}
+}
+
+func TestUpdateCompletionRespectsUnknownAndInteractiveLines(t *testing.T) {
+	a := &App{Term: &terminal.Terminal{}}
+	a.Selected = &hoststore.TreeNode{ID: "h1", NodeType: "host", User: "ops"}
+	a.Snippets.History = []historystore.Entry{{ID: "h1", Command: "df -h", Ts: 10}}
+	a.Completion = CompletionState{Open: true, Selected: 0, Buffer: "df"}
+	a.UpdateCompletionLine("df", true)
+	if a.Completion.Open {
+		t.Fatal("an unknown shell line must not keep suggestions open")
+	}
+
+	tr := newInputTracker(nil, nil)
+	tr.observeOutput([]byte("Password: "))
+	a.termTracker = tr
+	if !a.TerminalInteractive() {
+		t.Fatal("password prompt should be interactive")
+	}
+	a.Completion = CompletionState{Open: true, Selected: 0, Buffer: "df"}
+	a.UpdateCompletionLine("df", false)
+	if a.Completion.Open {
+		t.Fatal("suggestions must stay closed at a password prompt")
+	}
+}
+
+func TestPasswordPromptDetection(t *testing.T) {
+	if !passwordPrompt([]byte("\x1b[33mPassword:\x1b[0m ")) {
+		t.Fatal("colored password prompt not detected")
+	}
+	if !passwordPrompt([]byte("Enter passphrase for key '/home/ops/.ssh/id_ed25519': ")) {
+		t.Fatal("passphrase prompt not detected")
+	}
+	if passwordPrompt([]byte("user@host:~$ ")) {
+		t.Fatal("a normal shell prompt was mistaken for a password prompt")
+	}
+}
+
+type screenReadConn struct{ data []byte }
+
+func (c *screenReadConn) Read(p []byte) (int, error) {
+	if len(c.data) == 0 {
+		return 0, io.EOF
+	}
+	n := copy(p, c.data)
+	c.data = c.data[n:]
+	return n, nil
+}
+func (c *screenReadConn) Write(p []byte) (int, error) { return len(p), nil }
+func (c *screenReadConn) Close() error                { return nil }
+
+func TestInputTrackerReadsScreenState(t *testing.T) {
+	conn := &screenReadConn{data: []byte("Password: ")}
+	tr := newInputTracker(conn, nil)
+	buf := make([]byte, 64)
+	if _, err := tr.Read(buf); err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if !tr.Interactive() {
+		t.Fatal("output read through the tracker should mark the prompt")
 	}
 }

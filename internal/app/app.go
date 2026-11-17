@@ -44,11 +44,12 @@ type App struct {
 	Audit    AuditState
 	Snippets SnippetState
 
-	Term       *terminal.Terminal
-	TermHostID string
-	Completion CompletionState
-	Busy       bool
-	ErrMsg     string
+	Term        *terminal.Terminal
+	TermHostID  string
+	termTracker *inputTracker
+	Completion  CompletionState
+	Busy        bool
+	ErrMsg      string
 
 	conn   io.Closer
 	up     Updater
@@ -277,8 +278,8 @@ func (a *App) Connect(n *hoststore.TreeNode) {
 			return
 		}
 		a.Post(func() {
-			tracker := newInputTracker(conn, func(line string) {
-				a.Post(func() { a.UpdateCompletion(line) })
+			tracker := newInputTracker(conn, func(line string, stale bool) {
+				a.Post(func() { a.UpdateCompletionLine(line, stale) })
 			})
 			term, err := terminal.New(terminal.Options{
 				Conn: tracker, OnKey: a.HandleTermKey,
@@ -292,6 +293,7 @@ func (a *App) Connect(n *hoststore.TreeNode) {
 			a.Term = term
 			a.TermHostID = n.ID
 			a.conn = tracker
+			a.termTracker = tracker
 			a.Busy = false
 			a.CloseCompletion()
 			a.LoadCommandHistory()
@@ -321,6 +323,7 @@ func (a *App) Disconnect() {
 		a.conn = nil
 	}
 	a.TermHostID = ""
+	a.termTracker = nil
 	a.Layout.SFTPOpen = false
 	a.Snippets.PickerOpen = false
 	a.CloseCompletion()

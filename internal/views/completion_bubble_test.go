@@ -165,3 +165,39 @@ func TestDrawerShortcutsDoNotDoubleToggle(t *testing.T) {
 		t.Fatal("terminal shortcut should open the SFTP drawer once")
 	}
 }
+
+func TestCompletionPastesMultiLine(t *testing.T) {
+	conn := newCompletionTestConn()
+	a := &app.App{}
+	term, err := terminal.New(terminal.Options{
+		Conn: conn, OnKey: a.HandleTermKey,
+	})
+	if err != nil {
+		t.Fatalf("terminal.New: %v", err)
+	}
+	defer term.Close()
+	term.Feed([]byte("\x1b[?2004h")) // the shell asked for bracketed paste
+	a.Term = term
+	a.TermHostID = "h1"
+	a.Selected = &hoststore.TreeNode{ID: "h1", NodeType: "host", Protocol: "ssh"}
+	a.Completion = app.CompletionState{
+		Open: true, Buffer: "run", Selected: 0,
+		Items: []app.CommandItem{{
+			Command: "echo one\necho two", HistoryID: "h1",
+		}},
+	}
+	tt := ui.NewTester(func(c *ui.Context) {
+		terminal.View(c, term).Fill().AutoFocus()
+	}, 600, 400)
+	tt.Frame()
+	tt.Key(0, ui.KeyTab)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for !strings.Contains(conn.String(), "echo two") && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	got := conn.String()
+	if !strings.Contains(got, "\x1b[200~echo one\necho two\x1b[201~") {
+		t.Fatalf("command was not pasted as one block: %q", got)
+	}
+}

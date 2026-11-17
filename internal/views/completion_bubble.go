@@ -12,6 +12,11 @@ import (
 // terminalWithCompletion draws the terminal with the typed-prefix command
 // bubble in the pane's top-right corner.
 func terminalWithCompletion(c *ui.Context, a *app.App, t *ui.Theme) {
+	// Close the suggestion bubble as soon as a full-screen program or a
+	// password prompt takes over, rather than waiting for the next key.
+	if a.Completion.Open && a.TerminalInteractive() {
+		a.CloseCompletion()
+	}
 	// Return the keyboard to the terminal when the command picker closes, so
 	// typing continues there instead of on the toolbar button.
 	if a.Snippets.PickerOpen {

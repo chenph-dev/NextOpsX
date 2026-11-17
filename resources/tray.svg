@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="tile" x1="3" y1="2" x2="29" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#16213d"/>
+      <stop offset="1" stop-color="#080d17"/>
+    </linearGradient>
+    <linearGradient id="prompt" x1="8" y1="9" x2="17" y2="23" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#83a8ff"/>
+      <stop offset="1" stop-color="#26d4e8"/>
+    </linearGradient>
+    <linearGradient id="cursor" x1="18" y1="19" x2="25" y2="23" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd27a"/>
+      <stop offset="1" stop-color="#f0a93b"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="28" height="28" rx="8" fill="url(#tile)"/>
+  <rect x="2.4" y="2.4" width="27.2" height="27.2" rx="7.6" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M8.5 9.8 L15.2 16 L8.5 22.2" fill="none" stroke="url(#prompt)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="18.2" y="19.2" width="6.3" height="3.2" rx="1.6" fill="url(#cursor)"/>
+  <circle cx="24.2" cy="8" r="1.6" fill="url(#cursor)"/>
+</svg>

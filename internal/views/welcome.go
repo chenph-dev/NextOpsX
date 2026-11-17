@@ -34,13 +34,30 @@ func Welcome(c *ui.Context, a *app.App) {
 			ui.Text(c, n.Name).FontSize(fontSize(22)).Bold()
 			ui.Text(c, i18n.Tf("welcome.folder.subtitle", len(n.Children))).
 				TextColor(t.TextMuted)
-			ui.Row(c).Gap(8).Children(func() {
-				ui.PrimaryButton(c, i18n.T("welcome.folder.newAsset")).OnClick(a.OpenNewHostForm)
-				ui.Button(c, i18n.T("welcome.folder.newFolder")).OnClick(a.OpenNewFolderForm)
-				ui.Button(c, i18n.T("welcome.rename")).OnClick(a.OpenRenameDialog)
-				ui.Button(c, i18n.T("welcome.move")).OnClick(a.OpenMoveDialog)
-				ui.Button(c, i18n.T("welcome.delete")).OnClick(a.OpenDeleteDialog)
+			ui.Text(c, i18n.T("welcome.folder.hint")).
+				FontSize(fontSize(13)).TextColor(t.TextMuted)
+			backgroundTerminal(c, a, t)
+			return
+		}
+
+		if a.IsSSHProtocol(n.Protocol) {
+			ui.Row(c).Grow(1).FillWidth().Center().Children(func() {
+				ui.Column(c).Gap(4).AlignItems(ui.Center).Children(func() {
+					if a.Busy {
+						ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+							ui.Spinner(c)
+							ui.Text(c, i18n.T("welcome.connecting")).TextColor(t.TextMuted)
+						})
+						return
+					}
+					ui.Text(c, i18n.T("welcome.host.openHint")).
+						FontSize(fontSize(15)).TextColor(t.TextMuted)
+					ui.Text(c, i18n.Tf("welcome.host.meta",
+						a.HostProtocolName(n.Protocol), a.AuthDisplay(n.AuthType), a.AutoApproveDisplay(n.AutoApprove))).
+						FontSize(fontSize(12)).TextColor(t.TextMuted)
+				})
 			})
+			backgroundTerminal(c, a, t)
 			return
 		}
 
@@ -50,20 +67,6 @@ func Welcome(c *ui.Context, a *app.App) {
 		ui.Text(c, i18n.Tf("welcome.host.meta",
 			a.HostProtocolName(n.Protocol), a.AuthDisplay(n.AuthType), a.AutoApproveDisplay(n.AutoApprove))).
 			FontSize(fontSize(13)).TextColor(t.TextMuted)
-
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			if a.IsSSHProtocol(n.Protocol) {
-				if a.Busy {
-					ui.Spinner(c)
-					ui.Text(c, i18n.T("welcome.connecting")).TextColor(t.TextMuted)
-				} else if ui.PrimaryButton(c, i18n.T("welcome.connect")).Clicked() {
-					a.Connect(n)
-				}
-			}
-			ui.Button(c, i18n.T("welcome.edit")).OnClick(a.OpenEditHostForm)
-			ui.Button(c, i18n.T("welcome.move")).OnClick(a.OpenMoveDialog)
-			ui.Button(c, i18n.T("welcome.delete")).OnClick(a.OpenDeleteDialog)
-		})
 		// connection/RDP errors are shown once in Shell's header strip.
 		backgroundTerminal(c, a, t)
 	})

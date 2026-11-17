@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"log"
+	"runtime"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -15,6 +16,9 @@ import (
 
 //go:embed resources/tray.png
 var trayIcon []byte
+
+//go:embed resources/tray-template.png
+var trayTemplateIcon []byte
 
 // appTray keeps the tray icon alive for the app's lifetime.
 var appTray *mygo.Tray
@@ -59,10 +63,16 @@ func main() {
 		})
 
 		// 托盘：Linux 需要 libayatana-appindicator3，缺失时只记录错误。
+		// macOS 菜单栏使用模板图标，随系统亮暗着色；其他平台使用彩色图标。
+		icon, template := trayIcon, false
+		if runtime.GOOS == "darwin" {
+			icon, template = trayTemplateIcon, true
+		}
 		tray, err := mygo.NewTray(mygo.TrayOptions{
-			Icon:    trayIcon,
-			ToolTip: "NextOpsX",
-			Menu:    trayMenu(a, win),
+			Icon:           icon,
+			IconIsTemplate: template,
+			ToolTip:        "NextOpsX",
+			Menu:           trayMenu(a, win),
 		})
 		if err != nil {
 			log.Println("tray:", err)

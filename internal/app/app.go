@@ -309,6 +309,38 @@ func (a *App) rememberAsset(id string) {
 	a.saveUIPrefs()
 }
 
+// OpenAsset selects n and opens its main view. SSH hosts connect (or
+// reconnect when the previous process exited); WinRM opens the remote desktop;
+// other protocols attach their workbench through Select.
+func (a *App) OpenAsset(n *hoststore.TreeNode) {
+	a.Select(n)
+	if n == nil || n.NodeType != "host" {
+		return
+	}
+	switch {
+	case a.IsSSHProtocol(n.Protocol):
+		if a.terminalLive(n.ID) {
+			return
+		}
+		a.Connect(n)
+	case n.Protocol == "winrm":
+		a.OpenRDP()
+	}
+}
+
+// terminalLive reports whether the terminal of id is still running.
+func (a *App) terminalLive(id string) bool {
+	if a.Term == nil || a.TermHostID != id {
+		return false
+	}
+	select {
+	case <-a.Term.Done():
+		return false
+	default:
+		return true
+	}
+}
+
 // attachAsset initializes per-asset state for a selected asset. It is used
 // by Select for tree clicks and by tree refreshes (create/edit) after the
 // selection is re-pointed.

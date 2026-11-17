@@ -147,7 +147,7 @@ func TestAIDrawerToggleAndConfig(t *testing.T) {
 	if a.Layout.AIOpen {
 		t.Fatal("ops drawer should collapse")
 	}
-	if !tt.HasText("连接") {
+	if !tt.HasText("打开终端") {
 		t.Errorf("welcome pane missing: %q", tt.Texts())
 	}
 	tt.Key(ui.Ctrl|ui.Shift, ui.KeyJ)

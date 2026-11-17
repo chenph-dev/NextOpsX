@@ -183,13 +183,13 @@ func TestFolderActionsAndDialogs(t *testing.T) {
 	a.Selected = &hoststore.TreeNode{ID: "f1", Name: "prod", NodeType: "folder"}
 	a.Roots = []hoststore.TreeNode{{ID: "f1", Name: "prod", NodeType: "folder"}}
 	tt := ui.NewTester(Shell(a), 1000, 800)
-
-	for _, want := range []string{"在此新建资产", "在此新建目录", "重命名", "移动", "删除"} {
-		if !tt.HasText(want) {
-			t.Errorf("folder action %q missing: %q", want, tt.Texts())
-		}
+	if !tt.HasText("从右键菜单新建资产") {
+		t.Fatalf("folder hint missing: %q", tt.Texts())
 	}
-	if err := tt.Click("在此新建目录"); err != nil {
+	if err := tt.RightClick("prod"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem("在此新建目录"); err != nil {
 		t.Fatal(err)
 	}
 	if !a.Hosts.Form.Open || !a.Hosts.Form.IsFolder || a.Hosts.Form.ParentID != "f1" {
@@ -203,13 +203,17 @@ func TestFolderActionsAndDialogs(t *testing.T) {
 
 func TestEditHostFormAndDeleteDialog(t *testing.T) {
 	a := &app.App{}
-	a.Selected = &hoststore.TreeNode{
+	a.Roots = []hoststore.TreeNode{{
 		ID: "h1", Name: "web-01", NodeType: "host", Addr: "10.0.0.5",
 		Port: 22, User: "root", AuthType: "password", Protocol: "ssh",
 		AutoApprove: "inherit",
-	}
+	}}
+	a.Selected = &a.Roots[0]
 	tt := ui.NewTester(Shell(a), 1000, 900)
-	if err := tt.Click("编辑"); err != nil {
+	if err := tt.RightClick("web-01"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem("编辑"); err != nil {
 		t.Fatal(err)
 	}
 	if !a.Hosts.Form.Open || a.Hosts.Form.EditingID != "h1" {

@@ -32,7 +32,7 @@ func AIPanel(c *ui.Context, a *app.App) {
 }
 
 func aiHeader(c *ui.Context, a *app.App, t *ui.Theme) {
-	ui.Row(c).Padding(8, 12).Gap(8).AlignItems(ui.Center).Wrap().Children(func() {
+	ui.Row(c).Padding(4, 10).Gap(6).AlignItems(ui.Center).Wrap().Children(func() {
 		if s := assets.SVG("spark"); s != nil {
 			ui.Icon(c, s).Size(13, 13).TextColor(t.Accent)
 		}
@@ -75,14 +75,14 @@ func aiHeader(c *ui.Context, a *app.App, t *ui.Theme) {
 
 			aiDrawerIcon(c, t, "chevron-down", i18n.T("ai.drawer.collapse"), a.CloseAIDrawer)
 			aiDrawerIcon(c, t, "close", i18n.T("ai.drawer.close"), a.CloseAIDrawer)
-		}).Label(i18n.T("ai.conversation.defaultTitle"))
+		}).Padding(0, 0).Label(i18n.T("ai.conversation.defaultTitle"))
 	})
 	ui.Divider(c)
 }
 
 // aiDrawerIcon is a quiet icon button in the drawer header.
 func aiDrawerIcon(c *ui.Context, t *ui.Theme, icon, label string, onClick func()) {
-	btn := ui.ButtonBase(c).Padding(4).Radius(5).Label(label).Tooltip(label).
+	btn := ui.ButtonBase(c).Padding(3).Radius(5).Label(label).Tooltip(label).
 		Cursor(ui.CursorPointer).OnClick(onClick)
 	if btn.Hovered() {
 		btn = btn.Background(t.SurfaceHover)

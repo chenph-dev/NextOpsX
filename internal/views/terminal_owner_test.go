@@ -31,7 +31,7 @@ func TestShellHidesTerminalOfAnotherHost(t *testing.T) {
 	if !tt.HasText("关闭后台终端") || !tt.HasText("后台仍保持到「first」的终端会话。") {
 		t.Fatalf("background terminal notice missing: %q", tt.Texts())
 	}
-	if !tt.HasText("连接") {
+	if !tt.HasText("打开终端") {
 		t.Fatalf("selected host pane is not shown: %q", tt.Texts())
 	}
 }

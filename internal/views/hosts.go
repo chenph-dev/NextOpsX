@@ -46,7 +46,9 @@ func buildNodes(c *ui.Context, a *app.App, nodes []hoststore.TreeNode) {
 			item = item.Tooltip(i18n.Tf("hosts.tooltip.protocol", a.HostProtocolName(n.Protocol)))
 			item.ContextMenu(func(m *ui.Menu) { hostMenu(m, a, n) })
 		}
-		if item.Clicked() {
+		if item.DoubleClicked() {
+			a.OpenAsset(n)
+		} else if item.Clicked() {
 			a.Select(n)
 		}
 	}
@@ -92,8 +94,13 @@ func folderMenu(m *ui.Menu, a *app.App, n *hoststore.TreeNode) {
 func hostMenu(m *ui.Menu, a *app.App, n *hoststore.TreeNode) {
 	if a.IsSSHProtocol(n.Protocol) {
 		if m.Item(i18n.T("hosts.menu.openTerminal")).Chosen() {
+			a.OpenAsset(n)
+		}
+	}
+	if n.Protocol == "winrm" {
+		if m.Item(i18n.T("shell.remoteDesktop")).Chosen() {
 			a.Select(n)
-			a.Connect(n)
+			a.OpenRDP()
 		}
 	}
 	if m.Item(i18n.T("hosts.menu.openAI")).Chosen() {

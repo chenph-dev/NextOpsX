@@ -176,9 +176,14 @@ func (a *App) saveUIPrefs() {
 	}
 	a.Settings.UISaving = true
 	prefs := configstore.UISettings{
-		Theme:    a.Settings.Theme,
-		Scale:    a.Settings.Scale,
-		Language: a.Settings.Language,
+		Theme:       a.Settings.Theme,
+		Scale:       a.Settings.Scale,
+		Language:    a.Settings.Language,
+		AIOpen:      a.Layout.AIOpen,
+		AIHeight:    int(a.AIDrawerHeight()),
+		SFTPOpen:    a.Layout.SFTPOpen,
+		SFTPWidth:   int(a.SFTPDrawerWidth()),
+		LastAssetID: a.lastAssetID,
 	}
 	a.writes.Add(1)
 	b := a.Backend
@@ -193,7 +198,12 @@ func (a *App) saveUIPrefs() {
 				a.Settings.UIErr = ""
 			}
 			if a.Settings.Theme != prefs.Theme || a.Settings.Scale != prefs.Scale ||
-				a.Settings.Language != prefs.Language {
+				a.Settings.Language != prefs.Language ||
+				a.Layout.AIOpen != prefs.AIOpen ||
+				int(a.AIDrawerHeight()) != prefs.AIHeight ||
+				a.Layout.SFTPOpen != prefs.SFTPOpen ||
+				int(a.SFTPDrawerWidth()) != prefs.SFTPWidth ||
+				a.lastAssetID != prefs.LastAssetID {
 				a.saveUIPrefs()
 			}
 		})

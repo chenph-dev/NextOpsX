@@ -45,6 +45,7 @@ func main() {
 			Content:         ui.View(views.Shell(a)),
 		})
 		a.Attach(win)
+		a.RestoreWorkspace()
 
 		// 桌面通知：窗口在前台时不打扰。
 		a.SetNotifier(func(title, body string) {

@@ -23,9 +23,10 @@ type Updater interface {
 type App struct {
 	Backend *backend.Backend
 
-	Roots    []hoststore.TreeNode
-	Open     map[string]*bool
-	Selected *hoststore.TreeNode
+	Roots       []hoststore.TreeNode
+	Open        map[string]*bool
+	Selected    *hoststore.TreeNode
+	lastAssetID string
 
 	// View is the window's top-level view: assets or settings.
 	View     MainView
@@ -74,12 +75,12 @@ type LayoutState struct {
 
 // Default drawer sizes.
 const (
-	defaultAIHeight  float32 = 320
-	defaultSFTPWidth float32 = 330
-	minAIHeight      float32 = 200
-	maxAIHeight      float32 = 480
-	minSFTPWidth     float32 = 260
-	maxSFTPWidth     float32 = 420
+	defaultAIHeight  float32 = configstore.DefaultAIHeight
+	defaultSFTPWidth float32 = configstore.DefaultSFTPWidth
+	minAIHeight      float32 = configstore.MinAIHeight
+	maxAIHeight      float32 = configstore.MaxAIHeight
+	minSFTPWidth     float32 = configstore.MinSFTPWidth
+	maxSFTPWidth     float32 = configstore.MaxSFTPWidth
 )
 
 // AIDrawerHeight returns the drawer height within its limits.
@@ -102,27 +103,68 @@ func (a *App) SetSFTPDrawerWidth(v float32) {
 	a.Layout.SFTPWidth = clampFloat(v, defaultSFTPWidth, minSFTPWidth, maxSFTPWidth)
 }
 
+// SaveLayout persists the drawer state after a drag.
+func (a *App) SaveLayout() {
+	a.saveUIPrefs()
+}
+
 // ToggleAIDrawer opens or collapses the intelligent ops drawer.
 func (a *App) ToggleAIDrawer() {
+	if a.Layout.AIOpen {
+		a.CloseAIDrawer()
+		return
+	}
+	a.OpenAIDrawer()
+}
+
+// OpenAIDrawer shows the intelligent ops drawer for the selected host.
+func (a *App) OpenAIDrawer() {
 	if a.Selected == nil || a.Selected.NodeType != "host" {
 		return
 	}
-	a.Layout.AIOpen = !a.Layout.AIOpen
-	if a.Layout.AIOpen && a.AI.HostID != a.Selected.ID {
+	a.Layout.AIOpen = true
+	if a.AI.HostID != a.Selected.ID {
 		a.attachAI(a.Selected.ID)
 	}
+	a.saveUIPrefs()
+}
+
+// CloseAIDrawer collapses the intelligent ops drawer.
+func (a *App) CloseAIDrawer() {
+	if !a.Layout.AIOpen {
+		return
+	}
+	a.Layout.AIOpen = false
+	a.saveUIPrefs()
 }
 
 // ToggleSFTPDrawer opens or closes the file drawer for an SSH asset.
 func (a *App) ToggleSFTPDrawer() {
+	if a.Layout.SFTPOpen {
+		a.CloseSFTPDrawer()
+		return
+	}
+	a.OpenSFTPDrawer()
+}
+
+// OpenSFTPDrawer shows the file drawer for the selected SSH host.
+func (a *App) OpenSFTPDrawer() {
 	if a.Selected == nil || a.Selected.NodeType != "host" ||
 		!a.IsSSHProtocol(a.Selected.Protocol) {
 		return
 	}
-	a.Layout.SFTPOpen = !a.Layout.SFTPOpen
-	if a.Layout.SFTPOpen {
-		a.EnsureSFTP()
+	a.Layout.SFTPOpen = true
+	a.EnsureSFTP()
+	a.saveUIPrefs()
+}
+
+// CloseSFTPDrawer hides the file drawer; an active transfer keeps running.
+func (a *App) CloseSFTPDrawer() {
+	if !a.Layout.SFTPOpen {
+		return
 	}
+	a.Layout.SFTPOpen = false
+	a.saveUIPrefs()
 }
 
 func clampFloat(v, fallback, min, max float32) float32 {
@@ -152,6 +194,11 @@ func New(b *backend.Backend) (*App, error) {
 		a.Settings.Theme = ui.Theme
 		a.Settings.Scale = ui.Scale
 		a.Settings.Language = ui.Language
+		a.Layout.AIOpen = ui.AIOpen
+		a.Layout.SFTPOpen = ui.SFTPOpen
+		a.SetAIDrawerHeight(float32(ui.AIHeight))
+		a.SetSFTPDrawerWidth(float32(ui.SFTPWidth))
+		a.lastAssetID = ui.LastAssetID
 	} else {
 		a.Settings.UIErr = i18n.Tf("app.readUISettingsFailed", err.Error())
 	}
@@ -171,6 +218,21 @@ func New(b *backend.Backend) (*App, error) {
 	b.SetAIEventSink(a.HandleAIEvent)
 	b.SetSFTPEventSink(a.HandleSFTPEvent)
 	return a, nil
+}
+
+// RestoreWorkspace selects the asset from the previous session. Call it after
+// Attach: selecting an asset starts background work whose Post must land on
+// the UI thread.
+func (a *App) RestoreWorkspace() {
+	if a.Selected != nil || a.lastAssetID == "" {
+		return
+	}
+	if n := findTreeNode(a.Roots, a.lastAssetID); n != nil {
+		a.Select(n)
+	} else {
+		a.lastAssetID = ""
+		a.saveUIPrefs()
+	}
 }
 
 func (a *App) initOpen(nodes []hoststore.TreeNode) {
@@ -233,6 +295,18 @@ func (a *App) Select(n *hoststore.TreeNode) {
 	a.Snippets.PickerOpen = false
 	a.CloseCompletion()
 	a.attachAsset(n)
+	if n != nil {
+		a.rememberAsset(n.ID)
+	}
+}
+
+// rememberAsset persists the last non-nil selection for the next launch.
+func (a *App) rememberAsset(id string) {
+	if id == "" || id == a.lastAssetID {
+		return
+	}
+	a.lastAssetID = id
+	a.saveUIPrefs()
 }
 
 // attachAsset initializes per-asset state for a selected asset. It is used
@@ -270,6 +344,9 @@ func (a *App) Connect(n *hoststore.TreeNode) {
 	a.ErrMsg = ""
 	a.Disconnect()
 	a.Selected = n
+	if n != nil {
+		a.rememberAsset(n.ID)
+	}
 
 	go func() {
 		conn, err := a.Backend.OpenTerminalConn(n.ID, 80, 24)

@@ -73,12 +73,8 @@ func aiHeader(c *ui.Context, a *app.App, t *ui.Theme) {
 
 			ui.Button(c, i18n.T("ai.action.settings")).OnClick(func() { a.OpenSettings(app.SettingsModel) })
 
-			aiDrawerIcon(c, t, "chevron-down", i18n.T("ai.drawer.collapse"), func() {
-				a.Layout.AIOpen = false
-			})
-			aiDrawerIcon(c, t, "close", i18n.T("ai.drawer.close"), func() {
-				a.Layout.AIOpen = false
-			})
+			aiDrawerIcon(c, t, "chevron-down", i18n.T("ai.drawer.collapse"), a.CloseAIDrawer)
+			aiDrawerIcon(c, t, "close", i18n.T("ai.drawer.close"), a.CloseAIDrawer)
 		}).Label(i18n.T("ai.conversation.defaultTitle"))
 	})
 	ui.Divider(c)

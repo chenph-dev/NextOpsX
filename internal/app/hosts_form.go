@@ -691,6 +691,7 @@ func (a *App) refreshHosts(selectID string) {
 			if n := findTreeNode(roots, a.Selected.ID); n != nil {
 				a.Select(n)
 			} else {
+				a.lastAssetID = ""
 				a.Select(nil)
 			}
 		})

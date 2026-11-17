@@ -32,9 +32,8 @@ func sftpToolbar(c *ui.Context, a *app.App, t *ui.Theme) {
 			ui.Text(c, "SFTP").FontSize(fontSize(12)).Bold()
 			ui.Text(c, a.SFTP.Path).Font("monospace").FontSize(fontSize(11)).
 				TextColor(t.TextMuted).Grow(1).MinWidth(0).SingleLine()
-			sftpIconButton(c, t, "close", i18n.T("sftp.drawer.close"), false, func() {
-				a.Layout.SFTPOpen = false
-			})
+			sftpIconButton(c, t, "close", i18n.T("sftp.drawer.close"), false,
+				a.CloseSFTPDrawer)
 		})
 		ui.Row(c).Padding(0, 6, 6, 6).Gap(2).AlignItems(ui.Center).Children(func() {
 			selected := a.SFTPSelectedEntry()

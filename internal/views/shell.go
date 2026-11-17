@@ -243,6 +243,9 @@ func hostWorkbench(c *ui.Context, a *app.App, t *ui.Theme) {
 				if dx, _, ok := handle.Dragged(); ok && dx != 0 {
 					a.SetSFTPDrawerWidth(a.SFTPDrawerWidth() - dx)
 				}
+				if _, _, done := handle.DragEnded(); done {
+					a.SaveLayout()
+				}
 				ui.Column(c).Width(a.SFTPDrawerWidth()).FillHeight().MinWidth(0).
 					BorderWidth(0, 0, 0, 1).BorderColor(t.Border).Children(func() {
 					SFTPPanel(c, a)
@@ -256,6 +259,9 @@ func hostWorkbench(c *ui.Context, a *app.App, t *ui.Theme) {
 			}
 			if _, dy, ok := handle.Dragged(); ok && dy != 0 {
 				a.SetAIDrawerHeight(a.AIDrawerHeight() - dy)
+			}
+			if _, _, done := handle.DragEnded(); done {
+				a.SaveLayout()
 			}
 			ui.Column(c).Height(a.AIDrawerHeight()).Shrink(0).FillWidth().MinHeight(0).
 				BorderWidth(1, 0, 0, 0).BorderColor(t.Border).Children(func() {

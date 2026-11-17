@@ -136,3 +136,121 @@ VALUES ('h1', 'db1', 'host', 'mysql', 'mysql', '', '{"database":"app"}', '10.0.0
 		t.Errorf("params_json 列应已删除，但查询未报错")
 	}
 }
+
+func TestMigrate017_WorkspaceLayout(t *testing.T) {
+	gormDB, err := gorm.Open(sqlite.New(sqlite.Config{
+		DSN:        filepath.Join(t.TempDir(), "m.db"),
+		DriverName: "sqlite",
+	}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open gorm: %v", err)
+	}
+	defer func() {
+		sqlDB, _ := gormDB.DB()
+		if sqlDB != nil {
+			sqlDB.Close()
+		}
+	}()
+
+	m := migrateAt(t, gormDB)
+	if err := m.Migrate(16); err != nil {
+		t.Fatalf("migrate to 000016: %v", err)
+	}
+	if err := gormDB.Exec(`INSERT INTO ui_settings (id, theme, scale, language)
+VALUES (1, 'dark', 125, 'en-US')`).Error; err != nil {
+		t.Fatalf("insert ui settings: %v", err)
+	}
+
+	if err := m.Migrate(17); err != nil {
+		t.Fatalf("migrate to 000017: %v", err)
+	}
+	var layout struct {
+		AIOpen    bool
+		AIHeight  int
+		SFTPOpen  bool
+		SFTPWidth int
+	}
+	if err := gormDB.Raw(`SELECT ai_open, ai_height, sftp_open, sftp_width
+FROM ui_settings WHERE id = 1`).Scan(&layout).Error; err != nil {
+		t.Fatalf("query layout: %v", err)
+	}
+	if layout.AIOpen || layout.SFTPOpen || layout.AIHeight != 320 || layout.SFTPWidth != 330 {
+		t.Fatalf("default layout = %+v", layout)
+	}
+	if err := gormDB.Exec(`UPDATE ui_settings
+SET ai_open = 1, ai_height = 400, sftp_open = 1, sftp_width = 390 WHERE id = 1`).Error; err != nil {
+		t.Fatalf("update layout: %v", err)
+	}
+
+	if err := m.Migrate(16); err != nil {
+		t.Fatalf("migrate down to 000016: %v", err)
+	}
+	var prefs struct {
+		Theme    string
+		Scale    int
+		Language string
+	}
+	if err := gormDB.Raw(`SELECT theme, scale, language FROM ui_settings WHERE id = 1`).
+		Scan(&prefs).Error; err != nil {
+		t.Fatalf("query prefs after down: %v", err)
+	}
+	if prefs.Theme != "dark" || prefs.Scale != 125 || prefs.Language != "en-US" {
+		t.Fatalf("prefs after down = %+v", prefs)
+	}
+}
+
+func TestMigrate018_LastAsset(t *testing.T) {
+	gormDB, err := gorm.Open(sqlite.New(sqlite.Config{
+		DSN:        filepath.Join(t.TempDir(), "m.db"),
+		DriverName: "sqlite",
+	}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open gorm: %v", err)
+	}
+	defer func() {
+		sqlDB, _ := gormDB.DB()
+		if sqlDB != nil {
+			sqlDB.Close()
+		}
+	}()
+
+	m := migrateAt(t, gormDB)
+	if err := m.Migrate(17); err != nil {
+		t.Fatalf("migrate to 000017: %v", err)
+	}
+	if err := gormDB.Exec(`INSERT INTO ui_settings (id, theme, scale, language)
+VALUES (1, 'dark', 125, 'en-US')`).Error; err != nil {
+		t.Fatalf("insert ui settings: %v", err)
+	}
+
+	if err := m.Migrate(18); err != nil {
+		t.Fatalf("migrate to 000018: %v", err)
+	}
+	var last string
+	if err := gormDB.Raw(`SELECT last_asset_id FROM ui_settings WHERE id = 1`).
+		Scan(&last).Error; err != nil {
+		t.Fatalf("query last asset: %v", err)
+	}
+	if last != "" {
+		t.Fatalf("default last asset = %q", last)
+	}
+	if err := gormDB.Exec(`UPDATE ui_settings SET last_asset_id = 'h1' WHERE id = 1`).Error; err != nil {
+		t.Fatalf("update last asset: %v", err)
+	}
+
+	if err := m.Migrate(17); err != nil {
+		t.Fatalf("migrate down to 000017: %v", err)
+	}
+	var prefs struct {
+		Theme    string
+		Scale    int
+		Language string
+	}
+	if err := gormDB.Raw(`SELECT theme, scale, language FROM ui_settings WHERE id = 1`).
+		Scan(&prefs).Error; err != nil {
+		t.Fatalf("query prefs after down: %v", err)
+	}
+	if prefs.Theme != "dark" || prefs.Scale != 125 || prefs.Language != "en-US" {
+		t.Fatalf("prefs after down = %+v", prefs)
+	}
+}

@@ -1,16 +1,23 @@
 package configstore
 
 import (
+	"slices"
+
 	"nextopsx/internal/i18n"
 	"nextopsx/internal/store"
 )
 
 // uiSettingsModel 界面偏好单行表（id=1）。
 type uiSettingsModel struct {
-	ID       int    `gorm:"column:id;primaryKey"`
-	Theme    string `gorm:"column:theme"`
-	Scale    int    `gorm:"column:scale"`
-	Language string `gorm:"column:language"`
+	ID          int    `gorm:"column:id;primaryKey"`
+	Theme       string `gorm:"column:theme"`
+	Scale       int    `gorm:"column:scale"`
+	Language    string `gorm:"column:language"`
+	AIOpen      bool   `gorm:"column:ai_open"`
+	AIHeight    int    `gorm:"column:ai_height"`
+	SFTPOpen    bool   `gorm:"column:sftp_open"`
+	SFTPWidth   int    `gorm:"column:sftp_width"`
+	LastAssetID string `gorm:"column:last_asset_id"`
 }
 
 func (uiSettingsModel) TableName() string { return "ui_settings" }
@@ -38,15 +45,51 @@ func NormalizeTheme(theme string) string {
 // 界面缩放的可选百分比。
 const ScaleDefault = 100
 
+// 工作台抽屉的默认尺寸与范围。
+const (
+	DefaultAIHeight  = 320
+	MinAIHeight      = 200
+	MaxAIHeight      = 480
+	DefaultSFTPWidth = 330
+	MinSFTPWidth     = 260
+	MaxSFTPWidth     = 420
+)
+
+// NormalizeAIHeight clamps a persisted drawer height.
+func NormalizeAIHeight(height int) int {
+	if height <= 0 {
+		return DefaultAIHeight
+	}
+	if height < MinAIHeight {
+		return MinAIHeight
+	}
+	if height > MaxAIHeight {
+		return MaxAIHeight
+	}
+	return height
+}
+
+// NormalizeSFTPWidth clamps a persisted drawer width.
+func NormalizeSFTPWidth(width int) int {
+	if width <= 0 {
+		return DefaultSFTPWidth
+	}
+	if width < MinSFTPWidth {
+		return MinSFTPWidth
+	}
+	if width > MaxSFTPWidth {
+		return MaxSFTPWidth
+	}
+	return width
+}
+
 // Scales 是可选缩放比例的完整列表。
 var Scales = []int{90, 100, 110, 125}
 
 // NormalizeScale 把未知缩放比例回落为 100%。
 func NormalizeScale(scale int) int {
-	for _, s := range Scales {
-		if scale == s {
-			return scale
-		}
+	if slices.Contains(Scales, scale) {
+		return scale
 	}
 	return ScaleDefault
 }
@@ -57,11 +100,17 @@ func NormalizeLanguage(lang string) string {
 }
 
 // UISettings 界面偏好 DTO。Theme: "system" | "light" | "dark"；
-// Scale 是界面缩放百分比；Language: "zh-CN" | "en-US"。
+// Scale 是界面缩放百分比；Language: "zh-CN" | "en-US"；其余字段保存
+// 工作台抽屉的开合与尺寸。
 type UISettings struct {
-	Theme    string `json:"theme"`
-	Scale    int    `json:"scale"`
-	Language string `json:"language"`
+	Theme       string `json:"theme"`
+	Scale       int    `json:"scale"`
+	Language    string `json:"language"`
+	AIOpen      bool   `json:"aiOpen"`
+	AIHeight    int    `json:"aiHeight"`
+	SFTPOpen    bool   `json:"sftpOpen"`
+	SFTPWidth   int    `json:"sftpWidth"`
+	LastAssetID string `json:"lastAssetId"`
 }
 
 // UISettingsStore 提供界面偏好读写。
@@ -84,12 +133,18 @@ func (s *UISettingsStore) GetUISettings() (UISettings, error) {
 	if m.ID == 0 {
 		return UISettings{
 			Theme: ThemeSystem, Scale: ScaleDefault, Language: string(i18n.Default),
+			AIHeight: DefaultAIHeight, SFTPWidth: DefaultSFTPWidth,
 		}, nil
 	}
 	return UISettings{
-		Theme:    NormalizeTheme(m.Theme),
-		Scale:    NormalizeScale(m.Scale),
-		Language: NormalizeLanguage(m.Language),
+		Theme:       NormalizeTheme(m.Theme),
+		Scale:       NormalizeScale(m.Scale),
+		Language:    NormalizeLanguage(m.Language),
+		AIOpen:      m.AIOpen,
+		AIHeight:    NormalizeAIHeight(m.AIHeight),
+		SFTPOpen:    m.SFTPOpen,
+		SFTPWidth:   NormalizeSFTPWidth(m.SFTPWidth),
+		LastAssetID: m.LastAssetID,
 	}, nil
 }
 
@@ -98,5 +153,8 @@ func (s *UISettingsStore) SaveUISettings(u UISettings) error {
 	return s.app.GORM().Save(&uiSettingsModel{
 		ID: 1, Theme: NormalizeTheme(u.Theme), Scale: NormalizeScale(u.Scale),
 		Language: NormalizeLanguage(u.Language),
+		AIOpen:   u.AIOpen, AIHeight: NormalizeAIHeight(u.AIHeight),
+		SFTPOpen: u.SFTPOpen, SFTPWidth: NormalizeSFTPWidth(u.SFTPWidth),
+		LastAssetID: u.LastAssetID,
 	}).Error
 }

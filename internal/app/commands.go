@@ -8,7 +8,8 @@ import (
 // CommandItem is one command in the terminal bubble, merged from executed
 // history and favorites by the command text.
 type CommandItem struct {
-	Command     string
+	Command     string // the stored text: a template for favorites, concrete for history
+	Text        string // the resolved command shown and inserted
 	Title       string
 	Description string
 	Source      string // history | favorite | both
@@ -30,7 +31,7 @@ func (a *App) CommandItems() []CommandItem {
 		}
 		it := byCommand[cmd]
 		if it == nil {
-			it = &CommandItem{Command: cmd, Source: "history"}
+			it = &CommandItem{Command: cmd, Text: cmd, Source: "history"}
 			byCommand[cmd] = it
 		}
 		if e.Ts >= it.Ts {
@@ -41,14 +42,21 @@ func (a *App) CommandItems() []CommandItem {
 		}
 	}
 	for _, s := range a.Snippets.Items {
-		cmd := strings.TrimSpace(s.Command)
-		if cmd == "" {
+		template := strings.TrimSpace(s.Command)
+		if template == "" {
 			continue
 		}
-		it := byCommand[cmd]
+		resolved := strings.TrimSpace(a.ResolveSnippetCommand(template))
+		key := resolved
+		if prev := byCommand[key]; prev != nil && prev.FavoriteID != "" {
+			// Two favorites can resolve to the same command; keep both so
+			// either name stays selectable.
+			key = "favorite:" + s.ID
+		}
+		it := byCommand[key]
 		if it == nil {
-			it = &CommandItem{Command: cmd, Source: "favorite"}
-			byCommand[cmd] = it
+			it = &CommandItem{Command: template, Text: resolved, Source: "favorite"}
+			byCommand[key] = it
 		} else {
 			it.Source = "both"
 		}
@@ -87,6 +95,9 @@ func commandSourceRank(source string) int {
 // CommandItemText is the command shown and inserted for an item. Favorite
 // commands resolve the asset variables; executed history is already concrete.
 func (a *App) CommandItemText(item CommandItem) string {
+	if item.Text != "" {
+		return item.Text
+	}
 	if item.HistoryID != "" {
 		return item.Command
 	}

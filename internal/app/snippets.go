@@ -27,11 +27,16 @@ type SnippetState struct {
 
 	// Terminal command bubble: executed history and favorites, deduplicated.
 	PickerOpen     bool
+	PickerTab      int
 	CommandQuery   string
 	History        []historystore.Entry
 	HistoryOpen    map[string]bool
 	HistoryLoading bool
 	HistoryErr     string
+
+	// Focus returns to the terminal after the picker closes.
+	PickerWasOpen bool
+	FocusTerminal bool
 
 	seq        uint64
 	historySeq uint64
@@ -349,11 +354,21 @@ func (a *App) CanUseSnippet() bool {
 	return a.Term != nil && a.Selected != nil && a.TermHostID == a.Selected.ID
 }
 
+// Picker filters.
+const (
+	PickerTabAll = iota
+	PickerTabFavorites
+	PickerTabHistory
+)
+
 // ToggleSnippetPicker opens or closes the terminal command picker.
 func (a *App) ToggleSnippetPicker() {
 	a.Snippets.PickerOpen = !a.Snippets.PickerOpen
 	a.Snippets.Err = ""
 	if a.Snippets.PickerOpen {
+		// The picker takes focus; an open suggestion bubble would keep
+		// refocusing the terminal underneath.
+		a.CloseCompletion()
 		a.LoadCommandHistory()
 		if len(a.Snippets.Items) == 0 {
 			a.LoadSnippets()

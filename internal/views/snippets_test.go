@@ -100,7 +100,7 @@ func TestCommandBubbleRendersAndFilters(t *testing.T) {
 	tt := ui.NewTester(func(c *ui.Context) { snippetPicker(c, a, c.Theme()) }, 600, 780)
 	for _, want := range []string{
 		"命令历史", "管理收藏", "free -h", "df -h", "磁盘占用",
-		"收藏 · 历史", "历史", "收藏", "exit 0", "输出",
+		"全部", "历史", "收藏", "输出",
 		"插入", "执行", "请先连接 SSH 终端",
 	} {
 		if !tt.HasText(want) {
@@ -130,6 +130,31 @@ func TestCommandBubbleRendersAndFilters(t *testing.T) {
 	tt.Frame()
 	if !tt.HasText("free -h") || tt.HasText("df -h") {
 		t.Fatalf("command search filter failed: %q", tt.Texts())
+	}
+}
+
+func TestCommandBubbleFilterTabs(t *testing.T) {
+	i18n.SetLanguage(i18n.ZhCN)
+	t.Cleanup(func() { i18n.SetLanguage(i18n.ZhCN) })
+
+	a := snippetsTestApp()
+	a.Snippets.History = []historystore.Entry{
+		{ID: "h1", Source: "ai", Command: "free -h", Ts: 1700000000},
+		{ID: "h2", Source: "snippet", Command: "df -h", Ts: 1700000001},
+	}
+	tt := ui.NewTester(func(c *ui.Context) { snippetPicker(c, a, c.Theme()) }, 600, 780)
+	tt.Frame()
+
+	a.Snippets.PickerTab = app.PickerTabFavorites
+	tt.Frame()
+	if !tt.HasText("df -h") || !tt.HasText("当前用户") || tt.HasText("free -h") {
+		t.Fatalf("favorites tab = %q", tt.Texts())
+	}
+
+	a.Snippets.PickerTab = app.PickerTabHistory
+	tt.Frame()
+	if !tt.HasText("free -h") || !tt.HasText("df -h") || tt.HasText("当前用户") {
+		t.Fatalf("history tab = %q", tt.Texts())
 	}
 }
 

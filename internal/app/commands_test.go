@@ -50,6 +50,41 @@ func TestCommandItemsDedupAndMerge(t *testing.T) {
 	}
 }
 
+func TestCommandItemsMergesResolvedFavoriteWithHistory(t *testing.T) {
+	a := &App{Selected: &hoststore.TreeNode{
+		ID: "h1", NodeType: "host", User: "ops",
+	}}
+	a.Snippets.Items = []snippetsstore.Snippet{
+		{ID: "s1", Name: "当前用户", Command: "whoami -- {{user}}"},
+		{ID: "s2", Name: "同名副本", Command: "whoami -- {{user}}"},
+	}
+	a.Snippets.History = []historystore.Entry{
+		{ID: "h1", Command: "whoami -- ops", Ts: 10},
+	}
+	items := a.CommandItems()
+	if len(items) != 2 {
+		t.Fatalf("items = %+v", items)
+	}
+	var both, favorite *CommandItem
+	for i := range items {
+		switch items[i].Source {
+		case "both":
+			both = &items[i]
+		case "favorite":
+			favorite = &items[i]
+		}
+	}
+	if both == nil || both.FavoriteID != "s1" || both.HistoryID != "h1" {
+		t.Fatalf("merged item = %+v", both)
+	}
+	if got := a.CommandItemText(*both); got != "whoami -- ops" {
+		t.Fatalf("merged text = %q", got)
+	}
+	if favorite == nil || favorite.FavoriteID != "s2" {
+		t.Fatalf("second favorite = %+v", favorite)
+	}
+}
+
 func TestCommandItemText(t *testing.T) {
 	a := &App{Selected: &hoststore.TreeNode{
 		ID: "h1", NodeType: "host", User: "ops",

@@ -1,6 +1,7 @@
 package views
 
 import (
+	"fmt"
 	"path"
 	"time"
 
@@ -19,54 +20,66 @@ func SFTPPanel(c *ui.Context, a *app.App) {
 		sftpToolbar(c, a, t)
 		ui.Divider(c)
 		sftpFileList(c, a, t)
+		sftpTransferStrip(c, a, t)
 		sftpStatusBar(c, a, t)
 	})
 	sftpDialogs(c, a, t)
 }
 
 func sftpToolbar(c *ui.Context, a *app.App, t *ui.Theme) {
-	ui.Row(c).Padding(6, 10).Gap(6).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, "SFTP · "+a.SFTP.HostName).FontSize(fontSize(13)).Bold().SingleLine()
-		ui.Text(c, a.SFTP.Path).Font("monospace").FontSize(fontSize(13)).
-			TextColor(t.TextMuted).Grow(1).SingleLine()
-
-		up := ui.Button(c, i18n.T("sftp.toolbar.up")).FontSize(fontSize(12))
-		if a.SFTP.Path == "/" {
-			up = up.Disabled(true)
-		}
-		up.OnClick(a.SFTPGoParent)
-		ui.Button(c, i18n.T("sftp.action.refresh")).FontSize(fontSize(12)).OnClick(a.SFTPRefresh)
-		ui.Button(c, i18n.T("sftp.action.newFolder")).FontSize(fontSize(12)).OnClick(a.SFTPOpenNewFolder)
-		ui.Button(c, i18n.T("sftp.action.upload")).FontSize(fontSize(12)).OnClick(a.SFTPUpload)
-
-		selected := a.SFTPSelectedEntry()
-		download := ui.Button(c, i18n.T("sftp.action.download")).FontSize(fontSize(12))
-		if selected == nil || selected.IsDir {
-			download = download.Disabled(true)
-		}
-		download.OnClick(a.SFTPDownload)
-
-		rename := ui.Button(c, i18n.T("sftp.action.rename")).FontSize(fontSize(12))
-		if selected == nil {
-			rename = rename.Disabled(true)
-		}
-		rename.OnClick(a.SFTPOpenRename)
-
-		del := ui.Button(c, i18n.T("sftp.action.delete")).FontSize(fontSize(12))
-		if selected == nil {
-			del = del.Disabled(true)
-		}
-		del.OnClick(a.SFTPOpenDelete)
-
-		taskBtn := ui.Button(c, i18n.Tf("sftp.toolbar.tasks", a.SFTPTaskActiveCount())).
-			FontSize(fontSize(12))
-		taskBtn = taskBtn.OnClick(func() {
-			a.SFTP.TaskPanelOpen = !a.SFTP.TaskPanelOpen
+	ui.Column(c).Shrink(0).Children(func() {
+		ui.Row(c).Padding(6, 8, 4, 8).Gap(6).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "SFTP").FontSize(fontSize(12)).Bold()
+			ui.Text(c, a.SFTP.Path).Font("monospace").FontSize(fontSize(11)).
+				TextColor(t.TextMuted).Grow(1).MinWidth(0).SingleLine()
+			sftpIconButton(c, t, "close", i18n.T("sftp.drawer.close"), false, func() {
+				a.Layout.SFTPOpen = false
+			})
 		})
-		ui.Popover(c, taskBtn, &a.SFTP.TaskPanelOpen, func() {
-			sftpTasksPanel(c, a, t)
+		ui.Row(c).Padding(0, 6, 6, 6).Gap(2).AlignItems(ui.Center).Children(func() {
+			selected := a.SFTPSelectedEntry()
+			sftpIconButton(c, t, "arrow-up", i18n.T("sftp.toolbar.up"),
+				a.SFTP.Path == "/", a.SFTPGoParent)
+			sftpIconButton(c, t, "refresh", i18n.T("sftp.action.refresh"),
+				false, a.SFTPRefresh)
+			sftpIconButton(c, t, "folder-plus", i18n.T("sftp.action.newFolder"),
+				false, a.SFTPOpenNewFolder)
+			sftpIconButton(c, t, "upload", i18n.T("sftp.action.upload"),
+				false, a.SFTPUpload)
+			sftpIconButton(c, t, "download", i18n.T("sftp.action.download"),
+				selected == nil || selected.IsDir, a.SFTPDownload)
+			sftpIconButton(c, t, "pencil", i18n.T("sftp.action.rename"),
+				selected == nil, a.SFTPOpenRename)
+			sftpIconButton(c, t, "trash", i18n.T("sftp.action.delete"),
+				selected == nil, a.SFTPOpenDelete)
+
+			taskBtn := sftpIconButton(c, t, "activity",
+				i18n.Tf("sftp.toolbar.tasks", a.SFTPTaskActiveCount()), false, func() {
+					a.SFTP.TaskPanelOpen = !a.SFTP.TaskPanelOpen
+				})
+			ui.Popover(c, taskBtn, &a.SFTP.TaskPanelOpen, func() {
+				sftpTasksPanel(c, a, t)
+			})
 		})
 	})
+}
+
+func sftpIconButton(c *ui.Context, t *ui.Theme, icon, label string, disabled bool,
+	onClick func()) ui.Element {
+	btn := ui.ButtonBase(c).Padding(4).Radius(5).Label(label).Tooltip(label).
+		Cursor(ui.CursorPointer).OnClick(onClick)
+	if disabled {
+		btn = btn.Disabled(true)
+	}
+	if btn.Hovered() {
+		btn = btn.Background(t.SurfaceHover)
+	}
+	btn.Children(func() {
+		if s := assets.SVG(icon); s != nil {
+			ui.Icon(c, s).Size(14, 14).TextColor(t.TextMuted)
+		}
+	})
+	return btn
 }
 
 func sftpFileList(c *ui.Context, a *app.App, t *ui.Theme) {
@@ -93,37 +106,34 @@ func sftpFileList(c *ui.Context, a *app.App, t *ui.Theme) {
 
 	a.SFTP.Grid.Selected = &a.SFTP.SelectedRow
 	cols := []ui.TableColumn{
-		{Title: i18n.T("sftp.column.name"), MinWidth: 260},
-		{Title: i18n.T("sftp.column.type"), Width: 72, Align: ui.Center},
-		{Title: i18n.T("sftp.column.size"), Width: 100, Align: ui.End},
-		{Title: i18n.T("sftp.column.modified"), Width: 156},
+		{Title: i18n.T("sftp.column.name"), MinWidth: 80},
+		{Title: i18n.T("sftp.column.size"), Width: 72, Align: ui.End},
+		{Title: i18n.T("sftp.column.modified"), Width: 96},
 	}
 	table := ui.Table(c, &a.SFTP.Grid, cols, len(a.SFTP.Entries), func(row, col int) {
 		if row < 0 || row >= len(a.SFTP.Entries) {
 			return
 		}
 		e := a.SFTP.Entries[row]
+		color := t.TextMuted
+		if row == a.SFTP.SelectedRow {
+			color = t.Text
+		}
 		switch col {
 		case 0:
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 				sftpEntryIcon(c, e, t)
-				ui.Text(c, e.Name).FontSize(fontSize(13)).SingleLine()
+				ui.Text(c, e.Name).FontSize(fontSize(12)).SingleLine()
 			})
 		case 1:
-			kind := i18n.T("sftp.entry.file")
-			if e.IsDir {
-				kind = i18n.T("sftp.entry.dir")
-			}
-			ui.Text(c, kind).FontSize(fontSize(12)).TextColor(t.TextMuted)
-		case 2:
 			size := ""
 			if !e.IsDir {
 				size = app.SFTPFormatSize(e.Size)
 			}
-			ui.Text(c, size).FontSize(fontSize(12)).TextColor(t.TextMuted)
-		case 3:
-			ui.Text(c, time.Unix(e.ModTime, 0).Format("2006-01-02 15:04")).
-				FontSize(fontSize(12)).TextColor(t.TextMuted)
+			ui.Text(c, size).FontSize(fontSize(11)).TextColor(color).SingleLine()
+		case 2:
+			ui.Text(c, time.Unix(e.ModTime, 0).Format("01-02 15:04")).
+				FontSize(fontSize(11)).TextColor(color).SingleLine()
 		}
 	}).Grow(1).MinWidth(0)
 	if table.Submitted() {
@@ -141,6 +151,52 @@ func sftpEntryIcon(c *ui.Context, e sftp.Entry, t *ui.Theme) {
 	if s := assets.ObjectSVG("file"); s != nil {
 		ui.Icon(c, s).Size(14, 14).TextColor(t.TextMuted)
 	}
+}
+
+// sftpTransferStrip shows the active transfer at a glance, keeping the full
+// task list one click away.
+func sftpTransferStrip(c *ui.Context, a *app.App, t *ui.Theme) {
+	var task *sftp.TaskInfo
+	for i := range a.SFTP.Tasks {
+		if a.SFTP.Tasks[i].Status == string(sftp.TaskRunning) {
+			task = &a.SFTP.Tasks[i]
+			break
+		}
+	}
+	if task == nil {
+		return
+	}
+	ratio := 0.0
+	if task.Total > 0 {
+		ratio = float64(task.Done) / float64(task.Total)
+	}
+	id := task.ID
+	name := path.Base(task.RemotePath)
+	if name == "." || name == "/" || name == "" {
+		name = task.RemotePath
+	}
+	ui.Column(c).Shrink(0).Padding(6, 10, 7, 10).Gap(5).
+		Background(t.Surface).BorderWidth(1, 0, 0, 0).BorderColor(t.Border).
+		Children(func() {
+			ui.Row(c).Gap(7).AlignItems(ui.Center).Children(func() {
+				icon := "upload"
+				if task.Direction == "download" {
+					icon = "download"
+				}
+				if s := assets.SVG(icon); s != nil {
+					ui.Icon(c, s).Size(12, 12).TextColor(t.Accent)
+				}
+				ui.Text(c, name).FontSize(fontSize(11)).
+					TextColor(t.Text).Grow(1).MinWidth(0).SingleLine()
+				ui.Text(c, fmt.Sprintf("%d%%", int(ratio*100))).
+					FontSize(fontSize(10)).TextColor(t.TextMuted)
+				sftpIconButton(c, t, "pause", i18n.T("sftp.action.pause"),
+					false, func() { a.SFTPPause(id) })
+				sftpIconButton(c, t, "close", i18n.T("sftp.action.cancel"),
+					false, func() { a.SFTPCancel(id) })
+			})
+			ui.Progress(c, ratio).FillWidth()
+		})
 }
 
 func sftpStatusBar(c *ui.Context, a *app.App, t *ui.Theme) {

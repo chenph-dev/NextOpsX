@@ -11,7 +11,7 @@ import (
 )
 
 func redisTestApp() *app.App {
-	a := &app.App{RightTab: 0}
+	a := &app.App{}
 	a.Selected = &hoststore.TreeNode{
 		ID: "r1", Name: "redis-01", NodeType: "host", Protocol: "redis",
 		Addr: "10.0.0.10", Port: 6379, User: "default",

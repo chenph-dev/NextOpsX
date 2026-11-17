@@ -13,7 +13,7 @@ import (
 )
 
 func aiTestApp() *app.App {
-	a := &app.App{RightTab: 1}
+	a := &app.App{Layout: app.LayoutState{AIOpen: true, AIHeight: 320}}
 	a.Selected = &hoststore.TreeNode{
 		ID: "h1", Name: "web-01", NodeType: "host",
 		Addr: "10.0.0.5", Port: 22, User: "ops", Protocol: "ssh",
@@ -125,23 +125,37 @@ func TestAIPanelPlanAndToolOutput(t *testing.T) {
 	}
 }
 
-func TestAIPanelTabsAndConfig(t *testing.T) {
-	a := aiTestApp()
+func TestAIDrawerToggleAndConfig(t *testing.T) {
+	a := &app.App{}
+	a.Selected = &hoststore.TreeNode{
+		ID: "h1", Name: "web-01", NodeType: "host",
+		Addr: "10.0.0.5", Port: 22, User: "ops", Protocol: "ssh",
+	}
 	tt := ui.NewTester(Shell(a), 1000, 700)
-	if err := tt.Click("终端"); err != nil {
+	if err := tt.Click("智能运维"); err != nil {
 		t.Fatal(err)
 	}
-	if a.RightTab != 0 {
-		t.Fatalf("tab = %d, want terminal", a.RightTab)
+	if !a.Layout.AIOpen {
+		t.Fatal("ops drawer should open")
+	}
+	if !tt.HasText("尚未配置 AI") {
+		t.Errorf("ops assistant missing: %q", tt.Texts())
+	}
+	if err := tt.Click("收起智能运维"); err != nil {
+		t.Fatal(err)
+	}
+	if a.Layout.AIOpen {
+		t.Fatal("ops drawer should collapse")
 	}
 	if !tt.HasText("连接") {
 		t.Errorf("welcome pane missing: %q", tt.Texts())
 	}
-	if err := tt.Click("AI 对话"); err != nil {
-		t.Fatal(err)
+	tt.Key(ui.Ctrl|ui.Shift, ui.KeyJ)
+	if !a.Layout.AIOpen {
+		t.Fatal("keyboard shortcut should open the ops drawer")
 	}
-	if a.RightTab != 1 {
-		t.Fatalf("tab = %d, want AI", a.RightTab)
+	if err := tt.Click("收起智能运维"); err != nil {
+		t.Fatal(err)
 	}
 
 	a.OpenSettings(app.SettingsModel)
@@ -259,5 +273,30 @@ func TestAIErrorsVisibleInEmptyAndConfigStates(t *testing.T) {
 	tt = ui.NewTester(Shell(a), 1000, 700)
 	if !tt.HasText("请填写名称、协议与模型") {
 		t.Fatalf("config error missing: %q", tt.Texts())
+	}
+}
+
+func TestAIPanelSuggestionGrid(t *testing.T) {
+	a := aiTestApp()
+	a.Selected.Protocol = "winrm"
+	a.AI.Configured = true
+	tt := ui.NewTester(Shell(a), 1000, 700)
+	first, ok := tt.Find("查看系统信息")
+	if !ok {
+		t.Fatalf("first suggestion missing: %q", tt.Texts())
+	}
+	second, ok := tt.Find("检查磁盘空间")
+	if !ok {
+		t.Fatalf("second suggestion missing: %q", tt.Texts())
+	}
+	third, ok := tt.Find("查看最近的系统事件")
+	if !ok {
+		t.Fatalf("third suggestion missing: %q", tt.Texts())
+	}
+	if first.Y != second.Y {
+		t.Fatalf("suggestions should share a row: %.1f vs %.1f", first.Y, second.Y)
+	}
+	if third.Y <= first.Y {
+		t.Fatalf("third suggestion should wrap to the next row: %.1f vs %.1f", third.Y, first.Y)
 	}
 }

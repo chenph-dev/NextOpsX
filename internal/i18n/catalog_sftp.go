@@ -7,6 +7,7 @@ var (
 	sftpZh = map[string]string{
 		// Shared actions and toolbar.
 		"sftp.action.cancel":    "取消",
+		"sftp.action.pause":     "暂停",
 		"sftp.action.refresh":   "刷新",
 		"sftp.action.upload":    "上传",
 		"sftp.action.download":  "下载",
@@ -15,6 +16,7 @@ var (
 		"sftp.action.delete":    "删除",
 		"sftp.toolbar.up":       "上一级",
 		"sftp.toolbar.tasks":    "任务 (%d)",
+		"sftp.drawer.close":     "关闭 SFTP",
 
 		// File listing.
 		"sftp.list.loading":    "正在读取目录…",
@@ -87,6 +89,7 @@ var (
 	sftpEn = map[string]string{
 		// Shared actions and toolbar.
 		"sftp.action.cancel":    "Cancel",
+		"sftp.action.pause":     "Pause",
 		"sftp.action.refresh":   "Refresh",
 		"sftp.action.upload":    "Upload",
 		"sftp.action.download":  "Download",
@@ -95,6 +98,7 @@ var (
 		"sftp.action.delete":    "Delete",
 		"sftp.toolbar.up":       "Up",
 		"sftp.toolbar.tasks":    "Tasks (%d)",
+		"sftp.drawer.close":     "Close SFTP",
 
 		// File listing.
 		"sftp.list.loading":    "Reading directory…",

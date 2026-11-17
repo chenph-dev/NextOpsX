@@ -66,7 +66,7 @@ func TestHostContextMenu(t *testing.T) {
 	if err := tt.RightClick("web-01"); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"打开终端", "打开 AI 对话", "-", "编辑", "移动", "-", "删除"}
+	want := []string{"打开终端", "打开智能运维", "-", "编辑", "移动", "-", "删除"}
 	if got := tt.Menu(); !slices.Equal(got, want) {
 		t.Fatalf("menu = %q, want %q", got, want)
 	}

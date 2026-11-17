@@ -133,3 +133,35 @@ func TestTerminalOnKeyDrivesCompletion(t *testing.T) {
 		t.Fatal("Tab should close the bubble")
 	}
 }
+
+func TestDrawerShortcutsDoNotDoubleToggle(t *testing.T) {
+	conn := newCompletionTestConn()
+	a := &app.App{}
+	term, err := terminal.New(terminal.Options{
+		Conn: conn, OnKey: a.HandleTermKey,
+	})
+	if err != nil {
+		t.Fatalf("terminal.New: %v", err)
+	}
+	defer term.Close()
+	a.Term = term
+	a.TermHostID = "h1"
+	a.Selected = &hoststore.TreeNode{ID: "h1", NodeType: "host", Protocol: "ssh"}
+	a.SFTP = app.SFTPState{HostID: "h1"}
+	a.Completion = app.CompletionState{
+		Open: true, Buffer: "free", Selected: 0,
+		Items: []app.CommandItem{{Command: "free -h", HistoryID: "h1"}},
+	}
+	tt := ui.NewTester(Shell(a), 1000, 700)
+	tt.Frame()
+	tt.Frame() // the terminal takes the keyboard
+
+	tt.Key(ui.Ctrl|ui.Shift, ui.KeyJ)
+	if !a.Layout.AIOpen {
+		t.Fatal("terminal shortcut should open the ops drawer once")
+	}
+	tt.Key(ui.Ctrl|ui.Shift, ui.KeyE)
+	if !a.Layout.SFTPOpen {
+		t.Fatal("terminal shortcut should open the SFTP drawer once")
+	}
+}

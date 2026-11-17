@@ -11,7 +11,7 @@ import (
 )
 
 func esTestApp() *app.App {
-	a := &app.App{RightTab: 0}
+	a := &app.App{}
 	a.Selected = &hoststore.TreeNode{
 		ID: "e1", Name: "es-01", NodeType: "host", Protocol: "elasticsearch",
 		Addr: "10.0.0.11", Port: 9200, User: "elastic",

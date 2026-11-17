@@ -104,10 +104,19 @@ func (a *App) moveCompletion(delta int) {
 	a.Completion.Selected = (a.Completion.Selected + delta + n) % n
 }
 
-// HandleTermKey navigates the command bubble. Enter is deliberately left to
+// HandleTermKey navigates the command bubble and keeps the drawer shortcuts
+// working while the terminal has the keyboard. Enter is deliberately left to
 // the shell so a password prompt cannot be turned into a selection; Tab
 // accepts, Up/Down move, Escape closes.
-func (a *App) HandleTermKey(_ ui.Modifiers, key ui.Key) bool {
+func (a *App) HandleTermKey(mods ui.Modifiers, key ui.Key) bool {
+	switch {
+	case (mods == ui.Ctrl|ui.Shift || mods == ui.Super|ui.Shift) && key == ui.KeyJ:
+		a.ToggleAIDrawer()
+		return true
+	case (mods == ui.Ctrl|ui.Shift || mods == ui.Super|ui.Shift) && key == ui.KeyE:
+		a.ToggleSFTPDrawer()
+		return true
+	}
 	if !a.Completion.Open {
 		return false
 	}
@@ -145,6 +154,16 @@ func newInputTracker(conn io.ReadWriteCloser, onChange func(string)) *inputTrack
 
 func (t *inputTracker) Read(p []byte) (int, error) { return t.conn.Read(p) }
 func (t *inputTracker) Close() error               { return t.conn.Close() }
+
+// Resize forwards the terminal size to the SSH session. The terminal plugin
+// looks for this optional method on its Conn; without it a PTY stays at its
+// initial size.
+func (t *inputTracker) Resize(cols, rows int) error {
+	if r, ok := t.conn.(interface{ Resize(cols, rows int) error }); ok {
+		return r.Resize(cols, rows)
+	}
+	return nil
+}
 
 func (t *inputTracker) Write(p []byte) (int, error) {
 	n, err := t.conn.Write(p)

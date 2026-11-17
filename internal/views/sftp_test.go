@@ -12,7 +12,7 @@ import (
 )
 
 func sftpTestApp() *app.App {
-	a := &app.App{RightTab: 2}
+	a := &app.App{Layout: app.LayoutState{SFTPOpen: true, SFTPWidth: 330}}
 	a.Selected = &hoststore.TreeNode{
 		ID: "h1", Name: "web-01", NodeType: "host", Protocol: "ssh",
 		Addr: "10.0.0.5", Port: 22, User: "root",
@@ -38,13 +38,28 @@ func TestSFTPPanelRenders(t *testing.T) {
 	a := sftpTestApp()
 	tt := ui.NewTester(Shell(a), 1300, 800)
 	for _, want := range []string{
-		"SFTP · web-01", "/var/log", "nginx", "app.log", "目录", "文件",
+		"SFTP", "/var/log", "nginx", "app.log",
 		"2.0 KB", "上一级", "刷新", "新建目录", "上传", "下载", "重命名", "删除",
-		"任务 (1)",
+		"任务 (1)", "关闭 SFTP",
 	} {
 		if !tt.HasText(want) {
 			t.Errorf("missing %q in %q", want, tt.Texts())
 		}
+	}
+}
+
+func TestSFTPDrawerShortcut(t *testing.T) {
+	a := sftpTestApp()
+	tt := ui.NewTester(Shell(a), 1300, 800)
+	a.Layout.SFTPOpen = false
+	tt.Frame()
+	tt.Key(ui.Ctrl|ui.Shift, ui.KeyE)
+	if !a.Layout.SFTPOpen {
+		t.Fatal("keyboard shortcut should open the SFTP drawer")
+	}
+	tt.Key(ui.Ctrl|ui.Shift, ui.KeyE)
+	if a.Layout.SFTPOpen {
+		t.Fatal("keyboard shortcut should close the SFTP drawer")
 	}
 }
 

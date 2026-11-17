@@ -20,7 +20,7 @@ func (m *SessionManager) EnsureSession(hostID string) (string, error) {
 	if len(convs) > 0 {
 		return convs[0].ID, nil
 	}
-	return m.CreateSession(hostID, "AI 对话")
+	return m.CreateSession(hostID, "智能运维")
 }
 
 // CreateSession 新建一个 conversation（前端"新建对话"按钮），

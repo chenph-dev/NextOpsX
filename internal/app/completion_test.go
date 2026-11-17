@@ -1,6 +1,7 @@
 package app
 
 import (
+	"io"
 	"testing"
 
 	"github.com/egoist/mygo/plugins/terminal"
@@ -98,5 +99,44 @@ func TestInputTrackerLineEditing(t *testing.T) {
 	tr.observe([]byte("pwd\r"))
 	if line != "" {
 		t.Fatalf("enter should clear the line, got %q", line)
+	}
+}
+
+type resizeTestConn struct {
+	cols, rows int
+}
+
+func (c *resizeTestConn) Read([]byte) (int, error)    { return 0, io.EOF }
+func (c *resizeTestConn) Write(p []byte) (int, error) { return len(p), nil }
+func (c *resizeTestConn) Close() error                { return nil }
+func (c *resizeTestConn) Resize(cols, rows int) error {
+	c.cols, c.rows = cols, rows
+	return nil
+}
+
+func TestInputTrackerForwardsResize(t *testing.T) {
+	conn := &resizeTestConn{}
+	tracker := newInputTracker(conn, nil)
+	var _ interface{ Resize(cols, rows int) error } = tracker
+	if err := tracker.Resize(120, 40); err != nil {
+		t.Fatalf("Resize: %v", err)
+	}
+	if conn.cols != 120 || conn.rows != 40 {
+		t.Fatalf("resize = %dx%d, want 120x40", conn.cols, conn.rows)
+	}
+}
+
+func TestHandleTermKeyTogglesDrawers(t *testing.T) {
+	a := &App{}
+	a.Selected = &hoststore.TreeNode{ID: "h1", NodeType: "host", Protocol: "ssh"}
+	if !a.HandleTermKey(ui.Ctrl|ui.Shift, ui.KeyJ) || !a.Layout.AIOpen {
+		t.Fatalf("ops drawer did not open: %+v", a.Layout)
+	}
+	if !a.HandleTermKey(ui.Ctrl|ui.Shift, ui.KeyJ) || a.Layout.AIOpen {
+		t.Fatalf("ops drawer did not close: %+v", a.Layout)
+	}
+	a.SFTP = SFTPState{HostID: "h1"}
+	if !a.HandleTermKey(ui.Ctrl|ui.Shift, ui.KeyE) || !a.Layout.SFTPOpen {
+		t.Fatalf("SFTP drawer did not open: %+v", a.Layout)
 	}
 }

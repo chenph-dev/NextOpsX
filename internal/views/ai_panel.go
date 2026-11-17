@@ -9,11 +9,12 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/assets"
 	"nextopsx/internal/einoagent/session"
 	"nextopsx/internal/i18n"
 )
 
-// AIPanel is the native AI chat: header, message stream, composer.
+// AIPanel is the native ops assistant: header, message stream, composer.
 func AIPanel(c *ui.Context, a *app.App) {
 	t := c.Theme()
 	ui.Column(c).Fill().Children(func() {
@@ -31,7 +32,11 @@ func AIPanel(c *ui.Context, a *app.App) {
 }
 
 func aiHeader(c *ui.Context, a *app.App, t *ui.Theme) {
-	ui.Row(c).Padding(8, 12).Gap(8).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).Padding(8, 12).Gap(8).AlignItems(ui.Center).Wrap().Children(func() {
+		if s := assets.SVG("spark"); s != nil {
+			ui.Icon(c, s).Size(13, 13).TextColor(t.Accent)
+		}
+		ui.Text(c, i18n.T("ai.conversation.defaultTitle")).FontSize(fontSize(12)).Bold()
 		if label, color := aiStateBadge(a, t); label != "" {
 			ui.Text(c, label).FontSize(fontSize(12)).TextColor(color)
 		}
@@ -48,26 +53,49 @@ func aiHeader(c *ui.Context, a *app.App, t *ui.Theme) {
 		}
 		ui.Spacer(c)
 
-		if a.AI.Busy() {
-			ui.Button(c, i18n.T("ai.action.cancel")).OnClick(a.CancelAIRun)
-		}
-		ui.Button(c, i18n.T("ai.action.newConversation")).OnClick(a.NewAIConversation)
+		ui.Toolbar(c, func() {
+			if a.AI.Busy() {
+				ui.Button(c, i18n.T("ai.action.cancel")).OnClick(a.CancelAIRun)
+			}
+			ui.Button(c, i18n.T("ai.action.newConversation")).OnClick(a.NewAIConversation)
 
-		history := ui.Button(c, i18n.T("ai.action.history"))
-		history = history.OnClick(func() { a.AI.HistoryOpen = !a.AI.HistoryOpen })
-		ui.Popover(c, history, &a.AI.HistoryOpen, func() {
-			aiHistoryPanel(c, a, t)
-		})
+			history := ui.Button(c, i18n.T("ai.action.history"))
+			history = history.OnClick(func() { a.AI.HistoryOpen = !a.AI.HistoryOpen })
+			ui.Popover(c, history, &a.AI.HistoryOpen, func() {
+				aiHistoryPanel(c, a, t)
+			})
 
-		clear := ui.Button(c, i18n.T("ai.action.clear"))
-		if a.AI.Busy() || a.AI.State == session.StateAwaitingApproval || len(a.AI.Messages) == 0 {
-			clear = clear.Disabled(true)
-		}
-		clear.OnClick(a.ClearAIConversation)
+			clear := ui.Button(c, i18n.T("ai.action.clear"))
+			if a.AI.Busy() || a.AI.State == session.StateAwaitingApproval || len(a.AI.Messages) == 0 {
+				clear = clear.Disabled(true)
+			}
+			clear.OnClick(a.ClearAIConversation)
 
-		ui.Button(c, i18n.T("ai.action.settings")).OnClick(func() { a.OpenSettings(app.SettingsModel) })
+			ui.Button(c, i18n.T("ai.action.settings")).OnClick(func() { a.OpenSettings(app.SettingsModel) })
+
+			aiDrawerIcon(c, t, "chevron-down", i18n.T("ai.drawer.collapse"), func() {
+				a.Layout.AIOpen = false
+			})
+			aiDrawerIcon(c, t, "close", i18n.T("ai.drawer.close"), func() {
+				a.Layout.AIOpen = false
+			})
+		}).Label(i18n.T("ai.conversation.defaultTitle"))
 	})
 	ui.Divider(c)
+}
+
+// aiDrawerIcon is a quiet icon button in the drawer header.
+func aiDrawerIcon(c *ui.Context, t *ui.Theme, icon, label string, onClick func()) {
+	btn := ui.ButtonBase(c).Padding(4).Radius(5).Label(label).Tooltip(label).
+		Cursor(ui.CursorPointer).OnClick(onClick)
+	if btn.Hovered() {
+		btn = btn.Background(t.SurfaceHover)
+	}
+	btn.Children(func() {
+		if s := assets.SVG(icon); s != nil {
+			ui.Icon(c, s).Size(13, 13).TextColor(t.TextMuted)
+		}
+	})
 }
 
 // aiProviderSelect lets the user pick the provider used by this conversation.
@@ -186,10 +214,13 @@ func aiEmptyState(c *ui.Context, a *app.App, t *ui.Theme) {
 	ui.Column(c).Padding(16).Gap(10).Children(func() {
 		ui.Text(c, i18n.T("ai.empty.hint")).
 			FontSize(fontSize(13)).TextColor(t.TextMuted)
-		for _, s := range aiSuggestions(a.SelectedProtocol()) {
-			suggestion := s
-			ui.Button(c, suggestion).OnClick(func() { a.AI.Input = suggestion })
-		}
+		ui.Grid(c).Columns(2).Gap(8).Children(func() {
+			for _, s := range aiSuggestions(a.SelectedProtocol()) {
+				suggestion := s
+				ui.Button(c, suggestion).
+					OnClick(func() { a.AI.Input = suggestion })
+			}
+		})
 	})
 }
 

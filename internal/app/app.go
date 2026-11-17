@@ -31,8 +31,8 @@ type App struct {
 	View     MainView
 	Settings SettingsState
 
-	// RightTab is the right pane's view: 0 terminal, 1 AI chat.
-	RightTab int
+	// Layout holds the workbench panes around the main view.
+	Layout   LayoutState
 	AI       AIState
 	Hosts    HostsState
 	DB       DBState
@@ -58,6 +58,83 @@ type App struct {
 	// rebuildChrome rebuilds native chrome whose labels depend on the
 	// language (menu bar, tray). main installs it; nil in tests.
 	rebuildChrome func()
+}
+
+// LayoutState holds the workbench's auxiliary panes. The main view is chosen
+// from the selected asset's protocol; the drawers keep their own state.
+type LayoutState struct {
+	// AIOpen shows the intelligent ops drawer at the bottom.
+	AIOpen   bool
+	AIHeight float32
+	// SFTPOpen shows the file drawer on the right, for SSH assets only.
+	SFTPOpen  bool
+	SFTPWidth float32
+}
+
+// Default drawer sizes.
+const (
+	defaultAIHeight  float32 = 320
+	defaultSFTPWidth float32 = 330
+	minAIHeight      float32 = 200
+	maxAIHeight      float32 = 480
+	minSFTPWidth     float32 = 260
+	maxSFTPWidth     float32 = 420
+)
+
+// AIDrawerHeight returns the drawer height within its limits.
+func (a *App) AIDrawerHeight() float32 {
+	return clampFloat(a.Layout.AIHeight, defaultAIHeight, minAIHeight, maxAIHeight)
+}
+
+// SFTPDrawerWidth returns the drawer width within its limits.
+func (a *App) SFTPDrawerWidth() float32 {
+	return clampFloat(a.Layout.SFTPWidth, defaultSFTPWidth, minSFTPWidth, maxSFTPWidth)
+}
+
+// SetAIDrawerHeight clamps and stores the intelligent ops drawer height.
+func (a *App) SetAIDrawerHeight(v float32) {
+	a.Layout.AIHeight = clampFloat(v, defaultAIHeight, minAIHeight, maxAIHeight)
+}
+
+// SetSFTPDrawerWidth clamps and stores the file drawer width.
+func (a *App) SetSFTPDrawerWidth(v float32) {
+	a.Layout.SFTPWidth = clampFloat(v, defaultSFTPWidth, minSFTPWidth, maxSFTPWidth)
+}
+
+// ToggleAIDrawer opens or collapses the intelligent ops drawer.
+func (a *App) ToggleAIDrawer() {
+	if a.Selected == nil || a.Selected.NodeType != "host" {
+		return
+	}
+	a.Layout.AIOpen = !a.Layout.AIOpen
+	if a.Layout.AIOpen && a.AI.HostID != a.Selected.ID {
+		a.attachAI(a.Selected.ID)
+	}
+}
+
+// ToggleSFTPDrawer opens or closes the file drawer for an SSH asset.
+func (a *App) ToggleSFTPDrawer() {
+	if a.Selected == nil || a.Selected.NodeType != "host" ||
+		!a.IsSSHProtocol(a.Selected.Protocol) {
+		return
+	}
+	a.Layout.SFTPOpen = !a.Layout.SFTPOpen
+	if a.Layout.SFTPOpen {
+		a.EnsureSFTP()
+	}
+}
+
+func clampFloat(v, fallback, min, max float32) float32 {
+	if v <= 0 {
+		v = fallback
+	}
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
 }
 
 // New loads the asset tree and creates the app state.
@@ -165,25 +242,17 @@ func (a *App) attachAsset(n *hoststore.TreeNode) {
 		return
 	}
 	if a.IsRedisProtocol(n.Protocol) {
-		if a.RightTab > 1 {
-			a.RightTab = 0
-		}
+		a.Layout.SFTPOpen = false
 		a.AttachRedis(n)
 	} else if a.IsESProtocol(n.Protocol) {
-		if a.RightTab > 1 {
-			a.RightTab = 0
-		}
+		a.Layout.SFTPOpen = false
 		a.AttachES(n)
 	} else if a.IsDBProtocol(n.Protocol) {
-		if a.RightTab > 1 {
-			a.RightTab = 0
-		}
+		a.Layout.SFTPOpen = false
 		a.attachDB(n)
 	} else if !a.IsSSHProtocol(n.Protocol) {
-		if a.RightTab > 1 {
-			a.RightTab = 0
-		}
-	} else if a.RightTab == 2 {
+		a.Layout.SFTPOpen = false
+	} else if a.Layout.SFTPOpen {
 		a.AttachSFTPFor(n)
 	}
 	if n.ID != a.AI.HostID {
@@ -252,6 +321,7 @@ func (a *App) Disconnect() {
 		a.conn = nil
 	}
 	a.TermHostID = ""
+	a.Layout.SFTPOpen = false
 	a.Snippets.PickerOpen = false
 	a.CloseCompletion()
 }

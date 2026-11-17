@@ -17,7 +17,7 @@ var (
 		"hosts.menu.move":          "移动",
 		"hosts.menu.delete":        "删除",
 		"hosts.menu.openTerminal":  "打开终端",
-		"hosts.menu.openAI":        "打开 AI 对话",
+		"hosts.menu.openAI":        "打开智能运维",
 		"hosts.menu.edit":          "编辑",
 
 		// Asset form.
@@ -117,7 +117,7 @@ var (
 		"hosts.menu.move":          "Move",
 		"hosts.menu.delete":        "Delete",
 		"hosts.menu.openTerminal":  "Open terminal",
-		"hosts.menu.openAI":        "Open AI chat",
+		"hosts.menu.openAI":        "Open ops assistant",
 		"hosts.menu.edit":          "Edit",
 
 		// Asset form.

@@ -12,7 +12,7 @@ import (
 )
 
 func dbViewTestApp() *app.App {
-	a := &app.App{RightTab: 0}
+	a := &app.App{}
 	a.Selected = &hoststore.TreeNode{
 		ID: "db1", Name: "mysql-01", NodeType: "host", Protocol: "mysql",
 		Addr: "10.0.0.9", Port: 3306, User: "root",
@@ -49,7 +49,7 @@ func TestDBWorkbenchRenders(t *testing.T) {
 	a := dbViewTestApp()
 	tt := ui.NewTester(Shell(a), 1200, 800)
 	for _, want := range []string{
-		"数据库", "mysql-01", "对象", "表 (1)", "视图 (1)",
+		"智能运维", "mysql-01", "对象", "表 (1)", "视图 (1)",
 		"users", "v_users", "id : int", "执行", "+",
 		"刷新结构", "导出 CSV", "alice", "bob", "2 行 · 12ms",
 	} {
@@ -111,7 +111,7 @@ func TestDBTableTabRenders(t *testing.T) {
 }
 
 func TestDBEmptySchemaHint(t *testing.T) {
-	a := &app.App{RightTab: 0}
+	a := &app.App{}
 	a.Selected = &hoststore.TreeNode{
 		ID: "s1", Name: "sqlite", NodeType: "host", Protocol: "sqlite",
 		Params: map[string]any{"filePath": "/tmp/empty.db"},

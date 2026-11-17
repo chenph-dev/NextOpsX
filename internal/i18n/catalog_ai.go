@@ -1,7 +1,7 @@
 package i18n
 
-// AI chat UI strings: panel header, composer, history, approval cards, tool
-// output and the app-layer AI errors/notifications.
+// Ops assistant UI strings: panel header, composer, history, approval cards,
+// tool output and the app-layer AI errors/notifications.
 var (
 	aiZh = map[string]string{
 		// Panel header and states.
@@ -24,11 +24,14 @@ var (
 		"ai.empty.unconfiguredTitle":   "尚未配置 AI 后端",
 		"ai.empty.unconfiguredHint":    "填写协议、模型名称和 API Key 后即可开始对话。",
 		"ai.empty.configure":           "配置 AI",
-		"ai.empty.hint":                "向 AI 描述要执行的运维任务，命令会先交由你审批。",
+		"ai.empty.hint":                "向智能运维描述要执行的运维任务，命令会先交由你审批。",
 		"ai.composer.placeholder":      "输入消息，Enter 发送；/clear 清空，/new 新对话",
 		"ai.composer.unconfigured":     "请先配置 AI 后端",
 		"ai.composer.awaitingApproval": "请先处理上方的审批卡",
-		"ai.composer.busy":             "AI 正在处理，可点击「取消」中止",
+		"ai.composer.busy":             "智能运维正在处理，可点击「取消」中止",
+		"ai.drawer.expand":             "Ctrl/⌘+Shift+J 展开",
+		"ai.drawer.collapse":           "收起智能运维",
+		"ai.drawer.close":              "关闭智能运维",
 		"ai.history.title":             "历史对话",
 		"ai.history.empty":             "暂无历史对话",
 
@@ -74,8 +77,8 @@ var (
 		"ai.plan.goal":            "目标：%s",
 
 		// App-layer errors and notifications.
-		"ai.conversation.defaultTitle":      "AI 对话",
-		"ai.error.openSessionFailed":        "打开 AI 会话失败：%s",
+		"ai.conversation.defaultTitle":      "智能运维",
+		"ai.error.openSessionFailed":        "打开智能运维会话失败：%s",
 		"ai.error.sendFailed":               "发送失败：%s",
 		"ai.error.approveFailed":            "批准失败：%s",
 		"ai.error.rejectFailed":             "拒绝失败：%s",
@@ -86,8 +89,8 @@ var (
 		"ai.error.newConversationFailed":    "新建对话失败：%s",
 		"ai.error.deleteConversationFailed": "删除对话失败：%s",
 		"ai.error.renameFailed":             "重命名失败：%s",
-		"ai.notify.errorTitle":              "AI 对话出错",
-		"ai.notify.doneTitle":               "AI 对话完成",
+		"ai.notify.errorTitle":              "智能运维出错",
+		"ai.notify.doneTitle":               "智能运维完成",
 		"ai.notify.hostBody":                "「%s」：%s",
 		"ai.notify.hostDone":                "「%s」的回复已生成",
 		"ai.notify.backgroundDone":          "后台对话的回复已生成",
@@ -121,7 +124,10 @@ var (
 		"ai.composer.placeholder":      "Type a message, Enter to send; /clear to clear, /new for a new chat",
 		"ai.composer.unconfigured":     "Configure the AI backend first",
 		"ai.composer.awaitingApproval": "Resolve the approval card above first",
-		"ai.composer.busy":             "AI is working; click Cancel to stop",
+		"ai.composer.busy":             "The ops assistant is working; click Cancel to stop",
+		"ai.drawer.expand":             "Ctrl/⌘+Shift+J open",
+		"ai.drawer.collapse":           "Collapse ops assistant",
+		"ai.drawer.close":              "Close ops assistant",
 		"ai.history.title":             "Chat history",
 		"ai.history.empty":             "No chat history",
 
@@ -167,8 +173,8 @@ var (
 		"ai.plan.goal":            "Goal: %s",
 
 		// App-layer errors and notifications.
-		"ai.conversation.defaultTitle":      "AI chat",
-		"ai.error.openSessionFailed":        "Failed to open AI conversation: %s",
+		"ai.conversation.defaultTitle":      "Ops Assistant",
+		"ai.error.openSessionFailed":        "Failed to open the ops assistant: %s",
 		"ai.error.sendFailed":               "Send failed: %s",
 		"ai.error.approveFailed":            "Approval failed: %s",
 		"ai.error.rejectFailed":             "Rejection failed: %s",
@@ -179,8 +185,8 @@ var (
 		"ai.error.newConversationFailed":    "Failed to create conversation: %s",
 		"ai.error.deleteConversationFailed": "Failed to delete conversation: %s",
 		"ai.error.renameFailed":             "Rename failed: %s",
-		"ai.notify.errorTitle":              "AI chat error",
-		"ai.notify.doneTitle":               "AI chat complete",
+		"ai.notify.errorTitle":              "Ops assistant error",
+		"ai.notify.doneTitle":               "Ops assistant complete",
 		"ai.notify.hostBody":                "%s: %s",
 		"ai.notify.hostDone":                "Reply generated for %s",
 		"ai.notify.backgroundDone":          "Background reply generated",

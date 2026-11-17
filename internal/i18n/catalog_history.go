@@ -8,7 +8,7 @@ var (
 		"history.favoritesTab": "收藏",
 		"history.search":       "搜索命令、名称或说明",
 		"history.emptyTitle":   "还没有命令历史",
-		"history.emptyHint":    "AI 执行命令或运行收藏后，会记录在这里。",
+		"history.emptyHint":    "智能运维执行命令或运行收藏后，会记录在这里。",
 		"history.noMatch":      "没有匹配的命令",
 		"history.output":       "输出",
 		"history.hideOutput":   "收起输出",

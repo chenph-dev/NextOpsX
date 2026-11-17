@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
+	"nextopsx/internal/assets"
 	"nextopsx/internal/i18n"
 	configstore "nextopsx/internal/store/config"
 )
@@ -99,8 +100,8 @@ func followPreferences(t *ui.Theme, p ui.Preferences) {
 	}
 }
 
-// Shell is the window layout: the asset tree on the left, the terminal or
-// AI chat on the right.
+// Shell is the window layout: the asset tree on the left, the protocol's
+// workbench on the right, with the ops assistant and file drawers around it.
 func Shell(a *app.App) func(*ui.Context) {
 	return func(c *ui.Context) {
 		applyTheme(c, a)
@@ -111,6 +112,10 @@ func Shell(a *app.App) func(*ui.Context) {
 			return
 		}
 		t := c.Theme()
+		c.OnShortcut(ui.Ctrl|ui.Shift, ui.KeyJ, a.ToggleAIDrawer)
+		c.OnShortcut(ui.Super|ui.Shift, ui.KeyJ, a.ToggleAIDrawer)
+		c.OnShortcut(ui.Ctrl|ui.Shift, ui.KeyE, a.ToggleSFTPDrawer)
+		c.OnShortcut(ui.Super|ui.Shift, ui.KeyE, a.ToggleSFTPDrawer)
 		ui.Row(c).Fill().Children(func() {
 			ui.Column(c).Width(280).FillHeight().Background(t.Surface).
 				Border(1, t.Border).Children(func() {
@@ -151,7 +156,7 @@ func Shell(a *app.App) func(*ui.Context) {
 					Welcome(c, a)
 					return
 				}
-				ui.Row(c).Padding(10, 16).Gap(12).AlignItems(ui.Center).Children(func() {
+				ui.Row(c).Padding(10, 16).Gap(10).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, a.Selected.Name).FontSize(fontSize(15)).Bold()
 					if a.Selected.NodeType == "host" {
 						ui.Text(c, fmt.Sprintf("%s@%s:%d", a.Selected.User, a.Selected.Addr, a.Selected.Port)).
@@ -160,31 +165,12 @@ func Shell(a *app.App) func(*ui.Context) {
 						if a.Selected.Protocol == "winrm" {
 							ui.Button(c, i18n.T("shell.remoteDesktop")).FontSize(fontSize(12)).OnClick(a.OpenRDP)
 						}
-						labels := []string{i18n.T("shell.tab.terminal"), i18n.T("shell.tab.ai")}
-						switch {
-						case a.IsRedisProtocol(a.Selected.Protocol):
-							labels = []string{"Redis", i18n.T("shell.tab.ai")}
-						case a.IsESProtocol(a.Selected.Protocol):
-							labels = []string{"ES", i18n.T("shell.tab.ai")}
-						case a.IsDBProtocol(a.Selected.Protocol):
-							labels = []string{i18n.T("shell.tab.database"), i18n.T("shell.tab.ai")}
-						case a.IsSSHProtocol(a.Selected.Protocol):
-							labels = []string{i18n.T("shell.tab.terminal"), i18n.T("shell.tab.ai"), "SFTP"}
-						default:
-							labels = []string{i18n.T("shell.tab.overview"), i18n.T("shell.tab.ai")}
-						}
-						tabs := ui.Tabs(c, &a.RightTab, labels...)
-						if tabs.Changed() {
-							switch {
-							case a.RightTab == 2 && a.IsSSHProtocol(a.Selected.Protocol):
-								a.EnsureSFTP()
-							case a.RightTab == 0 && a.IsRedisProtocol(a.Selected.Protocol):
-								a.EnsureRedis()
-							case a.RightTab == 0 && a.IsESProtocol(a.Selected.Protocol):
-								a.EnsureES()
-							}
+						shellToggle(c, t, a.Layout.AIOpen, i18n.T("shell.tab.ai"), "spark", a.ToggleAIDrawer)
+						if label, color := aiStateBadge(a, t); label != "" {
+							ui.Box(c).Size(6, 6).Radius(3).Background(color)
 						}
 						if a.IsSSHProtocol(a.Selected.Protocol) {
+							shellToggle(c, t, a.Layout.SFTPOpen, "SFTP", "folder", a.ToggleSFTPDrawer)
 							snippets := ui.Button(c, i18n.T("shell.history")).
 								FontSize(fontSize(12)).
 								Tooltip(i18n.T("history.title")).
@@ -211,35 +197,116 @@ func Shell(a *app.App) func(*ui.Context) {
 					Welcome(c, a)
 					return
 				}
-				ui.Column(c).Grow(1).FillHeight().Children(func() {
-					switch a.RightTab {
-					case 1:
-						AIPanel(c, a)
-						return
-					case 2:
-						SFTPPanel(c, a)
-						return
-					}
-					if a.IsRedisProtocol(a.Selected.Protocol) {
-						RedisPanel(c, a)
-						return
-					}
-					if a.IsESProtocol(a.Selected.Protocol) {
-						ESPanel(c, a)
-						return
-					}
-					if a.IsDBProtocol(a.Selected.Protocol) {
-						DBWorkbench(c, a)
-						return
-					}
-					if a.Term != nil && a.TermHostID == a.Selected.ID {
-						terminalWithCompletion(c, a, t)
-						return
-					}
-					Welcome(c, a)
-				})
+				hostWorkbench(c, a, t)
 			})
 		})
 		HostsDialogs(c, a)
 	}
+}
+
+// shellToggle is the header's pane switch: a quiet button that fills in while
+// its drawer is open.
+func shellToggle(c *ui.Context, t *ui.Theme, active bool, label, icon string, onClick func()) {
+	color := t.TextMuted
+	if active {
+		color = t.Accent
+	}
+	btn := ui.ButtonBase(c).Padding(4, 8).Radius(6).Gap(6).
+		AlignItems(ui.Center).Cursor(ui.CursorPointer).OnClick(onClick)
+	if active {
+		btn = btn.Background(t.SurfaceHover)
+	} else if btn.Hovered() {
+		btn = btn.Background(t.Surface)
+	}
+	btn.Children(func() {
+		if s := assets.SVG(icon); s != nil {
+			ui.Icon(c, s).Size(14, 14).TextColor(color)
+		}
+		ui.Text(c, label).FontSize(fontSize(12)).TextColor(color)
+	})
+}
+
+// hostWorkbench is the persistent main view with the optional file drawer on
+// the right and the intelligent ops drawer below.
+func hostWorkbench(c *ui.Context, a *app.App, t *ui.Theme) {
+	ui.Column(c).Grow(1).FillHeight().FillWidth().MinHeight(0).Children(func() {
+		ui.Row(c).Grow(1).FillWidth().MinHeight(0).Children(func() {
+			ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
+				hostMain(c, a, t)
+			})
+			if a.Layout.SFTPOpen && a.Selected != nil &&
+				a.IsSSHProtocol(a.Selected.Protocol) {
+				handle := ui.Box(c).Width(5).FillHeight().Cursor(ui.CursorResizeEW)
+				if handle.Hovered() {
+					handle = handle.Background(t.Accent)
+				}
+				if dx, _, ok := handle.Dragged(); ok && dx != 0 {
+					a.SetSFTPDrawerWidth(a.SFTPDrawerWidth() - dx)
+				}
+				ui.Column(c).Width(a.SFTPDrawerWidth()).FillHeight().MinWidth(0).
+					BorderWidth(0, 0, 0, 1).BorderColor(t.Border).Children(func() {
+					SFTPPanel(c, a)
+				})
+			}
+		})
+		if a.Layout.AIOpen {
+			handle := ui.Box(c).Height(5).FillWidth().Cursor(ui.CursorResizeNS)
+			if handle.Hovered() {
+				handle = handle.Background(t.Accent)
+			}
+			if _, dy, ok := handle.Dragged(); ok && dy != 0 {
+				a.SetAIDrawerHeight(a.AIDrawerHeight() - dy)
+			}
+			ui.Column(c).Height(a.AIDrawerHeight()).Shrink(0).FillWidth().MinHeight(0).
+				BorderWidth(1, 0, 0, 0).BorderColor(t.Border).Children(func() {
+				AIPanel(c, a)
+			})
+		} else {
+			aiDrawerBar(c, a, t)
+		}
+	})
+}
+
+// hostMain picks the workbench from the asset's protocol. There is no pane
+// switch: the protocol's main view is always the base.
+func hostMain(c *ui.Context, a *app.App, t *ui.Theme) {
+	if a.Selected == nil {
+		Welcome(c, a)
+		return
+	}
+	switch {
+	case a.IsRedisProtocol(a.Selected.Protocol):
+		RedisPanel(c, a)
+	case a.IsESProtocol(a.Selected.Protocol):
+		ESPanel(c, a)
+	case a.IsDBProtocol(a.Selected.Protocol):
+		DBWorkbench(c, a)
+	case a.IsSSHProtocol(a.Selected.Protocol):
+		if a.Term != nil && a.TermHostID == a.Selected.ID {
+			terminalWithCompletion(c, a, t)
+			return
+		}
+		Welcome(c, a)
+	default:
+		Welcome(c, a)
+	}
+}
+
+// aiDrawerBar keeps the intelligent ops drawer one click away when collapsed.
+func aiDrawerBar(c *ui.Context, a *app.App, t *ui.Theme) {
+	bar := ui.Row(c).Height(34).Shrink(0).FillWidth().Padding(0, 12).Gap(8).
+		AlignItems(ui.Center).Background(t.Surface).
+		BorderWidth(1, 0, 0, 0).BorderColor(t.Border).
+		Cursor(ui.CursorPointer).OnClick(a.ToggleAIDrawer)
+	bar.Children(func() {
+		if s := assets.SVG("spark"); s != nil {
+			ui.Icon(c, s).Size(13, 13).TextColor(t.Accent)
+		}
+		ui.Text(c, i18n.T("ai.conversation.defaultTitle")).FontSize(fontSize(12)).Bold()
+		if label, color := aiStateBadge(a, t); label != "" {
+			ui.Text(c, label).FontSize(fontSize(10)).TextColor(color)
+		}
+		ui.Spacer(c)
+		ui.Text(c, i18n.T("ai.drawer.expand")).FontSize(fontSize(10)).TextColor(t.TextMuted)
+	})
 }

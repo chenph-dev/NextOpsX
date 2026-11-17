@@ -17,7 +17,7 @@ func TestShellHidesTerminalOfAnotherHost(t *testing.T) {
 	}
 	defer term.Close()
 
-	a := &app.App{RightTab: 0, Term: term, TermHostID: "h1"}
+	a := &app.App{Term: term, TermHostID: "h1"}
 	a.Roots = []hoststore.TreeNode{{
 		ID: "h1", Name: "first", NodeType: "host", Protocol: "ssh",
 		Addr: "10.0.0.5", Port: 22, User: "ops",

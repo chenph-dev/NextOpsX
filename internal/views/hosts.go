@@ -93,13 +93,12 @@ func hostMenu(m *ui.Menu, a *app.App, n *hoststore.TreeNode) {
 	if a.IsSSHProtocol(n.Protocol) {
 		if m.Item(i18n.T("hosts.menu.openTerminal")).Chosen() {
 			a.Select(n)
-			a.RightTab = 0
 			a.Connect(n)
 		}
 	}
 	if m.Item(i18n.T("hosts.menu.openAI")).Chosen() {
 		a.Select(n)
-		a.RightTab = 1
+		a.Layout.AIOpen = true
 	}
 	m.Separator()
 	if m.Item(i18n.T("hosts.menu.edit")).Chosen() {

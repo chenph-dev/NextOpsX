@@ -55,7 +55,7 @@ type aiTurnSnapshot struct {
 	RunOutput      string
 }
 
-// AIState 是 AI 对话面板的状态。视图只读取它，动作方法写它。
+// AIState 是智能运维面板的状态。视图只读取它，动作方法写它。
 type AIState struct {
 	HostID    string
 	SessionID string

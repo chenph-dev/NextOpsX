@@ -7,6 +7,7 @@ import (
 
 	"nextopsx/internal/store"
 	"nextopsx/internal/store/crypto"
+	historystore "nextopsx/internal/store/history"
 	hoststore "nextopsx/internal/store/hosts"
 )
 
@@ -43,6 +44,33 @@ func TestConversationAndCommands_FTS(t *testing.T) {
 	msgs, _ := convs.LoadMessages(sid)
 	if len(msgs) != 2 || msgs[0].Role != "user" {
 		t.Fatalf("LoadMessages: %+v", msgs)
+	}
+}
+
+func TestSaveCommandWritesHistory(t *testing.T) {
+	t.Setenv("NEXTOPSX_DATA_DIR", t.TempDir())
+	t.Setenv("NEXTOPSX_TEST_NO_KEYRING", "1")
+	app, _ := store.Open()
+	defer closeDB(app)
+
+	hosts := hoststore.NewHostsStore(app)
+	convs := NewConvStore(app)
+	hostID, _ := hosts.SaveHost(hoststore.HostInput{
+		Name: "h", Addr: "1.1.1.1", Port: 22, User: "u", AuthType: "password", Secret: "x",
+	})
+	sid, err := convs.NewConversation(hostID, "t")
+	if err != nil {
+		t.Fatalf("NewConversation: %v", err)
+	}
+	if err := convs.SaveCommand(sid, "ls -la", 0, "ok"); err != nil {
+		t.Fatalf("SaveCommand: %v", err)
+	}
+	list, err := historystore.NewStore(app).List(hostID, 10)
+	if err != nil {
+		t.Fatalf("history List: %v", err)
+	}
+	if len(list) != 1 || list[0].Command != "ls -la" || list[0].Source != "ai" {
+		t.Fatalf("history = %+v", list)
 	}
 }
 

@@ -3,11 +3,13 @@ package convstore
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
 	"nextopsx/internal/store"
 	"nextopsx/internal/store/crypto"
+	historystore "nextopsx/internal/store/history"
 )
 
 // Conversation GORM 模型。
@@ -202,11 +204,25 @@ func (s *ConvStore) LoadMessages(sessionID string) ([]Message, error) {
 }
 
 func (s *ConvStore) SaveCommand(sessionID, command string, exitCode int, output string) error {
-	return s.app.GORM().Create(&convCommand{
+	now := time.Now().Unix()
+	if err := s.app.GORM().Create(&convCommand{
 		ID: crypto.NewID(), SessionID: sessionID, Command: command,
 		ExitCode: &exitCode, Output: strPtr(output),
-		Ts: time.Now().Unix(),
-	}).Error
+		Ts: now,
+	}).Error; err != nil {
+		return err
+	}
+	var hostID string
+	if err := s.app.GORM().Model(&convConversation{}).Select("host_id").
+		Where("id = ?", sessionID).Scan(&hostID).Error; err == nil && hostID != "" {
+		if err := historystore.NewStore(s.app).Save(historystore.Entry{
+			HostID: hostID, SessionID: sessionID, Source: "ai",
+			Command: command, ExitCode: &exitCode, Output: output, Ts: now,
+		}); err != nil {
+			log.Printf("conversations: save command history: %v", err)
+		}
+	}
+	return nil
 }
 
 func (s *ConvStore) DeleteConversation(id string) error {

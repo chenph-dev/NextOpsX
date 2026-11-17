@@ -26,9 +26,11 @@ import (
 	"nextopsx/internal/store"
 	configstore "nextopsx/internal/store/config"
 	convstore "nextopsx/internal/store/conversations"
+	historystore "nextopsx/internal/store/history"
 	hoststore "nextopsx/internal/store/hosts"
 	logsstore "nextopsx/internal/store/logs"
 	skillsstore "nextopsx/internal/store/skills"
+	snippetsstore "nextopsx/internal/store/snippets"
 )
 
 // Backend owns the stores, executors and AI services of the app.
@@ -39,7 +41,9 @@ type Backend struct {
 	uiSettings *configstore.UISettingsStore
 	convs      *convstore.ConvStore
 	logs       *logsstore.LogsStore
+	history    *historystore.Store
 	skills     *skill.Manager
+	snippets   *snippetsstore.SnippetStore
 	resolver   *base.ExecutorResolver
 	sm         *session.SessionManager
 	sftp       *sftppkg.Manager
@@ -105,6 +109,8 @@ func New() (*Backend, error) {
 	hosts := hoststore.NewHostsStore(db)
 	convs := convstore.NewConvStore(db)
 	logs := logsstore.NewLogsStore(db)
+	history := historystore.NewStore(db)
+	snippets := snippetsstore.NewSnippetStore(db)
 
 	dataDir, err := store.DataDir()
 	if err != nil {
@@ -119,7 +125,8 @@ func New() (*Backend, error) {
 
 	b := &Backend{
 		db: db, hosts: hosts, policy: policy, uiSettings: uiSettings,
-		convs: convs, logs: logs, skills: skillMgr, resolver: resolver,
+		convs: convs, logs: logs, skills: skillMgr, snippets: snippets,
+		history: history, resolver: resolver,
 	}
 	b.sm = session.NewSessionManager(db, providers, resolver.ExecFor,
 		func(hostID string) (string, error) {

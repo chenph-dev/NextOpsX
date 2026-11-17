@@ -5,7 +5,8 @@ NextOpsX 是基于 MyGo 原生 UI 的桌面运维客户端：不依赖 WebView�
 ## 功能
 
 - 资产树与资产管理：目录/主机 CRUD、移动、重命名、连接测试
-- SSH 交互终端（libghostty-vt）、SFTP 浏览与传输任务
+- SSH 交互终端（libghostty-vt）、SFTP 右侧抽屉与传输任务
+- 智能运维全协议底部抽屉；布局与上次选中资产在重启后恢复
 - 数据库工作台：对象树、多标签 SQL、结果网格、分页、CSV 导出（MySQL / PostgreSQL / SQLite / ClickHouse / SQL Server）
 - Redis：键空间、键详情、TTL、命令终端、INFO
 - Elasticsearch：索引、Query DSL、REST 终端、集群信息
@@ -84,7 +85,7 @@ CI 发布流程：
 
 1. 把私钥内容加入仓库 secret：`gh secret set MYGO_UPDATER_PRIVATE_KEY < ~/.config/mygo/update-keys/mygo-update.key`
 2. 更新 `mygo.json` 的 `version` 和 `CHANGELOG.md` 对应小节，提交。
-3. 打 tag 并推送：`git tag v0.1.0 && git push origin v0.1.0`
+3. 打 tag 并推送：`git tag v0.2.0 && git push origin v0.2.0`
 4. `release.yml` 会在 Linux / Windows / macOS runner 上构建并上传到 draft release；检查后发布。
 5. `ci.yml` 在 push/PR 时运行 build、test 与 vet。
 

@@ -5,7 +5,6 @@ package views
 import (
 	"fmt"
 
-	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 
 	"nextopsx/internal/app"
@@ -185,6 +184,19 @@ func Shell(a *app.App) func(*ui.Context) {
 								a.EnsureES()
 							}
 						}
+						if a.IsSSHProtocol(a.Selected.Protocol) {
+							snippets := ui.Button(c, i18n.T("shell.history")).
+								FontSize(fontSize(12)).
+								Tooltip(i18n.T("history.title")).
+								OnClick(a.ToggleSnippetPicker)
+							if !a.CanUseSnippet() {
+								snippets = snippets.Disabled(true).
+									Tooltip(i18n.T("snippets.picker.connectFirst"))
+							}
+							ui.Popover(c, snippets, &a.Snippets.PickerOpen, func() {
+								snippetPicker(c, a, t)
+							})
+						}
 						return
 					}
 					ui.Text(c, i18n.T("shell.folder")).FontSize(fontSize(13)).TextColor(t.TextMuted)
@@ -221,7 +233,7 @@ func Shell(a *app.App) func(*ui.Context) {
 						return
 					}
 					if a.Term != nil && a.TermHostID == a.Selected.ID {
-						terminal.View(c, a.Term).Fill()
+						terminalWithCompletion(c, a, t)
 						return
 					}
 					Welcome(c, a)

@@ -42,9 +42,11 @@ type App struct {
 	Skills   SkillsState
 	Policy   PolicyState
 	Audit    AuditState
+	Snippets SnippetState
 
 	Term       *terminal.Terminal
 	TermHostID string
+	Completion CompletionState
 	Busy       bool
 	ErrMsg     string
 
@@ -150,6 +152,8 @@ func (a *App) Select(n *hoststore.TreeNode) {
 	a.View = ViewAssets
 	a.Selected = n
 	a.ErrMsg = ""
+	a.Snippets.PickerOpen = false
+	a.CloseCompletion()
 	a.attachAsset(n)
 }
 
@@ -204,17 +208,27 @@ func (a *App) Connect(n *hoststore.TreeNode) {
 			return
 		}
 		a.Post(func() {
-			term, err := terminal.New(terminal.Options{Conn: conn})
+			tracker := newInputTracker(conn, func(line string) {
+				a.Post(func() { a.UpdateCompletion(line) })
+			})
+			term, err := terminal.New(terminal.Options{
+				Conn: tracker, OnKey: a.HandleTermKey,
+			})
 			if err != nil {
-				_ = conn.Close()
+				_ = tracker.Close()
 				a.Busy = false
 				a.ErrMsg = i18n.Tf("app.terminalFailed", err.Error())
 				return
 			}
 			a.Term = term
 			a.TermHostID = n.ID
-			a.conn = conn
+			a.conn = tracker
 			a.Busy = false
+			a.CloseCompletion()
+			a.LoadCommandHistory()
+			if len(a.Snippets.Items) == 0 {
+				a.LoadSnippets()
+			}
 		})
 	}()
 }
@@ -238,4 +252,6 @@ func (a *App) Disconnect() {
 		a.conn = nil
 	}
 	a.TermHostID = ""
+	a.Snippets.PickerOpen = false
+	a.CloseCompletion()
 }

@@ -21,6 +21,8 @@ func SettingsView(c *ui.Context, a *app.App) {
 				generalSettings(c, a, t)
 			case app.SettingsSkills:
 				skillsSettings(c, a, t)
+			case app.SettingsSnippets:
+				snippetsSettings(c, a, t)
 			case app.SettingsPolicy:
 				policySettings(c, a, t)
 			case app.SettingsAudit:
@@ -76,6 +78,7 @@ func settingsNav(c *ui.Context, a *app.App, t *ui.Theme) {
 			settingsNavItem(c, a, t, app.SettingsGeneral, i18n.T("settings.nav.general"), "sliders")
 			settingsNavItem(c, a, t, app.SettingsModel, i18n.T("settings.nav.model"), "cpu")
 			settingsNavItem(c, a, t, app.SettingsSkills, i18n.T("settings.nav.skills"), "spark")
+			settingsNavItem(c, a, t, app.SettingsSnippets, i18n.T("settings.nav.snippets"), "file")
 			settingsNavItem(c, a, t, app.SettingsPolicy, i18n.T("settings.nav.policy"), "shield")
 			settingsNavItem(c, a, t, app.SettingsAudit, i18n.T("settings.nav.audit"), "chart")
 			settingsNavItem(c, a, t, app.SettingsAbout, i18n.T("settings.nav.about"), "spark")
@@ -128,6 +131,8 @@ func settingsSectionMeta(tab app.SettingsTab) (title, icon string) {
 		return i18n.T("settings.nav.general"), "sliders"
 	case app.SettingsSkills:
 		return i18n.T("settings.nav.skills"), "spark"
+	case app.SettingsSnippets:
+		return i18n.T("snippets.title"), "file"
 	case app.SettingsPolicy:
 		return i18n.T("settings.nav.policy"), "shield"
 	case app.SettingsAudit:

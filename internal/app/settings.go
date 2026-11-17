@@ -24,6 +24,7 @@ const (
 	SettingsGeneral SettingsTab = iota
 	SettingsModel
 	SettingsSkills
+	SettingsSnippets
 	SettingsPolicy
 	SettingsAudit
 	SettingsAbout
@@ -73,6 +74,8 @@ func (a *App) OpenSettings(tab SettingsTab) {
 		a.LoadAIProviders()
 	case SettingsSkills:
 		a.LoadSkills()
+	case SettingsSnippets:
+		a.LoadSnippets()
 	case SettingsPolicy:
 		a.LoadApprovalPolicy()
 	case SettingsAudit:

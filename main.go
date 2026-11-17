@@ -114,6 +114,7 @@ func installMenu(a *app.App) {
 			{Label: i18n.T("menu.settings.general"), Click: run(func() { a.OpenSettings(app.SettingsGeneral) })},
 			{Label: i18n.T("menu.settings.model"), Click: run(func() { a.OpenSettings(app.SettingsModel) })},
 			{Label: i18n.T("menu.settings.skills"), Click: run(func() { a.OpenSettings(app.SettingsSkills) })},
+			{Label: i18n.T("menu.settings.snippets"), Click: run(func() { a.OpenSettings(app.SettingsSnippets) })},
 			{Label: i18n.T("menu.settings.policy"), Click: run(func() { a.OpenSettings(app.SettingsPolicy) })},
 			{Label: i18n.T("menu.settings.audit"), Click: run(func() { a.OpenSettings(app.SettingsAudit) })},
 			{Label: i18n.T("menu.settings.about"), Click: run(func() { a.OpenSettings(app.SettingsAbout) })},

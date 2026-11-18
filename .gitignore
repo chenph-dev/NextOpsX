@@ -6,3 +6,5 @@ mygo_windows_*.syso
 mygo-update.key
 
 /docs/
+
+__debug_bin*

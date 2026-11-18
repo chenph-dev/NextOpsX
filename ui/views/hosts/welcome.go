@@ -27,7 +27,6 @@ func Welcome(c *ui.Context, a *workspace.State) {
 				ui.PrimaryButton(c, i18n.T("welcome.newAsset")).OnClick(a.OpenNewHostForm)
 				ui.Button(c, i18n.T("welcome.newFolder")).OnClick(a.OpenNewFolderForm)
 			})
-			backgroundTerminal(c, a, t)
 			return
 		}
 
@@ -37,18 +36,28 @@ func Welcome(c *ui.Context, a *workspace.State) {
 				TextColor(t.TextMuted)
 			ui.Text(c, i18n.T("welcome.folder.hint")).
 				FontSize(style.FontSize(13)).TextColor(t.TextMuted)
-			backgroundTerminal(c, a, t)
 			return
 		}
 
 		if a.IsSSHProtocol(n.Protocol) {
+			session := a.SessionFor(n.ID)
 			ui.Row(c).Grow(1).FillWidth().Center().Children(func() {
-				ui.Column(c).Gap(4).AlignItems(ui.Center).Children(func() {
-					if a.Busy {
+				ui.Column(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					if session != nil && session.Status == workspace.TerminalConnecting {
 						ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 							ui.Spinner(c)
 							ui.Text(c, i18n.T("welcome.connecting")).TextColor(t.TextMuted)
 						})
+						return
+					}
+					if session != nil && session.Status == workspace.TerminalClosed {
+						if session.Err != "" {
+							ui.Text(c, session.Err).FontSize(style.FontSize(13)).TextColor(t.Danger).Wrap()
+						} else {
+							ui.Text(c, i18n.T("terminal.disconnected")).
+								FontSize(style.FontSize(13)).TextColor(t.TextMuted)
+						}
+						ui.Button(c, i18n.T("terminal.tabs.reconnect")).OnClick(func() { a.Connect(n) })
 						return
 					}
 					ui.Text(c, i18n.T("welcome.host.openHint")).
@@ -58,7 +67,6 @@ func Welcome(c *ui.Context, a *workspace.State) {
 						FontSize(style.FontSize(12)).TextColor(t.TextMuted)
 				})
 			})
-			backgroundTerminal(c, a, t)
 			return
 		}
 
@@ -69,22 +77,5 @@ func Welcome(c *ui.Context, a *workspace.State) {
 			a.HostProtocolName(n.Protocol), a.AuthDisplay(n.AuthType), a.AutoApproveDisplay(n.AutoApprove))).
 			FontSize(style.FontSize(13)).TextColor(t.TextMuted)
 		// connection/RDP errors are shown once in Shell's header strip.
-		backgroundTerminal(c, a, t)
-	})
-}
-
-// backgroundTerminal reminds the user that another asset's terminal is still
-// open when the current pane cannot show it.
-func backgroundTerminal(c *ui.Context, a *workspace.State, t *ui.Theme) {
-	if a.Term == nil {
-		return
-	}
-	if a.Selected != nil && a.Selected.ID == a.TermHostID {
-		return
-	}
-	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, i18n.Tf("welcome.backgroundTerminal", a.TermHostLabel())).
-			FontSize(style.FontSize(12)).TextColor(t.TextMuted)
-		ui.Button(c, i18n.T("welcome.closeBackground")).FontSize(style.FontSize(12)).OnClick(a.Disconnect)
 	})
 }

@@ -351,7 +351,13 @@ func (a *State) ResolveSnippetCommand(command string) string {
 
 // CanUseSnippet reports whether a snippet can be sent to the active terminal.
 func (a *State) CanUseSnippet() bool {
-	return a.Term != nil && a.Selected != nil && a.TermHostID == a.Selected.ID
+	if a.Term == nil || a.Selected == nil || a.TermHostID != a.Selected.ID {
+		return false
+	}
+	if s := a.SessionFor(a.TermHostID); s != nil {
+		return a.SessionLive(s)
+	}
+	return true
 }
 
 // Picker filters.

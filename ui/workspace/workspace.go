@@ -14,8 +14,8 @@
 package workspace
 
 import (
-	"io"
 	"sync"
+	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
 
@@ -56,14 +56,15 @@ type State struct {
 	Audit    AuditState
 	Snippets SnippetState
 
+	Sessions        []*TerminalSession
+	ActiveSessionID string
+
 	Term        *terminal.Terminal
 	TermHostID  string
 	termTracker *inputTracker
 	Completion  CompletionState
-	Busy        bool
 	ErrMsg      string
 
-	conn   io.Closer
 	up     Updater
 	writes sync.WaitGroup           // 退出前等待短小的异步写（主题等）落库
 	notify func(title, body string) // 桌面通知（由 main 注入；可空）
@@ -307,6 +308,9 @@ func (a *State) Select(n *hoststore.TreeNode) {
 	a.CloseCompletion()
 	a.attachAsset(n)
 	if n != nil {
+		if a.IsSSHProtocol(n.Protocol) {
+			a.activateExistingSession(n.ID)
+		}
 		a.rememberAsset(n.ID)
 	}
 }
@@ -330,25 +334,17 @@ func (a *State) OpenAsset(n *hoststore.TreeNode) {
 	}
 	switch {
 	case a.IsSSHProtocol(n.Protocol):
-		if a.terminalLive(n.ID) {
+		s := a.SessionFor(n.ID)
+		if s == nil {
+			a.Connect(n)
 			return
 		}
-		a.Connect(n)
+		if s.Status == TerminalConnecting || a.SessionLive(s) {
+			return // Select already focused this session.
+		}
+		a.ActivateSession(n.ID)
 	case n.Protocol == "winrm":
 		a.OpenRDP()
-	}
-}
-
-// terminalLive reports whether the terminal of id is still running.
-func (a *State) terminalLive(id string) bool {
-	if a.Term == nil || a.TermHostID != id {
-		return false
-	}
-	select {
-	case <-a.Term.Done():
-		return false
-	default:
-		return true
 	}
 }
 
@@ -378,45 +374,92 @@ func (a *State) attachAsset(n *hoststore.TreeNode) {
 	}
 }
 
-// Connect opens an SSH terminal for n and closes the previous session.
+// Connect opens a terminal tab for n, or focuses its existing tab.
 func (a *State) Connect(n *hoststore.TreeNode) {
-	if a.Busy || a.Backend == nil {
+	if n == nil || a.Backend == nil {
 		return
 	}
-	a.Busy = true
-	a.ErrMsg = ""
-	a.Disconnect()
-	a.Selected = n
-	if n != nil {
-		a.rememberAsset(n.ID)
+	if s := a.SessionFor(n.ID); s != nil {
+		if s.Status == TerminalConnecting || a.SessionLive(s) {
+			a.ActivateSession(n.ID)
+			return
+		}
+		a.closeSessionTerm(s)
+		a.removeSession(s)
 	}
+	if len(a.Sessions) >= MaxTerminalSessions {
+		for _, s := range a.Sessions {
+			if s.Status == TerminalClosed {
+				a.closeSessionTerm(s)
+				a.removeSession(s)
+				break
+			}
+		}
+	}
+	if len(a.Sessions) >= MaxTerminalSessions {
+		a.ErrMsg = i18n.Tf("terminal.limit", MaxTerminalSessions)
+		return
+	}
+
+	session := &TerminalSession{HostID: n.ID, Protocol: n.Protocol, Status: TerminalConnecting, LastUsed: time.Now()}
+	a.Sessions = append(a.Sessions, session)
+	a.Selected = n
+	a.View = ViewAssets
+	a.ErrMsg = ""
+	a.rememberAsset(n.ID)
+	a.bindActiveSession(session)
 
 	go func() {
 		conn, err := a.Backend.Terminal.OpenTerminalConn(n.ID, 80, 24)
 		if err != nil {
-			a.Fail(i18n.Tf("app.connectFailed", err.Error()))
+			a.Post(func() {
+				if !a.hasSession(session) {
+					return
+				}
+				session.Status = TerminalClosed
+				session.Err = err.Error()
+				if a.ActiveSessionID == session.HostID {
+					a.ErrMsg = i18n.Tf("app.connectFailed", err.Error())
+				}
+			})
 			return
 		}
 		a.Post(func() {
+			if !a.hasSession(session) {
+				_ = conn.Close()
+				return
+			}
 			tracker := newInputTracker(conn, func(line string, stale bool) {
-				a.Post(func() { a.UpdateCompletionLine(line, stale) })
+				a.Post(func() {
+					if a.ActiveSessionID == session.HostID {
+						a.UpdateCompletionLine(line, stale)
+					}
+				})
 			})
 			term, err := terminal.New(terminal.Options{
 				Conn: tracker, OnKey: a.HandleTermKey,
 			})
 			if err != nil {
 				_ = tracker.Close()
-				a.Busy = false
-				a.ErrMsg = i18n.Tf("app.terminalFailed", err.Error())
+				session.Status = TerminalClosed
+				session.Err = err.Error()
+				if a.ActiveSessionID == session.HostID {
+					a.ErrMsg = i18n.Tf("app.terminalFailed", err.Error())
+				}
 				return
 			}
-			a.Term = term
-			a.TermHostID = n.ID
-			a.conn = tracker
-			a.termTracker = tracker
-			a.Busy = false
-			a.CloseCompletion()
-			a.LoadCommandHistory()
+			session.Term = term
+			session.conn = tracker
+			session.tracker = tracker
+			session.Status = TerminalLive
+			session.Err = ""
+			if a.ActiveSessionID == session.HostID {
+				a.bindActiveSession(session)
+				a.ErrMsg = ""
+				if a.Selected != nil && a.Selected.ID == session.HostID {
+					a.LoadCommandHistory()
+				}
+			}
 			if len(a.Snippets.Items) == 0 {
 				a.LoadSnippets()
 			}
@@ -424,27 +467,7 @@ func (a *State) Connect(n *hoststore.TreeNode) {
 	}()
 }
 
-// Fail records a connection error and clears the busy flag.
-func (a *State) Fail(msg string) {
-	a.Post(func() {
-		a.Busy = false
-		a.ErrMsg = msg
-	})
-}
-
-// Disconnect closes the terminal and its SSH session.
+// Disconnect closes every terminal tab, for app exit.
 func (a *State) Disconnect() {
-	if a.Term != nil {
-		a.Term.Close()
-		a.Term = nil
-	}
-	if a.conn != nil {
-		_ = a.conn.Close()
-		a.conn = nil
-	}
-	a.TermHostID = ""
-	a.termTracker = nil
-	a.Layout.SFTPOpen = false
-	a.Snippets.PickerOpen = false
-	a.CloseCompletion()
+	a.CloseAllSessions()
 }

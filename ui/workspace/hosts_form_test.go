@@ -7,6 +7,7 @@ import (
 
 	"nextopsx/i18n"
 	"nextopsx/service/backend"
+	hoststore "nextopsx/store/hosts"
 )
 
 type chanUpdater struct{ ch chan func() }
@@ -220,5 +221,38 @@ func TestProtocolMetadataTranslated(t *testing.T) {
 				t.Errorf("%s missing %q for %s", lang, key, proto)
 			}
 		}
+	}
+}
+
+func TestTerminalSessionTabs(t *testing.T) {
+	a := &State{}
+	a.Roots = []hoststore.TreeNode{
+		{ID: "h1", Name: "first", NodeType: "host", Protocol: "ssh"},
+		{ID: "h2", Name: "second", NodeType: "host", Protocol: "ssh"},
+	}
+	a.Sessions = []*TerminalSession{
+		{HostID: "h1", Protocol: "ssh", Status: TerminalConnecting},
+		{HostID: "h2", Protocol: "ssh", Status: TerminalConnecting},
+	}
+	a.Selected = &a.Roots[1]
+	a.ActivateSession("h1")
+	if a.ActiveSessionID != "h1" || a.Selected == nil || a.Selected.ID != "h1" || a.TermHostID != "h1" {
+		t.Fatalf("activate h1: %+v active=%q term=%q", a.Selected, a.ActiveSessionID, a.TermHostID)
+	}
+	a.NextSession()
+	if a.ActiveSessionID != "h2" || a.Selected == nil || a.Selected.ID != "h2" {
+		t.Fatalf("next session: %+v active=%q", a.Selected, a.ActiveSessionID)
+	}
+	a.PrevSession()
+	if a.ActiveSessionID != "h1" {
+		t.Fatalf("previous session: active=%q", a.ActiveSessionID)
+	}
+	a.CloseSession("h1")
+	if len(a.Sessions) != 1 || a.ActiveSessionID != "h2" || a.Selected == nil || a.Selected.ID != "h2" {
+		t.Fatalf("close active session: sessions=%d active=%q selected=%v", len(a.Sessions), a.ActiveSessionID, a.Selected)
+	}
+	a.CloseSession("h2")
+	if len(a.Sessions) != 0 || a.ActiveSessionID != "" || a.TermHostID != "" {
+		t.Fatalf("close last session: sessions=%d active=%q term=%q", len(a.Sessions), a.ActiveSessionID, a.TermHostID)
 	}
 }

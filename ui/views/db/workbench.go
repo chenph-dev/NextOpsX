@@ -13,7 +13,7 @@ import (
 // a status bar.
 func Workbench(c *ui.Context, a *workspace.State) {
 	t := c.Theme()
-	// Ctrl/Cmd+Enter runs the active query when the editor does not consume
+	// Ctrl+Enter runs the active query when the editor does not consume
 	// the key first; the toolbar button is always available.
 	c.OnShortcut(ui.Ctrl, ui.KeyEnter, a.RunActiveDBTab)
 	c.OnShortcut(ui.Super, ui.KeyEnter, a.RunActiveDBTab)

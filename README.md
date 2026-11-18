@@ -5,7 +5,7 @@ NextOpsX 是基于 MyGo 原生 UI 的桌面运维客户端：不依赖 WebView�
 ## 功能
 
 - 资产树与资产管理：协议选择面板、按协议默认值、目录/主机 CRUD、移动、重命名、连接测试
-- SSH 交互终端（libghostty-vt）、SFTP 右侧抽屉与传输任务
+- SSH 多终端会话页签（连接随页签保留，切换资产不断开）、SFTP 右侧抽屉与传输任务
 - 智能运维全协议底部抽屉；布局与上次选中资产在重启后恢复
 - 数据库工作台：对象树、多标签 SQL、结果网格、分页、CSV 导出（MySQL / PostgreSQL / SQLite / ClickHouse / SQL Server）
 - Redis：键空间、键详情、TTL、命令终端、INFO

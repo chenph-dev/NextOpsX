@@ -721,17 +721,6 @@ func (a *State) PickHostParamFile(index int) {
 	}()
 }
 
-// TermHostLabel names the asset owning the background terminal.
-func (a *State) TermHostLabel() string {
-	if a.TermHostID == "" {
-		return ""
-	}
-	if n := findTreeNode(a.Roots, a.TermHostID); n != nil {
-		return n.Name
-	}
-	return i18n.T("hosts.unknown")
-}
-
 // RefreshHosts reloads the tree, keeping the current selection when it
 // still exists.
 func (a *State) RefreshHosts() {
@@ -839,8 +828,6 @@ func (a *State) ConfirmDeleteNode() {
 		return
 	}
 	b := a.Backend
-	disconnectTerm := a.TermHostID != "" &&
-		(a.TermHostID == id || treeContains(a.Roots, id, a.TermHostID))
 	go func() {
 		err := b.Hosts.DeleteNode(id)
 		a.Post(func() {
@@ -848,9 +835,7 @@ func (a *State) ConfirmDeleteNode() {
 				a.Hosts.Err = i18n.Tf("hosts.err.deleteFailed", err.Error())
 				return
 			}
-			if disconnectTerm {
-				a.Disconnect()
-			}
+			a.CloseSessionsUnder(id)
 			a.Hosts.Err = ""
 			a.Hosts.DeleteID = ""
 			a.Hosts.DeleteName = ""

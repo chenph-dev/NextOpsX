@@ -46,14 +46,15 @@ func (c *liveConn) Close() error {
 	return nil
 }
 
-func TestTerminalLiveAfterProcessEnds(t *testing.T) {
+func TestSessionLiveAfterProcessEnds(t *testing.T) {
 	conn := newLiveConn()
 	term, err := terminal.New(terminal.Options{Conn: conn})
 	if err != nil {
 		t.Fatalf("terminal.New: %v", err)
 	}
-	a := &State{Term: term, TermHostID: "h1"}
-	if !a.terminalLive("h1") {
+	session := &TerminalSession{HostID: "h1", Protocol: "ssh", Status: TerminalLive, Term: term}
+	a := &State{Sessions: []*TerminalSession{session}}
+	if !a.SessionLive(session) {
 		t.Fatal("a running terminal should be live")
 	}
 	term.Close()
@@ -62,7 +63,10 @@ func TestTerminalLiveAfterProcessEnds(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("terminal did not finish")
 	}
-	if a.terminalLive("h1") {
+	if a.SessionLive(session) {
 		t.Fatal("a finished terminal must not be live")
+	}
+	if session.Status != TerminalClosed {
+		t.Fatalf("finished session status = %v", session.Status)
 	}
 }

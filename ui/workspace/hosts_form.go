@@ -28,6 +28,7 @@ type HostParamField struct {
 type ProtocolOption struct {
 	Value     string
 	Label     string
+	Summary   string
 	NeedsHost bool
 }
 
@@ -98,7 +99,7 @@ func (a *State) HostProtocolOptions() []ProtocolOption {
 	add := func(protocol string) {
 		for _, c := range a.Hosts.Connectors {
 			if strings.EqualFold(c.Protocol, protocol) {
-				out = append(out, ProtocolOption{Value: c.Protocol, Label: c.Name, NeedsHost: c.NeedsHost})
+				out = append(out, ProtocolOption{Value: c.Protocol, Label: a.HostProtocolLabel(c.Protocol), Summary: a.HostProtocolSummary(c.Protocol), NeedsHost: c.NeedsHost})
 				return
 			}
 		}
@@ -109,7 +110,7 @@ func (a *State) HostProtocolOptions() []ProtocolOption {
 		if strings.EqualFold(c.Protocol, "ssh") || strings.EqualFold(c.Protocol, "winrm") {
 			continue
 		}
-		out = append(out, ProtocolOption{Value: c.Protocol, Label: c.Name, NeedsHost: c.NeedsHost})
+		out = append(out, ProtocolOption{Value: c.Protocol, Label: a.HostProtocolLabel(c.Protocol), Summary: a.HostProtocolSummary(c.Protocol), NeedsHost: c.NeedsHost})
 	}
 	return out
 }
@@ -139,6 +140,57 @@ func (a *State) hostConnector(protocol string) *connector.Connector {
 		}
 	}
 	return nil
+}
+
+// HostProtocolLabel returns the picker label: Linux/Windows for the command
+// drivers, or the connector's display name.
+func (a *State) HostProtocolLabel(protocol string) string {
+	switch strings.ToLower(protocol) {
+	case "", "ssh":
+		return i18n.T("hosts.protocol.ssh.name")
+	case "winrm":
+		return i18n.T("hosts.protocol.winrm.name")
+	}
+	return a.HostProtocolName(protocol)
+}
+
+// hostProtocolSummaryKeys maps a protocol to its picker description.
+var hostProtocolSummaryKeys = map[string]string{
+	"ssh":           "hosts.protocol.ssh.summary",
+	"winrm":         "hosts.protocol.winrm.summary",
+	"mysql":         "hosts.protocol.mysql.summary",
+	"postgres":      "hosts.protocol.postgres.summary",
+	"sqlite":        "hosts.protocol.sqlite.summary",
+	"redis":         "hosts.protocol.redis.summary",
+	"elasticsearch": "hosts.protocol.elasticsearch.summary",
+	"clickhouse":    "hosts.protocol.clickhouse.summary",
+	"sqlserver":     "hosts.protocol.sqlserver.summary",
+}
+
+// HostProtocolSummary returns the picker description for a protocol.
+func (a *State) HostProtocolSummary(protocol string) string {
+	if key, ok := hostProtocolSummaryKeys[strings.ToLower(protocol)]; ok {
+		return i18n.T(key)
+	}
+	return ""
+}
+
+// defaultUser is the initial account for a protocol.
+func defaultUser(protocol string) string {
+	switch strings.ToLower(protocol) {
+	case "winrm":
+		return "Administrator"
+	case "postgres":
+		return "postgres"
+	case "clickhouse":
+		return "default"
+	case "sqlserver":
+		return "sa"
+	case "redis", "elasticsearch", "sqlite":
+		return ""
+	default:
+		return "root"
+	}
 }
 
 // HostFormNeedsHost reports whether the selected protocol uses host/port/user.
@@ -198,11 +250,10 @@ func (a *State) OpenNewHostForm() {
 	a.Hosts.DeleteOpen = false
 	a.Hosts.Err = ""
 	a.Hosts.Form = HostForm{
-		Open: true, Protocol: "ssh", Port: "22", User: "root",
+		Open:     true,
 		AuthType: "password", AuthLabel: i18n.T("hosts.auth.password"),
 		AutoApprove: "inherit", AutoApproveLabel: i18n.T("hosts.auto.inherit"), RdpPort: "3389",
 		ParentID: a.selectedParentID(),
-		Params:   hostParamFields(a.hostConnector("ssh"), nil),
 	}
 	a.Hosts.Form.seq = a.nextHostFormSeq()
 }
@@ -267,19 +318,21 @@ func (a *State) CloseHostForm() {
 	a.Hosts.Form.seq = a.nextHostFormSeq()
 }
 
-// SyncHostProtocol rebuilds driver parameters and default ports after the
-// protocol picker changes. The bound value is already updated when a view
-// calls this from OnChange.
-func (a *State) SyncHostProtocol() {
+// SelectHostProtocol applies a protocol chosen in the picker: it rebuilds
+// driver parameters, default port and user, and clears stale test state.
+func (a *State) SelectHostProtocol(protocol string) {
 	f := &a.Hosts.Form
 	if f.IsFolder {
 		return
 	}
+	oldProtocol := f.Protocol
+	oldDefaultUser := defaultUser(oldProtocol)
 	old := map[string]string{}
 	for _, p := range f.Params {
 		old[p.Key] = p.Value
 	}
-	f.Params = hostParamFields(a.hostConnector(f.Protocol), nil)
+	f.Protocol = protocol
+	f.Params = hostParamFields(a.hostConnector(protocol), nil)
 	for i := range f.Params {
 		if v, ok := old[f.Params[i].Key]; ok {
 			f.Params[i].Value = v
@@ -290,15 +343,37 @@ func (a *State) SyncHostProtocol() {
 		f.AuthLabel = i18n.T("hosts.auth.password")
 	}
 	if a.HostFormNeedsHost() {
-		f.Port = strconv.Itoa(defaultPort(f.Protocol))
+		f.Port = strconv.Itoa(defaultPort(protocol))
 	} else {
 		f.Port = ""
+	}
+	if oldProtocol == "" || f.User == "" || f.User == oldDefaultUser {
+		f.User = defaultUser(protocol)
 	}
 	if a.HostFormIsWinRM() && f.RdpPort == "" {
 		f.RdpPort = "3389"
 	}
 	f.Err = ""
 	f.TestMsg = ""
+	f.TestOK = false
+	// A connection test may be in flight; its result belongs to the old
+	// protocol, so invalidate it.
+	f.seq = a.nextHostFormSeq()
+	f.Busy = false
+}
+
+// ClearHostProtocol closes the form drawer and returns to the protocol picker.
+func (a *State) ClearHostProtocol() {
+	f := &a.Hosts.Form
+	if f.IsFolder {
+		return
+	}
+	f.Protocol = ""
+	f.Err = ""
+	f.TestMsg = ""
+	f.TestOK = false
+	f.seq = a.nextHostFormSeq()
+	f.Busy = false
 }
 
 func (a *State) selectedParentID() string {
@@ -449,8 +524,8 @@ func (a *State) hostInputFromForm() (hoststore.HostInput, error) {
 	if f.IsFolder {
 		return in, nil
 	}
-	if in.Protocol == "" {
-		in.Protocol = "ssh"
+	if strings.TrimSpace(in.Protocol) == "" {
+		return in, errors.New(i18n.T("hosts.err.protocolRequired"))
 	}
 	needsHost := a.HostFormNeedsHost()
 	if needsHost {

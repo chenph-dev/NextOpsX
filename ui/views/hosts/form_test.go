@@ -46,8 +46,20 @@ func TestHostFormDialogRenders(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
+	for _, want := range []string{"选择协议", "Linux", "Windows", "MySQL", "取消"} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+	if tt.HasText("保存") {
+		t.Fatalf("form drawer is visible before a protocol is chosen: %q", tt.Texts())
+	}
+	if err := tt.Click("Linux"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
 	for _, want := range []string{
-		"位置：根目录", "名称", "协议", "地址", "端口", "用户",
+		"位置：根目录", "名称", "地址", "端口", "用户",
 		"认证", "密码", "自动放行", "测试连接", "保存", "取消",
 	} {
 		if !tt.HasText(want) {
@@ -59,6 +71,7 @@ func TestHostFormDialogRenders(t *testing.T) {
 func TestHostFormTypingBindsFields(t *testing.T) {
 	a := &workspace.State{}
 	a.OpenNewHostForm()
+	a.SelectHostProtocol("ssh")
 	tt := ui.NewTester(views.Shell(a), 1000, 800)
 	tt.Frame()
 
@@ -99,6 +112,10 @@ func TestCreateHostThroughFormUI(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
+	if err := tt.Click("Linux"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
 	typeInto := func(label, text string) {
 		t.Helper()
 		r, ok := tt.Find(label)
@@ -130,6 +147,7 @@ func TestCreateHostThroughFormUI(t *testing.T) {
 func TestHostFormValidationMessage(t *testing.T) {
 	a := &workspace.State{}
 	a.OpenNewHostForm()
+	a.SelectHostProtocol("ssh")
 	tt := ui.NewTester(views.Shell(a), 1000, 800)
 	if err := tt.Click("保存"); err != nil {
 		t.Fatal(err)
@@ -143,8 +161,7 @@ func TestHostFormValidationMessage(t *testing.T) {
 func TestHostFormProtocolParams(t *testing.T) {
 	a := &workspace.State{}
 	a.OpenNewHostForm()
-	a.Hosts.Form.Protocol = "mysql"
-	a.SyncHostProtocol()
+	a.SelectHostProtocol("mysql")
 	if a.Hosts.Form.Port != "3306" {
 		t.Fatalf("mysql default port = %q", a.Hosts.Form.Port)
 	}
@@ -156,8 +173,7 @@ func TestHostFormProtocolParams(t *testing.T) {
 		}
 	}
 
-	a.Hosts.Form.Protocol = "sqlite"
-	a.SyncHostProtocol()
+	a.SelectHostProtocol("sqlite")
 	tt.Frame()
 	for _, want := range []string{"数据库文件路径", "选择文件"} {
 		if !tt.HasText(want) {
@@ -168,8 +184,7 @@ func TestHostFormProtocolParams(t *testing.T) {
 		t.Errorf("sqlite form should hide host fields: %q", tt.Texts())
 	}
 
-	a.Hosts.Form.Protocol = "ssh"
-	a.SyncHostProtocol()
+	a.SelectHostProtocol("ssh")
 	tt.Frame()
 	if !tt.HasText("地址") {
 		t.Errorf("ssh form did not restore host fields: %q", tt.Texts())
@@ -229,6 +244,13 @@ func TestEditHostFormAndDeleteDialog(t *testing.T) {
 	if err := tt.Click("取消"); err != nil {
 		t.Fatal(err)
 	}
+	tt.Frame()
+	if err := tt.Click("取消"); err != nil {
+		t.Fatal(err)
+	}
+	if a.Hosts.Form.Open {
+		t.Fatalf("asset sheet did not close: %+v", a.Hosts.Form)
+	}
 
 	a.OpenDeleteDialog()
 	tt.Frame()
@@ -252,8 +274,17 @@ func TestHostFormEnglishLabels(t *testing.T) {
 	a.OpenNewHostForm()
 	tt := ui.NewTester(views.Shell(a), 1000, 800)
 	tt.Frame()
+	for _, want := range []string{"Choose a protocol", "Linux", "Windows", "Cancel"} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+	if err := tt.Click("Linux"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
 	for _, want := range []string{
-		"New asset", "Name", "Protocol", "Address", "Port", "User",
+		"New asset", "Name", "Address", "Port", "User",
 		"Auth", "Password", "Auto-approve", "Test connection", "Save", "Cancel",
 	} {
 		if !tt.HasText(want) {
@@ -266,5 +297,36 @@ func TestHostFormEnglishLabels(t *testing.T) {
 				t.Fatalf("untranslated Chinese in English host form: %q", text)
 			}
 		}
+	}
+}
+
+func TestProtocolPickerOpensDefaults(t *testing.T) {
+	i18n.SetLanguage(i18n.ZhCN)
+	t.Cleanup(func() { i18n.SetLanguage(i18n.ZhCN) })
+	a := &workspace.State{}
+	a.OpenNewHostForm()
+	tt := ui.NewTester(views.Shell(a), 1000, 900)
+	tt.Frame()
+	if err := tt.Click("MySQL"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.Hosts.Form.Protocol != "mysql" || a.Hosts.Form.Port != "3306" || a.Hosts.Form.User != "root" {
+		t.Fatalf("mysql picker defaults = %+v", a.Hosts.Form)
+	}
+	for _, want := range []string{"MySQL 数据库，支持查询、结构浏览与结果导出。", "数据库", "地址", "测试连接", "保存"} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+	if err := tt.Click("取消"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.Hosts.Form.Protocol != "" || !a.Hosts.Form.Open {
+		t.Fatalf("drawer cancel: open=%v protocol=%q", a.Hosts.Form.Open, a.Hosts.Form.Protocol)
+	}
+	if tt.HasText("自动放行") || tt.HasText("保存") {
+		t.Fatalf("drawer still visible after cancel: %q", tt.Texts())
 	}
 }

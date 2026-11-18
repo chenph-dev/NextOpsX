@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"nextopsx/i18n"
 	"nextopsx/service/backend"
 )
 
@@ -74,13 +75,13 @@ func TestHostInputValidation(t *testing.T) {
 
 	// Driver-specific required parameters.
 	a = &State{}
-	a.Hosts.Form = HostForm{Protocol: "mysql", Name: "db", Addr: "h", Port: "3306", User: "u", AuthType: "password", Secret: "pw"}
-	a.SyncHostProtocol()
+	a.Hosts.Form = HostForm{Name: "db", Addr: "h", Port: "3306", User: "u", AuthType: "password", Secret: "pw"}
+	a.SelectHostProtocol("mysql")
 	if _, err := a.hostInputFromForm(); err == nil || !strings.Contains(err.Error(), "数据库") {
 		t.Fatalf("mysql param error = %v", err)
 	}
-	a.Hosts.Form = HostForm{Protocol: "sqlite", Name: "db"}
-	a.SyncHostProtocol()
+	a.Hosts.Form = HostForm{Name: "db"}
+	a.SelectHostProtocol("sqlite")
 	if _, err := a.hostInputFromForm(); err == nil || !strings.Contains(err.Error(), "数据库文件路径") {
 		t.Fatalf("sqlite param error = %v", err)
 	}
@@ -102,8 +103,12 @@ func TestCreateAndEditHostFromForm(t *testing.T) {
 	a.Attach(u)
 
 	a.OpenNewHostForm()
-	if !a.Hosts.Form.Open || a.Hosts.Form.Protocol != "ssh" || a.Hosts.Form.Port != "22" {
+	if !a.Hosts.Form.Open || a.Hosts.Form.Protocol != "" || a.Hosts.Form.Port != "" {
 		t.Fatalf("form defaults = %+v", a.Hosts.Form)
+	}
+	a.SelectHostProtocol("ssh")
+	if a.Hosts.Form.Protocol != "ssh" || a.Hosts.Form.Port != "22" || a.Hosts.Form.User != "root" {
+		t.Fatalf("ssh defaults = %+v", a.Hosts.Form)
 	}
 	f := &a.Hosts.Form
 	f.Name = "web-01"
@@ -153,5 +158,67 @@ func TestHostFormSeqIsMonotonic(t *testing.T) {
 	}
 	if second == first {
 		t.Fatal("reopened form reused a sequence number")
+	}
+}
+
+func TestProtocolPickerDefaults(t *testing.T) {
+	i18n.SetLanguage(i18n.ZhCN)
+	t.Cleanup(func() { i18n.SetLanguage(i18n.ZhCN) })
+	a := &State{}
+	a.OpenNewHostForm()
+	if a.HostProtocolLabel("ssh") != "Linux" {
+		t.Fatalf("ssh label = %q", a.HostProtocolLabel("ssh"))
+	}
+	if a.HostProtocolSummary("mysql") == "" {
+		t.Fatal("mysql summary is empty")
+	}
+
+	a.SelectHostProtocol("mysql")
+	if a.Hosts.Form.Port != "3306" || a.Hosts.Form.User != "root" {
+		t.Fatalf("mysql defaults = %+v", a.Hosts.Form)
+	}
+	a.SelectHostProtocol("postgres")
+	if a.Hosts.Form.Port != "5432" || a.Hosts.Form.User != "postgres" {
+		t.Fatalf("postgres defaults = %+v", a.Hosts.Form)
+	}
+	a.SelectHostProtocol("postgres")
+	if a.Hosts.Form.Port != "5432" {
+		t.Fatalf("re-select postgres port = %q", a.Hosts.Form.Port)
+	}
+	a.SelectHostProtocol("sqlite")
+	if a.Hosts.Form.Port != "" || a.Hosts.Form.User != "" || a.HostFormNeedsHost() {
+		t.Fatalf("sqlite defaults = %+v", a.Hosts.Form)
+	}
+	foundPath := false
+	for _, p := range a.Hosts.Form.Params {
+		if p.Key == "filePath" {
+			foundPath = true
+		}
+	}
+	if !foundPath {
+		t.Fatalf("sqlite params = %+v", a.Hosts.Form.Params)
+	}
+
+	a.SelectHostProtocol("postgres")
+	a.ClearHostProtocol()
+	a.SelectHostProtocol("ssh")
+	if a.Hosts.Form.User != "root" || a.Hosts.Form.Port != "22" {
+		t.Fatalf("reselect ssh after cancel = %+v", a.Hosts.Form)
+	}
+}
+
+func TestProtocolMetadataTranslated(t *testing.T) {
+	for _, lang := range i18n.Languages {
+		for _, key := range []string{"hosts.protocol.ssh.name", "hosts.protocol.winrm.name",
+			"hosts.form.chooseProtocol", "hosts.err.protocolRequired"} {
+			if !i18n.Has(lang, key) {
+				t.Errorf("%s missing %q", lang, key)
+			}
+		}
+		for proto, key := range hostProtocolSummaryKeys {
+			if !i18n.Has(lang, key) {
+				t.Errorf("%s missing %q for %s", lang, key, proto)
+			}
+		}
 	}
 }

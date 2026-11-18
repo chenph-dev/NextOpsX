@@ -122,7 +122,7 @@ type SessionManager struct {
 	logs        *logsstore.LogsStore // AI 调用审计日志
 
 	// modelFactory 构造基础模型；可注入以便测试。
-	// 默认走 einoagent.agentmodel.NewChatModel（eino-ext provider）。
+	// 默认走 agent/model.NewChatModel（eino-ext provider）。
 	modelFactory func(ctx context.Context, cfg configstore.AIProvider) (einomodel.ToolCallingChatModel, error)
 
 	// policyFor 按资产解析审批策略（enableAuto + 只读白名单）；nil 表示全量审批。

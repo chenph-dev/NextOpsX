@@ -1,5 +1,5 @@
 // Package register 登记内置命令型连接驱动（ssh/winrm）。
-// 由 handler/base、einoagent/session、handler/connector blank import，
+// 由 service/executor、service/hosts、agent/session blank import，
 // 使注册成为显式的单一事实来源，且各包测试二进制也能拿到完整注册表。
 package register
 

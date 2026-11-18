@@ -172,7 +172,7 @@ func (t *SQLTool) execute(ctx context.Context, sqlText, approvalStatus string) (
 	if t.convs != nil {
 		t.saveToolMessage(display, approvalStatus, meta)
 		if err := t.convs.SaveCommand(t.sessionID, sqlText, 0, display); err != nil {
-			log.Printf("einoagent: save sql command record: %v", err)
+			log.Printf("tools: save sql command record: %v", err)
 		}
 	}
 
@@ -209,7 +209,7 @@ func (t *SQLTool) saveToolMessage(content, approvalStatus string, meta toolMeta)
 		ApprovalStatus: approvalStatus,
 		ToolResult:     string(metaJSON),
 	}); err != nil {
-		log.Printf("einoagent: save sql tool message: %v", err)
+		log.Printf("tools: save sql tool message: %v", err)
 	}
 }
 

@@ -17,7 +17,8 @@ import (
 func TestSourceKeysRegistered(t *testing.T) {
 	roots := []string{
 		filepath.Join("..", "ui", "views"),
-		filepath.Join("..", "ui", "app"),
+		filepath.Join("..", "ui", "workspace"),
+		filepath.Join("..", "ui", "widgets"),
 		filepath.Join("..", "cmd", "nextopsx", "main.go"),
 	}
 	fset := token.NewFileSet()

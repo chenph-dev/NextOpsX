@@ -8,7 +8,7 @@ import (
 	"nextopsx/service/backend"
 	"nextopsx/store"
 	hoststore "nextopsx/store/hosts"
-	"nextopsx/ui/app"
+	"nextopsx/ui/workspace"
 )
 
 // The view runs without a window in tests, which click and type as a user
@@ -40,7 +40,7 @@ func TestHostTreeSelects(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(b.Close)
-	a, err := app.New(b)
+	a, err := workspace.New(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestHostTreeSelects(t *testing.T) {
 }
 
 func TestWinRMHostShowsRDPEntry(t *testing.T) {
-	a := &app.App{}
+	a := &workspace.State{}
 	a.Selected = &hoststore.TreeNode{
 		ID: "h1", Name: "win-01", NodeType: "host",
 		Addr: "10.0.0.9", Port: 5985, User: "Administrator", Protocol: "winrm",

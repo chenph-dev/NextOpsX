@@ -37,7 +37,7 @@ go tool mygo vet .       # MyGo UI 生命周期检查
 NEXTOPSX_SSH_TEST_HOST=<host> \
 NEXTOPSX_SSH_TEST_USER=<user> \
 NEXTOPSX_SSH_TEST_KEY=$HOME/.ssh/<key> \
-go test -run TestSSHTerminal -v ./service/backend
+go test -run TestSSHTerminal -v ./service/terminal
 ```
 
 ## 数据目录
@@ -93,11 +93,37 @@ CI 发布流程：
 
 ```text
 cmd/nextopsx      # 组合根：窗口、菜单、托盘、tray 图标
-ui/app            # UI 状态与动作
-ui/views          # MyGo 原生视图
+ui/workspace      # 单窗口 UI 状态与动作（ViewModel），不渲染、不直接做 I/O
+ui/views          # 窗口布局（Shell），功能面板在子包中
+ui/views/ai       # 智能运维面板
+ui/views/db       # 数据库工作台
+ui/views/redis    # Redis 面板
+ui/views/es       # Elasticsearch 面板
+ui/views/sftp     # SFTP 抽屉
+ui/views/hosts    # 资产树、表单与欢迎页
+ui/views/terminal # 终端补全与命令历史面板
+ui/views/settings # 设置页各分区
+ui/views/result   # 通用结果网格
+ui/markdown       # 原生 Markdown 渲染
+ui/ansi           # ANSI SGR 解析与终端配色
+ui/style          # 界面缩放
+ui/widgets        # 共享状态文本与终端输出
 ui/assets         # 内嵌图标资源
 i18n              # zh-CN / en-US 字符串目录
-service/backend   # 服务装配（不依赖 MyGo）
+service/backend   # 组合根：装配并暴露各功能服务
+service/hosts     # 资产、目录与连接测试
+service/ai        # AI 会话与供应商
+service/db        # 数据库查询与结构
+service/sftp      # SFTP 浏览与传输任务
+service/skills    # 运维技能
+service/snippets  # 命令收藏
+service/settings  # UI 设置
+service/audit     # AI 调用审计
+service/policy    # 审批策略
+service/history   # 命令历史
+service/rdp       # RDP 拉起
+service/terminal  # 交互终端适配
+service/executor  # 连接执行器解析
 domain            # 连接器、执行器、SFTP、技能
 agent             # AI 会话、模型、工具与提示词
 store             # SQLite、加密、迁移与各领域存储

@@ -1,4 +1,4 @@
-// Package testutil 提供 einoagent 子包测试共享的 fixture。
+// Package testutil 提供 agent 子包测试共享的 fixture。
 package testutil
 
 import (

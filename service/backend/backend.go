@@ -1,12 +1,9 @@
 // Package backend wires the framework-independent NextOpsX services.
-// Nothing in this package imports a GUI framework; the native UI calls it
-// directly.
+// Nothing in this package imports a GUI framework; the native UI calls the
+// feature services it exposes.
 package backend
 
 import (
-	"context"
-	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -14,7 +11,19 @@ import (
 	"nextopsx/agent/session"
 	sftppkg "nextopsx/domain/sftp"
 	"nextopsx/domain/skill"
-	"nextopsx/domain/sshexec"
+	"nextopsx/service/ai"
+	"nextopsx/service/audit"
+	dbsvc "nextopsx/service/db"
+	"nextopsx/service/executor"
+	"nextopsx/service/history"
+	"nextopsx/service/hosts"
+	"nextopsx/service/policy"
+	"nextopsx/service/rdp"
+	"nextopsx/service/settings"
+	"nextopsx/service/sftp"
+	"nextopsx/service/skills"
+	"nextopsx/service/snippets"
+	"nextopsx/service/terminal"
 	"nextopsx/store"
 	configstore "nextopsx/store/config"
 	convstore "nextopsx/store/conversations"
@@ -25,28 +34,23 @@ import (
 	snippetsstore "nextopsx/store/snippets"
 )
 
-// Backend owns the stores, executors and AI services of the app.
+// Backend owns the stores and the feature services built over them.
 type Backend struct {
-	db         *store.DB
-	hosts      *hoststore.HostsStore
-	policy     *configstore.PolicyStore
-	uiSettings *configstore.UISettingsStore
-	convs      *convstore.ConvStore
-	logs       *logsstore.LogsStore
-	history    *historystore.Store
-	skills     *skill.Manager
-	snippets   *snippetsstore.SnippetStore
-	resolver   *ExecutorResolver
-	sm         *session.SessionManager
-	sftp       *sftppkg.Manager
+	Hosts    *hosts.Service
+	AI       *ai.Service
+	DB       *dbsvc.Service
+	SFTP     *sftp.Service
+	Skills   *skills.Service
+	Snippets *snippets.Service
+	Settings *settings.Service
+	Audit    *audit.Service
+	Policy   *policy.Service
+	History  *history.Service
+	RDP      *rdp.Service
+	Terminal *terminal.Service
+	Executor *executor.Resolver
 
-	aiProviders *ProviderHandler
-	approval    *ApprovalPolicyHandler
-	dbHandler   *DbHandler
-	connectors  *ConnectorHandler
-	rdp         *RdpHandler
-	logsAPI     *LogsHandler
-	sessions    *SessionsHandler
+	db *store.DB
 
 	// aiSink 接收 SessionManager 的 AI 事件（前台 UI 注入）。
 	aiMu   sync.Mutex
@@ -91,18 +95,18 @@ func (b *Backend) SetAIEventSink(sink AIEventSink) {
 
 // New opens the data store and wires every service.
 func New() (*Backend, error) {
-	db, err := store.Open()
+	data, err := store.Open()
 	if err != nil {
 		return nil, err
 	}
-	providers := configstore.NewProviderStore(db)
-	policy := configstore.NewPolicyStore(db)
-	uiSettings := configstore.NewUISettingsStore(db)
-	hosts := hoststore.NewHostsStore(db)
-	convs := convstore.NewConvStore(db)
-	logs := logsstore.NewLogsStore(db)
-	history := historystore.NewStore(db)
-	snippets := snippetsstore.NewSnippetStore(db)
+	providers := configstore.NewProviderStore(data)
+	policyStore := configstore.NewPolicyStore(data)
+	uiSettings := configstore.NewUISettingsStore(data)
+	hostsStore := hoststore.NewHostsStore(data)
+	convs := convstore.NewConvStore(data)
+	logs := logsstore.NewLogsStore(data)
+	historyStore := historystore.NewStore(data)
+	snippetStore := snippetsstore.NewSnippetStore(data)
 
 	dataDir, err := store.DataDir()
 	if err != nil {
@@ -112,17 +116,14 @@ func New() (*Backend, error) {
 	if err := os.MkdirAll(skillRoot, 0o700); err != nil {
 		return nil, err
 	}
-	skillMgr := skill.NewManager(skillsstore.NewSkillStore(db), skillRoot)
-	resolver := NewExecutorResolver(hosts)
+	skillMgr := skill.NewManager(skillsstore.NewSkillStore(data), skillRoot)
+	resolver := executor.NewResolver(hostsStore)
 
-	b := &Backend{
-		db: db, hosts: hosts, policy: policy, uiSettings: uiSettings,
-		convs: convs, logs: logs, skills: skillMgr, snippets: snippets,
-		history: history, resolver: resolver,
-	}
-	b.sm = session.NewSessionManager(db, providers, resolver.ExecFor,
+	b := &Backend{db: data, Executor: resolver}
+
+	sm := session.NewSessionManager(data, providers, resolver.ExecFor,
 		func(hostID string) (string, error) {
-			meta, err := hosts.HostMetaByID(hostID)
+			meta, err := hostsStore.HostMetaByID(hostID)
 			if err != nil {
 				return "", err
 			}
@@ -130,13 +131,13 @@ func New() (*Backend, error) {
 		},
 		b.emitAI,
 	)
-	b.sm.SetApprovalPolicyResolver(func(hostID string) (bool, []string) {
-		p, err := policy.GetApprovalPolicy()
+	sm.SetApprovalPolicyResolver(func(hostID string) (bool, []string) {
+		p, err := policyStore.GetApprovalPolicy()
 		if err != nil {
 			return false, nil
 		}
 		auto := p.EnableAuto
-		if override, oerr := hosts.GetAutoApprove(hostID); oerr == nil {
+		if override, oerr := hostsStore.GetAutoApprove(hostID); oerr == nil {
 			switch override {
 			case "on":
 				auto = true
@@ -146,91 +147,45 @@ func New() (*Backend, error) {
 		}
 		return auto, p.ReadOnlyList
 	})
-	b.sm.SetSkillResolver(skillMgr.Catalog, skillMgr.LookupEnabled)
-	b.sm.SetProtocolResolver(func(hostID string) string {
-		meta, err := hosts.HostMetaByID(hostID)
+	sm.SetSkillResolver(skillMgr.Catalog, skillMgr.LookupEnabled)
+	sm.SetProtocolResolver(func(hostID string) string {
+		meta, err := hostsStore.HostMetaByID(hostID)
 		if err != nil || meta == nil {
 			return "ssh"
 		}
 		return meta.Protocol
 	})
-	b.sm.SetCapabilityResolver(resolver.ConnFor)
+	sm.SetCapabilityResolver(resolver.ConnFor)
 
-	b.sftp = sftppkg.NewManager(
+	b.Hosts = hosts.New(hostsStore, resolver, sm.InvalidateConfig)
+	b.AI = ai.New(sm, convs, providers, sm.InvalidateConfig)
+	b.DB = dbsvc.New(resolver)
+	b.SFTP = sftp.New(sftppkg.NewManager(
 		resolver.HostFor,
 		func(t *sftppkg.Task) { b.emitSFTP("sftp:progress", t) },
 		func(t *sftppkg.Task) { b.emitSFTP("sftp:start", t) },
-	)
-	b.aiProviders = NewProviderHandler(providers, b.sm.InvalidateConfig)
-	b.approval = NewApprovalPolicyHandler(policy, b.sm.InvalidateConfig)
-	b.dbHandler = NewDbHandler(resolver)
-	b.connectors = NewConnectorHandler()
-	b.rdp = NewRdpHandler(hosts)
-	b.logsAPI = NewLogsHandler(logs)
-	b.sessions = NewSessionsHandler(convs, b.sm)
+	))
+	b.Skills = skills.New(skillMgr, sm.InvalidateConfig)
+	b.Snippets = snippets.New(snippetStore)
+	b.Settings = settings.New(uiSettings)
+	b.Audit = audit.New(logs)
+	b.Policy = policy.New(policyStore, sm.InvalidateConfig)
+	b.History = history.New(historyStore)
+	b.RDP = rdp.New(hostsStore)
+	b.Terminal = terminal.New(hostsStore)
 	return b, nil
 }
 
-// ListHosts returns the asset tree.
-func (b *Backend) ListHosts() ([]hoststore.TreeNode, error) {
-	return b.hosts.ListTree()
-}
-
-// OpenTerminalConn opens an interactive SSH session for hostID and adapts
-// it to the terminal plugin's io.ReadWriteCloser. Only SSH assets support
-// an interactive terminal.
-func (b *Backend) OpenTerminalConn(hostID string, cols, rows int) (io.ReadWriteCloser, error) {
-	meta, err := b.hosts.HostMetaByID(hostID)
-	if err != nil {
-		return nil, err
-	}
-	if meta == nil {
-		return nil, fmt.Errorf("资产不存在")
-	}
-	proto := meta.Protocol
-	if proto != "" && proto != "ssh" {
-		return nil, fmt.Errorf("仅 SSH 资产支持交互式终端（当前：%s）", proto)
-	}
-	secret, authType, err := b.hosts.GetHostSecret(hostID)
-	if err != nil {
-		return nil, fmt.Errorf("读取凭据失败: %w", err)
-	}
-	host := sshexec.Host{
-		Addr: meta.Addr, Port: meta.Port, User: meta.User,
-		AuthType: authType, Secret: secret,
-	}
-	// TOFU: pin the host key on first connect, refuse a changed key.
-	host.TrustHostKey = func(fp string) error {
-		cur, err := b.hosts.HostKeyFingerprint(hostID)
-		if err != nil {
-			return err
-		}
-		if cur == "" {
-			return b.hosts.SaveHostKeyFingerprint(hostID, fp)
-		}
-		if cur != fp {
-			return fmt.Errorf("主机密钥已变更（%s → %s），可能遭中间人替换", cur, fp)
-		}
-		return nil
-	}
-
-	sess, err := sshexec.OpenSession(context.Background(), host, cols, rows)
-	if err != nil {
-		return nil, err
-	}
-	return newSSHConn(sess), nil
-}
-
-// Close releases the SFTP clients and the SQLite connection.
+// Close releases the SFTP clients, the executor cache and the SQLite connection.
 func (b *Backend) Close() {
 	if b == nil {
 		return
 	}
-	if b.sftp != nil {
-		b.sftp.Close()
+	if b.SFTP != nil {
+		b.SFTP.Close()
 	}
-	if b.resolver != nil {
-		b.resolver.Close()
+	if b.Executor != nil {
+		b.Executor.Close()
 	}
 	if b.db != nil {
 		if sqlDB, err := b.db.GORM().DB(); err == nil {

@@ -168,7 +168,7 @@ func (t *PlanTool) savePlanMessage(content, approvalStatus string) {
 		ToolName:       "create_plan",
 		ApprovalStatus: approvalStatus,
 	}); err != nil {
-		log.Printf("einoagent: save plan tool message: %v", err)
+		log.Printf("tools: save plan tool message: %v", err)
 	}
 }
 
@@ -346,7 +346,7 @@ func (t *SSHTool) execute(ctx context.Context, command, approvalStatus string) (
 	if t.convs != nil {
 		t.saveToolMessage(content, approvalStatus, meta)
 		if err := t.convs.SaveCommand(t.sessionID, command, exitCode, display); err != nil {
-			log.Printf("einoagent: save command record: %v", err)
+			log.Printf("tools: save command record: %v", err)
 		}
 	}
 
@@ -389,7 +389,7 @@ func (t *SSHTool) saveToolMessage(content, approvalStatus string, meta toolMeta)
 		ApprovalStatus: approvalStatus,
 		ToolResult:     string(metaJSON),
 	}); err != nil {
-		log.Printf("einoagent: save tool message: %v", err)
+		log.Printf("tools: save tool message: %v", err)
 	}
 }
 

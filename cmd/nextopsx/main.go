@@ -10,8 +10,8 @@ import (
 
 	"nextopsx/i18n"
 	"nextopsx/service/backend"
-	"nextopsx/ui/app"
 	"nextopsx/ui/views"
+	"nextopsx/ui/workspace"
 )
 
 //go:embed tray/tray.png
@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	a, err := app.New(b)
+	a, err := workspace.New(b)
 	if err != nil {
 		b.Close()
 		log.Fatal(err)
@@ -100,9 +100,9 @@ func main() {
 }
 
 // installMenu builds the native menu bar. Menu callbacks run on the main
-// thread outside a frame, so every action goes through App.Post, which runs
+// thread outside a frame, so every action goes through State.Post, which runs
 // it on the UI thread and schedules a redraw.
-func installMenu(a *app.App) {
+func installMenu(a *workspace.State) {
 	run := func(fn func()) func(*mygo.MenuItem, *mygo.Window) {
 		return func(*mygo.MenuItem, *mygo.Window) { a.Post(fn) }
 	}
@@ -122,13 +122,13 @@ func installMenu(a *app.App) {
 		{Label: i18n.T("menu.view"), Submenu: []*mygo.MenuItem{
 			{Label: i18n.T("menu.assets"), Accelerator: "CmdOrCtrl+1", Click: run(a.CloseSettings)},
 			mygo.Separator(),
-			{Label: i18n.T("menu.settings.general"), Click: run(func() { a.OpenSettings(app.SettingsGeneral) })},
-			{Label: i18n.T("menu.settings.model"), Click: run(func() { a.OpenSettings(app.SettingsModel) })},
-			{Label: i18n.T("menu.settings.skills"), Click: run(func() { a.OpenSettings(app.SettingsSkills) })},
-			{Label: i18n.T("menu.settings.snippets"), Click: run(func() { a.OpenSettings(app.SettingsSnippets) })},
-			{Label: i18n.T("menu.settings.policy"), Click: run(func() { a.OpenSettings(app.SettingsPolicy) })},
-			{Label: i18n.T("menu.settings.audit"), Click: run(func() { a.OpenSettings(app.SettingsAudit) })},
-			{Label: i18n.T("menu.settings.about"), Click: run(func() { a.OpenSettings(app.SettingsAbout) })},
+			{Label: i18n.T("menu.settings.general"), Click: run(func() { a.OpenSettings(workspace.SettingsGeneral) })},
+			{Label: i18n.T("menu.settings.model"), Click: run(func() { a.OpenSettings(workspace.SettingsModel) })},
+			{Label: i18n.T("menu.settings.skills"), Click: run(func() { a.OpenSettings(workspace.SettingsSkills) })},
+			{Label: i18n.T("menu.settings.snippets"), Click: run(func() { a.OpenSettings(workspace.SettingsSnippets) })},
+			{Label: i18n.T("menu.settings.policy"), Click: run(func() { a.OpenSettings(workspace.SettingsPolicy) })},
+			{Label: i18n.T("menu.settings.audit"), Click: run(func() { a.OpenSettings(workspace.SettingsAudit) })},
+			{Label: i18n.T("menu.settings.about"), Click: run(func() { a.OpenSettings(workspace.SettingsAbout) })},
 			mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen},
 		}},
@@ -138,7 +138,7 @@ func installMenu(a *app.App) {
 }
 
 // trayMenu builds the tray menu. It is rebuilt when the UI language changes.
-func trayMenu(a *app.App, win *mygo.Window) *mygo.Menu {
+func trayMenu(a *workspace.State, win *mygo.Window) *mygo.Menu {
 	return mygo.NewMenu([]*mygo.MenuItem{
 		{Label: i18n.T("tray.open"), Click: func(*mygo.MenuItem, *mygo.Window) {
 			win.Show()

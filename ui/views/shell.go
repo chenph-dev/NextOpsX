@@ -1,5 +1,5 @@
 // Package views renders the native UI from app state. It performs no I/O:
-// actions go through *app.App.
+// actions go through *workspace.State.
 package views
 
 import (
@@ -9,8 +9,17 @@ import (
 
 	"nextopsx/i18n"
 	configstore "nextopsx/store/config"
-	"nextopsx/ui/app"
 	"nextopsx/ui/assets"
+	"nextopsx/ui/style"
+	"nextopsx/ui/views/ai"
+	"nextopsx/ui/views/db"
+	"nextopsx/ui/views/es"
+	"nextopsx/ui/views/hosts"
+	"nextopsx/ui/views/redis"
+	"nextopsx/ui/views/settings"
+	"nextopsx/ui/views/sftp"
+	"nextopsx/ui/views/terminal"
+	"nextopsx/ui/workspace"
 )
 
 // Base themes are created once; each frame copies one and applies the
@@ -20,20 +29,16 @@ var (
 	lightThemeBase = ui.LightTheme()
 	darkThemeBase  = ui.DarkTheme()
 	passTheme      ui.Theme
-	uiScale        float32 = 1
 )
-
-// fontSize scales an explicit text size by the user's UI scale.
-func fontSize(v float32) float32 { return v * uiScale }
 
 // applyTheme applies the user's theme and UI scale. The root view rebuilds
 // every frame, which is where SetTheme takes effect for the whole tree.
-func applyTheme(c *ui.Context, a *app.App) {
+func applyTheme(c *ui.Context, a *workspace.State) {
 	scale := float32(a.Settings.Scale) / 100
 	if scale <= 0 {
 		scale = 1
 	}
-	uiScale = scale
+	style.SetScale(scale)
 
 	prefs := c.Preferences()
 	var t ui.Theme
@@ -102,13 +107,13 @@ func followPreferences(t *ui.Theme, p ui.Preferences) {
 
 // Shell is the window layout: the asset tree on the left, the protocol's
 // workbench on the right, with the ops assistant and file drawers around it.
-func Shell(a *app.App) func(*ui.Context) {
+func Shell(a *workspace.State) func(*ui.Context) {
 	return func(c *ui.Context) {
 		applyTheme(c, a)
-		if a.View == app.ViewSettings {
-			SettingsView(c, a)
+		if a.View == workspace.ViewSettings {
+			settings.View(c, a)
 			// 资产表单可能从菜单打开；设置页也渲染对话框，避免弹窗被隐藏后残留。
-			HostsDialogs(c, a)
+			hosts.Dialogs(c, a)
 			return
 		}
 		t := c.Theme()
@@ -120,11 +125,11 @@ func Shell(a *app.App) func(*ui.Context) {
 			ui.Column(c).Width(280).FillHeight().Background(t.Surface).
 				Border(1, t.Border).Children(func() {
 				ui.Row(c).Padding(12).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, i18n.T("shell.assets")).FontSize(fontSize(16)).Bold()
-					ui.Text(c, fmt.Sprintf("%d", countHosts(a.Roots))).TextColor(t.TextMuted)
+					ui.Text(c, i18n.T("shell.assets")).FontSize(style.FontSize(16)).Bold()
+					ui.Text(c, fmt.Sprintf("%d", hosts.Count(a.Roots))).TextColor(t.TextMuted)
 					ui.Spacer(c)
-					ui.Button(c, i18n.T("shell.newAsset")).FontSize(fontSize(12)).OnClick(a.OpenNewHostForm)
-					ui.Button(c, i18n.T("shell.newFolder")).FontSize(fontSize(12)).OnClick(a.OpenNewFolderForm)
+					ui.Button(c, i18n.T("shell.newAsset")).FontSize(style.FontSize(12)).OnClick(a.OpenNewHostForm)
+					ui.Button(c, i18n.T("shell.newFolder")).FontSize(style.FontSize(12)).OnClick(a.OpenNewFolderForm)
 				})
 				tree := ui.Scroll(c).Grow(1)
 				tree.ContextMenu(func(m *ui.Menu) {
@@ -142,7 +147,7 @@ func Shell(a *app.App) func(*ui.Context) {
 					}
 				})
 				tree.Children(func() {
-					HostTree(c, a)
+					hosts.Tree(c, a)
 				})
 				ui.Divider(c)
 				ui.Row(c).Padding(8).Children(func() {
@@ -153,26 +158,26 @@ func Shell(a *app.App) func(*ui.Context) {
 
 			ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
 				if a.Selected == nil {
-					Welcome(c, a)
+					hosts.Welcome(c, a)
 					return
 				}
 				ui.Row(c).Padding(10, 16).Gap(10).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, a.Selected.Name).FontSize(fontSize(15)).Bold()
+					ui.Text(c, a.Selected.Name).FontSize(style.FontSize(15)).Bold()
 					if a.Selected.NodeType == "host" {
 						ui.Text(c, fmt.Sprintf("%s@%s:%d", a.Selected.User, a.Selected.Addr, a.Selected.Port)).
-							FontSize(fontSize(13)).TextColor(t.TextMuted)
+							FontSize(style.FontSize(13)).TextColor(t.TextMuted)
 						ui.Spacer(c)
 						if a.Selected.Protocol == "winrm" {
-							ui.Button(c, i18n.T("shell.remoteDesktop")).FontSize(fontSize(12)).OnClick(a.OpenRDP)
+							ui.Button(c, i18n.T("shell.remoteDesktop")).FontSize(style.FontSize(12)).OnClick(a.OpenRDP)
 						}
 						shellToggle(c, t, a.Layout.AIOpen, i18n.T("shell.tab.ai"), "spark", a.ToggleAIDrawer)
-						if label, color := aiStateBadge(a, t); label != "" {
+						if label, color := ai.StateBadge(a, t); label != "" {
 							ui.Box(c).Size(6, 6).Radius(3).Background(color)
 						}
 						if a.IsSSHProtocol(a.Selected.Protocol) {
 							shellToggle(c, t, a.Layout.SFTPOpen, "SFTP", "folder", a.ToggleSFTPDrawer)
 							snippets := ui.Button(c, i18n.T("shell.history")).
-								FontSize(fontSize(12)).
+								FontSize(style.FontSize(12)).
 								Tooltip(i18n.T("history.title")).
 								OnClick(a.ToggleSnippetPicker)
 							if !a.CanUseSnippet() {
@@ -180,27 +185,27 @@ func Shell(a *app.App) func(*ui.Context) {
 									Tooltip(i18n.T("snippets.picker.connectFirst"))
 							}
 							ui.Popover(c, snippets, &a.Snippets.PickerOpen, func() {
-								snippetPicker(c, a, t)
+								terminal.SnippetPicker(c, a, t)
 							})
 						}
 						return
 					}
-					ui.Text(c, i18n.T("shell.folder")).FontSize(fontSize(13)).TextColor(t.TextMuted)
+					ui.Text(c, i18n.T("shell.folder")).FontSize(style.FontSize(13)).TextColor(t.TextMuted)
 				})
 				if a.ErrMsg != "" {
 					ui.Row(c).Padding(0, 16).Children(func() {
-						ui.Text(c, a.ErrMsg).FontSize(fontSize(12)).TextColor(t.Danger).Wrap()
+						ui.Text(c, a.ErrMsg).FontSize(style.FontSize(12)).TextColor(t.Danger).Wrap()
 					})
 				}
 				ui.Divider(c)
 				if a.Selected.NodeType != "host" {
-					Welcome(c, a)
+					hosts.Welcome(c, a)
 					return
 				}
 				hostWorkbench(c, a, t)
 			})
 		})
-		HostsDialogs(c, a)
+		hosts.Dialogs(c, a)
 	}
 }
 
@@ -222,13 +227,13 @@ func shellToggle(c *ui.Context, t *ui.Theme, active bool, label, icon string, on
 		if s := assets.SVG(icon); s != nil {
 			ui.Icon(c, s).Size(14, 14).TextColor(color)
 		}
-		ui.Text(c, label).FontSize(fontSize(12)).TextColor(color)
+		ui.Text(c, label).FontSize(style.FontSize(12)).TextColor(color)
 	})
 }
 
 // hostWorkbench is the persistent main view with the optional file drawer on
 // the right and the intelligent ops drawer below.
-func hostWorkbench(c *ui.Context, a *app.App, t *ui.Theme) {
+func hostWorkbench(c *ui.Context, a *workspace.State, t *ui.Theme) {
 	ui.Column(c).Grow(1).FillHeight().FillWidth().MinHeight(0).Children(func() {
 		ui.Row(c).Grow(1).FillWidth().MinHeight(0).Children(func() {
 			ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
@@ -248,7 +253,7 @@ func hostWorkbench(c *ui.Context, a *app.App, t *ui.Theme) {
 				}
 				ui.Column(c).Width(a.SFTPDrawerWidth()).FillHeight().MinWidth(0).
 					BorderWidth(0, 0, 0, 1).BorderColor(t.Border).Children(func() {
-					SFTPPanel(c, a)
+					sftp.Panel(c, a)
 				})
 			}
 		})
@@ -265,7 +270,7 @@ func hostWorkbench(c *ui.Context, a *app.App, t *ui.Theme) {
 			}
 			ui.Column(c).Height(a.AIDrawerHeight()).Shrink(0).FillWidth().MinHeight(0).
 				BorderWidth(1, 0, 0, 0).BorderColor(t.Border).Children(func() {
-				AIPanel(c, a)
+				ai.Panel(c, a)
 			})
 		} else {
 			aiDrawerBar(c, a, t)
@@ -275,31 +280,31 @@ func hostWorkbench(c *ui.Context, a *app.App, t *ui.Theme) {
 
 // hostMain picks the workbench from the asset's protocol. There is no pane
 // switch: the protocol's main view is always the base.
-func hostMain(c *ui.Context, a *app.App, t *ui.Theme) {
+func hostMain(c *ui.Context, a *workspace.State, t *ui.Theme) {
 	if a.Selected == nil {
-		Welcome(c, a)
+		hosts.Welcome(c, a)
 		return
 	}
 	switch {
 	case a.IsRedisProtocol(a.Selected.Protocol):
-		RedisPanel(c, a)
+		redis.Panel(c, a)
 	case a.IsESProtocol(a.Selected.Protocol):
-		ESPanel(c, a)
+		es.Panel(c, a)
 	case a.IsDBProtocol(a.Selected.Protocol):
-		DBWorkbench(c, a)
+		db.Workbench(c, a)
 	case a.IsSSHProtocol(a.Selected.Protocol):
 		if a.Term != nil && a.TermHostID == a.Selected.ID {
-			terminalWithCompletion(c, a, t)
+			terminal.WithCompletion(c, a, t)
 			return
 		}
-		Welcome(c, a)
+		hosts.Welcome(c, a)
 	default:
-		Welcome(c, a)
+		hosts.Welcome(c, a)
 	}
 }
 
 // aiDrawerBar keeps the intelligent ops drawer one click away when collapsed.
-func aiDrawerBar(c *ui.Context, a *app.App, t *ui.Theme) {
+func aiDrawerBar(c *ui.Context, a *workspace.State, t *ui.Theme) {
 	bar := ui.Row(c).Height(34).Shrink(0).FillWidth().Padding(0, 12).Gap(8).
 		AlignItems(ui.Center).Background(t.Surface).
 		BorderWidth(1, 0, 0, 0).BorderColor(t.Border).
@@ -308,11 +313,11 @@ func aiDrawerBar(c *ui.Context, a *app.App, t *ui.Theme) {
 		if s := assets.SVG("spark"); s != nil {
 			ui.Icon(c, s).Size(13, 13).TextColor(t.Accent)
 		}
-		ui.Text(c, i18n.T("ai.conversation.defaultTitle")).FontSize(fontSize(12)).Bold()
-		if label, color := aiStateBadge(a, t); label != "" {
-			ui.Text(c, label).FontSize(fontSize(10)).TextColor(color)
+		ui.Text(c, i18n.T("ai.conversation.defaultTitle")).FontSize(style.FontSize(12)).Bold()
+		if label, color := ai.StateBadge(a, t); label != "" {
+			ui.Text(c, label).FontSize(style.FontSize(10)).TextColor(color)
 		}
 		ui.Spacer(c)
-		ui.Text(c, i18n.T("ai.drawer.expand")).FontSize(fontSize(10)).TextColor(t.TextMuted)
+		ui.Text(c, i18n.T("ai.drawer.expand")).FontSize(style.FontSize(10)).TextColor(t.TextMuted)
 	})
 }

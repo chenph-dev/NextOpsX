@@ -37,7 +37,7 @@ go tool mygo vet .       # MyGo UI 生命周期检查
 NEXTOPSX_SSH_TEST_HOST=<host> \
 NEXTOPSX_SSH_TEST_USER=<user> \
 NEXTOPSX_SSH_TEST_KEY=$HOME/.ssh/<key> \
-go test -run TestSSHTerminal -v ./internal/backend
+go test -run TestSSHTerminal -v ./service/backend
 ```
 
 ## 数据目录
@@ -92,10 +92,13 @@ CI 发布流程：
 ## 项目结构
 
 ```text
-main.go              # 组合根：窗口、菜单、托盘
-internal/app         # UI 状态与动作
-internal/views       # MyGo 原生视图
-internal/backend     # 服务装配（不依赖 MyGo）
-internal/<domain>    # 连接器、执行器、Agent、存储
-internal/i18n        # zh-CN / en-US 字符串目录
+cmd/nextopsx      # 组合根：窗口、菜单、托盘、tray 图标
+ui/app            # UI 状态与动作
+ui/views          # MyGo 原生视图
+ui/assets         # 内嵌图标资源
+i18n              # zh-CN / en-US 字符串目录
+service/backend   # 服务装配（不依赖 MyGo）
+domain            # 连接器、执行器、SFTP、技能
+agent             # AI 会话、模型、工具与提示词
+store             # SQLite、加密、迁移与各领域存储
 ```

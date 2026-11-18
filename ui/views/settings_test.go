@@ -1,0 +1,222 @@
+package views
+
+import (
+	"testing"
+	"unicode"
+
+	"github.com/egoist/mygo/ui"
+
+	"nextopsx/i18n"
+	configstore "nextopsx/store/config"
+	logsstore "nextopsx/store/logs"
+	"nextopsx/ui/app"
+)
+
+func TestSettingsModelShowsProviders(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsModel
+	a.Settings.Providers = []configstore.AIProvider{
+		{ID: "p1", Name: "默认供应商", Protocol: "openai", Model: "deepseek-chat", IsDefault: true},
+		{ID: "p2", Name: "备用 Claude", Protocol: "claude", Model: "claude-sonnet-5"},
+	}
+	a.Settings.SelectedProvider = "p1"
+	a.Settings.Draft = a.Settings.Providers[0]
+	a.Settings.Draft.APIKey = "sk-x"
+
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"设置", "模型", "新建供应商", "供应商 (2)",
+		"默认供应商", "openai · deepseek-chat", "备用 Claude", "claude · claude-sonnet-5",
+		"名称", "协议", "Base URL", "API Key", "删除", "保存",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+	if tt.HasText("设为默认") {
+		t.Errorf("已是默认供应商时不应显示「设为默认」: %q", tt.Texts())
+	}
+}
+
+func TestSettingsGeneralSection(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Theme = "dark"
+	a.Settings.ThemeIndex = app.ThemeIndex("dark")
+	a.Settings.Scale = 100
+	a.Settings.ScaleIndex = app.ScaleIndex(100)
+	a.Settings.DataDir = "/tmp/nextopsx-data"
+
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{"通用", "主题", "深色", "界面缩放", "125%", "数据目录", "/tmp/nextopsx-data"} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+
+	if err := tt.Click("深色"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.Click("浅色"); err != nil {
+		t.Fatal(err)
+	}
+	if a.Settings.Theme != "light" {
+		t.Fatalf("theme = %q, want light", a.Settings.Theme)
+	}
+}
+
+func TestSettingsAuditSection(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsAudit
+	a.Audit = app.AuditState{
+		Logs: []logsstore.CallLog{
+			{
+				ID: "l1", SessionID: "s1", Ts: 1700000000, Component: "model",
+				Name: "llm", Provider: "OpenAI", TokensIn: 10, TokensOut: 20,
+				TokensTotal: 30, DurationMS: 120, OK: true,
+			},
+			{
+				ID: "l2", SessionID: "s1", Ts: 1700000001, Component: "tool",
+				Name: "execute_command", Provider: "SSH", OK: false, Error: "boom",
+			},
+		},
+		Summary: logsstore.TokenSummary{
+			TotalCalls: 2, ModelCalls: 1, ToolCalls: 1,
+			TokensIn: 10, TokensOut: 20, TokensTotal: 30,
+		},
+		Selected: 1,
+	}
+
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"审计", "刷新", "调用", "模型", "工具",
+		"llm", "OpenAI", "execute_command", "SSH", "成功", "失败",
+		"错误：boom",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+}
+
+func TestSettingsPolicySection(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsPolicy
+	a.Policy.Loaded = true
+	a.Policy.EnableAuto = true
+	a.Policy.ReadOnly = "df -h\nfree -m"
+
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"审批", "自动放行只读命令", "只读白名单",
+		"清空（使用内置默认）", "保存",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+}
+
+func TestSettingsNewProviderDraft(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsModel
+	a.NewAIProvider()
+
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{"新建供应商", "新供应商", "openai", "保存", "取消"} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+	if tt.HasText("删除") {
+		t.Errorf("新建草稿不应显示「删除」: %q", tt.Texts())
+	}
+}
+
+func TestLanguageSwitchRendersEnglish(t *testing.T) {
+	t.Cleanup(func() { i18n.SetLanguage(i18n.ZhCN) })
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsGeneral
+	a.Settings.Theme = "system"
+	a.Settings.Scale = 100
+	a.Settings.Language = "en-US"
+	a.Settings.LanguageIndex = 1
+	i18n.SetLanguage(i18n.EnUS)
+
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"Settings", "General", "Language", "Theme", "System", "UI scale", "Data",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+	if tt.HasText("设置") {
+		t.Errorf("Chinese nav label leaked into English UI: %q", tt.Texts())
+	}
+
+	if err := tt.Click("简体中文"); err != nil {
+		t.Fatal(err)
+	}
+	if i18n.Current() != i18n.ZhCN || a.Settings.Language != "zh-CN" {
+		t.Fatalf("language = %q setting = %q", i18n.Current(), a.Settings.Language)
+	}
+	tt.Frame()
+	if !tt.HasText("设置") || !tt.HasText("通用") {
+		t.Fatalf("Chinese UI missing after switch: %q", tt.Texts())
+	}
+}
+
+func TestSettingsAboutSection(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsAbout
+	a.Settings.About = app.AboutState{Version: "0.1.0", Enabled: false}
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"关于", "版本", "0.1.0", "自动更新", "当前构建或安装方式不支持自动更新",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+	if tt.HasText("检查更新") {
+		t.Errorf("disabled build should not offer a check button: %q", tt.Texts())
+	}
+}
+
+func TestSettingsAboutUpdateAvailable(t *testing.T) {
+	a := &app.App{View: app.ViewSettings}
+	a.Settings.Tab = app.SettingsAbout
+	a.Settings.About = app.AboutState{
+		Version: "0.1.0", Enabled: true, Checked: true,
+		Available: true, Latest: "0.2.0", Notes: "修复若干问题",
+	}
+	tt := ui.NewTester(Shell(a), 1300, 900)
+	for _, want := range []string{
+		"发现新版本 0.2.0", "下载并安装", "更新说明", "修复若干问题",
+	} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
+	}
+}
+
+// TestShellEnglishHasNoChinese renders the asset tree and welcome view in
+// English and fails on any Chinese text that was not translated.
+func TestShellEnglishHasNoChinese(t *testing.T) {
+	t.Cleanup(func() { i18n.SetLanguage(i18n.ZhCN) })
+	i18n.SetLanguage(i18n.EnUS)
+	a := &app.App{}
+	a.Settings.Language = "en-US"
+	a.Settings.LanguageIndex = 1
+	a.Settings.Theme = "system"
+	a.Settings.Scale = 100
+	tt := ui.NewTester(Shell(a), 1200, 800)
+	for _, text := range tt.Texts() {
+		for _, r := range text {
+			if unicode.Is(unicode.Han, r) {
+				t.Fatalf("untranslated Chinese in English shell: %q", text)
+			}
+		}
+	}
+}

@@ -32,6 +32,7 @@ func TestSessionTabsSurviveAssetSwitch(t *testing.T) {
 	a.Term = term
 	a.TermHostID = "h1"
 	a.Selected = &a.Roots[1]
+	a.Tabs = []string{"h1"}
 
 	tt := ui.NewTester(views.Shell(a), 1000, 700)
 	if !tt.HasText("first") {
@@ -53,6 +54,7 @@ func TestSessionTabsSurviveAssetSwitch(t *testing.T) {
 	a.Sessions = append(a.Sessions, &workspace.TerminalSession{
 		HostID: "h2", Protocol: "ssh", Status: workspace.TerminalConnecting,
 	})
+	a.Tabs = append(a.Tabs, "h2")
 	tt.Frame()
 	tt.Key(ui.Ctrl, ui.KeyTab)
 	tt.Frame()

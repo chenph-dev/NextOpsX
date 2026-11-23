@@ -121,10 +121,10 @@ func Shell(a *workspace.State) func(*ui.Context) {
 		c.OnShortcut(ui.Super|ui.Shift, ui.KeyJ, a.ToggleAIDrawer)
 		c.OnShortcut(ui.Ctrl|ui.Shift, ui.KeyE, a.ToggleSFTPDrawer)
 		c.OnShortcut(ui.Super|ui.Shift, ui.KeyE, a.ToggleSFTPDrawer)
-		c.OnShortcut(ui.Ctrl, ui.KeyTab, a.NextSession)
-		c.OnShortcut(ui.Ctrl|ui.Shift, ui.KeyTab, a.PrevSession)
-		c.OnShortcut(ui.Super, ui.KeyTab, a.NextSession)
-		c.OnShortcut(ui.Super|ui.Shift, ui.KeyTab, a.PrevSession)
+		c.OnShortcut(ui.Ctrl, ui.KeyTab, a.NextTab)
+		c.OnShortcut(ui.Ctrl|ui.Shift, ui.KeyTab, a.PrevTab)
+		c.OnShortcut(ui.Super, ui.KeyTab, a.NextTab)
+		c.OnShortcut(ui.Super|ui.Shift, ui.KeyTab, a.PrevTab)
 		ui.Row(c).Fill().Children(func() {
 			ui.Column(c).Width(280).FillHeight().Background(t.Surface).
 				Border(1, t.Border).Children(func() {
@@ -161,7 +161,7 @@ func Shell(a *workspace.State) func(*ui.Context) {
 			})
 
 			ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
-				terminal.Tabs(c, a)
+				Tabs(c, a)
 				if a.Selected == nil {
 					hosts.Welcome(c, a)
 					return

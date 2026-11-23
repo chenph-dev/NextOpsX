@@ -234,6 +234,7 @@ func TestTerminalSessionTabs(t *testing.T) {
 		{HostID: "h1", Protocol: "ssh", Status: TerminalConnecting},
 		{HostID: "h2", Protocol: "ssh", Status: TerminalConnecting},
 	}
+	a.Tabs = []string{"h1", "h2"}
 	a.Selected = &a.Roots[1]
 	a.ActivateSession("h1")
 	if a.ActiveSessionID != "h1" || a.Selected == nil || a.Selected.ID != "h1" || a.TermHostID != "h1" {
@@ -251,8 +252,14 @@ func TestTerminalSessionTabs(t *testing.T) {
 	if len(a.Sessions) != 1 || a.ActiveSessionID != "h2" || a.Selected == nil || a.Selected.ID != "h2" {
 		t.Fatalf("close active session: sessions=%d active=%q selected=%v", len(a.Sessions), a.ActiveSessionID, a.Selected)
 	}
+	if a.IsAssetTabOpen("h1") {
+		t.Fatalf("closed session kept its tab: %v", a.Tabs)
+	}
 	a.CloseSession("h2")
 	if len(a.Sessions) != 0 || a.ActiveSessionID != "" || a.TermHostID != "" {
 		t.Fatalf("close last session: sessions=%d active=%q term=%q", len(a.Sessions), a.ActiveSessionID, a.TermHostID)
+	}
+	if len(a.Tabs) != 0 {
+		t.Fatalf("closed sessions kept tabs: %v", a.Tabs)
 	}
 }

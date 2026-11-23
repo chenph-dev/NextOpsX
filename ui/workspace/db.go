@@ -110,9 +110,17 @@ func (a *State) attachDB(n *hoststore.TreeNode) {
 	if a.DB.HostID == n.ID && a.DB.Protocol == n.Protocol {
 		// Keep tabs and editor buffers; retry a load that failed without
 		// rebuilding the whole workbench.
+		a.DB.HostName = n.Name
 		if !a.DB.SchemaLoading && (a.DB.Schema == nil || a.DB.SchemaErr != "") {
 			a.loadDBSchema(n.ID)
 		}
+		return
+	}
+	a.saveDBActive()
+	if st, ok := a.dbStates[n.ID]; ok && st.Protocol == n.Protocol {
+		a.DB = st
+		a.DB.HostName = n.Name
+		a.resumeDBState()
 		return
 	}
 	a.DB = DBState{

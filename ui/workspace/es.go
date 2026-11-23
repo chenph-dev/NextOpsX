@@ -42,6 +42,7 @@ type ESState struct {
 	Label  string
 
 	Indices        []string
+	IndicesLoaded  bool
 	IndicesLoading bool
 	IndicesErr     string
 	SelectedIndex  string
@@ -98,14 +99,14 @@ func (a *State) AttachES(n *hoststore.TreeNode) {
 		def = strings.TrimSpace(fmt.Sprint(v))
 	}
 	if a.ES.HostID == n.ID {
-		a.ES.Label = esLabel(n)
-		if def != a.ES.DefaultIndex {
-			old := a.ES.DefaultIndex
-			a.ES.DefaultIndex = def
-			if a.ES.SelectedIndex == "" || a.ES.SelectedIndex == old {
-				a.ESSelectedIndexChanged(def)
-			}
-		}
+		a.syncESAsset(n, def)
+		return
+	}
+	a.saveESActive()
+	if st, ok := a.esStates[n.ID]; ok {
+		a.ES = st
+		a.syncESAsset(n, def)
+		a.resumeESState()
 		return
 	}
 	a.ES = ESState{
@@ -114,6 +115,19 @@ func (a *State) AttachES(n *hoststore.TreeNode) {
 		IndexRow: -1, IndexPageRow: -1,
 	}
 	a.ESRefreshIndices()
+}
+
+// syncESAsset follows the tree's current name and default index.
+func (a *State) syncESAsset(n *hoststore.TreeNode, def string) {
+	a.ES.Label = esLabel(n)
+	if def == a.ES.DefaultIndex {
+		return
+	}
+	old := a.ES.DefaultIndex
+	a.ES.DefaultIndex = def
+	if a.ES.SelectedIndex == "" || a.ES.SelectedIndex == old {
+		a.ESSelectedIndexChanged(def)
+	}
 }
 
 // EnsureES refreshes the panel when it is re-entered.
@@ -164,6 +178,7 @@ func (a *State) ESRefreshIndices() {
 			indices := esIndexNames(res)
 			sort.Strings(indices)
 			a.ES.Indices = indices
+			a.ES.IndicesLoaded = true
 			if a.ES.SelectedIndex != "" && !containsString(indices, a.ES.SelectedIndex) {
 				a.ESSelectedIndexChanged("")
 			}

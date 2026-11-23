@@ -56,6 +56,7 @@ type RedisState struct {
 	DBLabel  string
 
 	Keys        []string
+	KeysLoaded  bool
 	Cursor      string
 	Pattern     string
 	ScanPattern string
@@ -130,13 +131,22 @@ func (a *State) AttachRedis(n *hoststore.TreeNode) {
 	if n == nil || n.NodeType != "host" || !a.IsRedisProtocol(n.Protocol) {
 		return
 	}
+	label := redisDBLabel(n)
 	if a.Redis.HostID == n.ID {
 		a.Redis.HostName = n.Name
-		a.Redis.DBLabel = redisDBLabel(n)
+		a.Redis.DBLabel = label
+		return
+	}
+	a.saveRedisActive()
+	if st, ok := a.redisStates[n.ID]; ok {
+		a.Redis = st
+		a.Redis.HostName = n.Name
+		a.Redis.DBLabel = label
+		a.resumeRedisState()
 		return
 	}
 	a.Redis = RedisState{
-		HostID: n.ID, HostName: n.Name, DBLabel: redisDBLabel(n),
+		HostID: n.ID, HostName: n.Name, DBLabel: label,
 		Cursor: "0",
 	}
 	a.RedisRefreshKeys(true)
@@ -215,6 +225,7 @@ func (a *State) loadRedisKeysPage(page int) {
 	a.Redis.keySeq++
 	seq := a.Redis.keySeq
 	a.Redis.KeysLoading = true
+	a.Redis.KeysLoaded = false
 	a.Redis.KeysErr = ""
 	a.Redis.Err = ""
 	a.Redis.Notice = ""
@@ -238,6 +249,7 @@ func (a *State) loadRedisKeysPage(page int) {
 				return
 			}
 			a.Redis.Keys = keys
+			a.Redis.KeysLoaded = true
 			a.Redis.Cursor = next
 			a.recordRedisPageStart(page, next, pending)
 		})

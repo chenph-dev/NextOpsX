@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
+	"github.com/egoist/mygo/ui"
 
 	"nextopsx/i18n"
 	"nextopsx/service/backend"
@@ -44,17 +45,27 @@ type State struct {
 	Settings SettingsState
 
 	// Layout holds the workbench panes around the main view.
-	Layout   LayoutState
-	AI       AIState
-	Hosts    HostsState
-	DB       DBState
-	Redis    RedisState
-	ES       ESState
-	SFTP     SFTPState
-	Skills   SkillsState
-	Policy   PolicyState
-	Audit    AuditState
-	Snippets SnippetState
+	Layout LayoutState
+	AI     AIState
+	Hosts  HostsState
+	DB     DBState
+	Redis  RedisState
+	ES     ESState
+	SFTP   SFTPState
+
+	// Tabs lists open asset IDs in tab order. Inactive workbench states
+	// are kept per asset so switching tabs preserves their open tabs and
+	// loaded data.
+	Tabs        []string
+	TabScroll   ui.ScrollState
+	tabScrolled string
+	dbStates    map[string]DBState
+	redisStates map[string]RedisState
+	esStates    map[string]ESState
+	Skills      SkillsState
+	Policy      PolicyState
+	Audit       AuditState
+	Snippets    SnippetState
 
 	Sessions        []*TerminalSession
 	ActiveSessionID string
@@ -328,6 +339,9 @@ func (a *State) rememberAsset(id string) {
 // reconnect when the previous process exited); WinRM opens the remote
 // desktop; Redis, Elasticsearch and database assets attach their workbench.
 func (a *State) OpenAsset(n *hoststore.TreeNode) {
+	if n != nil && n.NodeType == "host" && !a.IsSSHProtocol(n.Protocol) {
+		a.openAssetTab(n.ID)
+	}
 	a.Select(n)
 	if n == nil || n.NodeType != "host" {
 		return
@@ -361,6 +375,7 @@ func (a *State) attachAsset(n *hoststore.TreeNode) {
 	if n == nil || n.NodeType != "host" {
 		return
 	}
+	a.saveActiveWorkbenches()
 	// A single click only selects a non-SSH asset: workbench protocols
 	// attach on double-click (OpenAsset), like an SSH host connects.
 	if !a.IsSSHProtocol(n.Protocol) {
@@ -368,16 +383,17 @@ func (a *State) attachAsset(n *hoststore.TreeNode) {
 	} else if a.Layout.SFTPOpen {
 		a.AttachSFTPFor(n)
 	}
-	// An open workbench follows renames and edited parameters; a closed
-	// one stays closed until OpenAsset attaches it.
-	if a.IsRedisProtocol(n.Protocol) && a.Redis.HostID == n.ID {
-		a.AttachRedis(n)
-	}
-	if a.IsESProtocol(n.Protocol) && a.ES.HostID == n.ID {
-		a.AttachES(n)
-	}
-	if a.IsSQLProtocol(n.Protocol) && a.DB.HostID == n.ID && a.DB.Protocol == n.Protocol {
-		a.DB.HostName = n.Name
+	// An open tab shows its preserved workbench; an unopened asset stays a
+	// selection panel until OpenAsset attaches it.
+	if a.IsAssetTabOpen(n.ID) {
+		switch {
+		case a.IsRedisProtocol(n.Protocol):
+			a.AttachRedis(n)
+		case a.IsESProtocol(n.Protocol):
+			a.AttachES(n)
+		case a.IsSQLProtocol(n.Protocol):
+			a.attachDB(n)
+		}
 	}
 	if n.ID != a.AI.HostID {
 		a.attachAI(n.ID)
@@ -410,6 +426,7 @@ func (a *State) Connect(n *hoststore.TreeNode) {
 		a.ErrMsg = i18n.Tf("terminal.limit", MaxTerminalSessions)
 		return
 	}
+	a.openAssetTab(n.ID)
 
 	session := &TerminalSession{HostID: n.ID, Protocol: n.Protocol, Status: TerminalConnecting, LastUsed: time.Now()}
 	a.Sessions = append(a.Sessions, session)

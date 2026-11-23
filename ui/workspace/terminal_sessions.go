@@ -97,6 +97,7 @@ func (a *State) ActivateSession(hostID string) {
 	if s == nil {
 		return
 	}
+	a.openAssetTab(hostID)
 	if s.Status != TerminalConnecting && !a.SessionLive(s) {
 		n := findTreeNode(a.Roots, hostID)
 		if n == nil {
@@ -137,6 +138,7 @@ func (a *State) activateExistingSession(hostID string) {
 		return
 	}
 	if s.Status == TerminalConnecting || a.SessionLive(s) {
+		a.openAssetTab(hostID)
 		a.bindActiveSession(s)
 		s.LastUsed = time.Now()
 		a.LoadCommandHistory()
@@ -198,14 +200,21 @@ func (a *State) CloseSession(hostID string) {
 	// the user away from that asset; only follow the next tab when the
 	// closed terminal was the selected host.
 	sameAsset := a.Selected != nil && a.Selected.ID == hostID
+	nextTab := a.tabAfter(hostID)
 	a.closeSessionTerm(s)
 	a.removeSession(s)
+	a.removeAssetTab(hostID)
+	a.closeWorkbenchState(hostID)
 	if !active {
 		return
 	}
 	a.clearActiveSession()
 	a.Layout.SFTPOpen = false
 	if sameAsset {
+		if nextTab != "" {
+			a.ActivateAssetTab(nextTab)
+			return
+		}
 		if next := a.nextOpenSession(index); next != nil {
 			a.ActivateSession(next.HostID)
 		}
@@ -217,20 +226,24 @@ func (a *State) CloseSessionsUnder(id string) {
 	if id == "" {
 		return
 	}
-	activeClosed := false
+	// Close open asset tabs under the node first: that closes their
+	// sessions and drops their workbench state.
+	for _, tabID := range append([]string(nil), a.Tabs...) {
+		if tabID == id || treeContains(a.Roots, id, tabID) {
+			a.CloseAssetTab(tabID)
+		}
+	}
+	// Close any session that was not tied to a tab.
 	kept := a.Sessions[:0]
 	for _, s := range a.Sessions {
 		if s.HostID == id || treeContains(a.Roots, id, s.HostID) {
-			if a.ActiveSessionID == s.HostID {
-				activeClosed = true
-			}
 			a.closeSessionTerm(s)
 			continue
 		}
 		kept = append(kept, s)
 	}
 	a.Sessions = kept
-	if activeClosed {
+	if a.ActiveSessionID != "" && a.SessionFor(a.ActiveSessionID) == nil {
 		a.clearActiveSession()
 		a.Layout.SFTPOpen = false
 		if next := a.nextOpenSession(0); next != nil {
@@ -245,6 +258,10 @@ func (a *State) CloseAllSessions() {
 		a.closeSessionTerm(s)
 	}
 	a.Sessions = nil
+	a.Tabs = nil
+	a.dbStates = nil
+	a.redisStates = nil
+	a.esStates = nil
 	a.clearActiveSession()
 	a.Layout.SFTPOpen = false
 	a.Snippets.PickerOpen = false

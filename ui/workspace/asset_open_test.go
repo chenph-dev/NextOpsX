@@ -42,6 +42,7 @@ func TestSelectDoesNotAttachWorkbench(t *testing.T) {
 func TestSelectSyncsOpenWorkbench(t *testing.T) {
 	a := &State{}
 	a.Redis = RedisState{HostID: "r1", HostName: "old", DBLabel: "old · db0"}
+	a.Tabs = []string{"r1"}
 	a.Select(&hoststore.TreeNode{
 		ID: "r1", Name: "new", NodeType: "host", Protocol: "redis",
 		Params: map[string]any{"db": "2"},
@@ -51,6 +52,7 @@ func TestSelectSyncsOpenWorkbench(t *testing.T) {
 	}
 
 	a.ES = ESState{HostID: "e1", Label: "old · 10.0.0.9:9200"}
+	a.Tabs = append(a.Tabs, "e1")
 	a.Select(&hoststore.TreeNode{
 		ID: "e1", Name: "new-es", NodeType: "host", Protocol: "elasticsearch",
 		Addr: "10.0.0.10", Port: 9200,

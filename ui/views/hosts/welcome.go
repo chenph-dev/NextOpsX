@@ -39,6 +39,33 @@ func Welcome(c *ui.Context, a *workspace.State) {
 			return
 		}
 
+		if a.IsRedisProtocol(n.Protocol) || a.IsESProtocol(n.Protocol) {
+			ui.Row(c).Grow(1).FillWidth().Center().Children(func() {
+				ui.Column(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, i18n.T("welcome.workbench.openHint")).
+						FontSize(style.FontSize(15)).TextColor(t.TextMuted)
+					ui.Text(c, a.HostProtocolName(n.Protocol)).
+						FontSize(style.FontSize(12)).TextColor(t.TextMuted)
+				})
+			})
+			return
+		}
+
+		if a.IsSQLProtocol(n.Protocol) {
+			meta := a.HostProtocolName(n.Protocol)
+			if db := a.DBDatabaseLabel(); db != "" {
+				meta += " · " + db
+			}
+			ui.Row(c).Grow(1).FillWidth().Center().Children(func() {
+				ui.Column(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, i18n.T("welcome.db.openHint")).
+						FontSize(style.FontSize(15)).TextColor(t.TextMuted)
+					ui.Text(c, meta).FontSize(style.FontSize(12)).TextColor(t.TextMuted)
+				})
+			})
+			return
+		}
+
 		if a.IsSSHProtocol(n.Protocol) {
 			session := a.SessionFor(n.ID)
 			ui.Row(c).Grow(1).FillWidth().Center().Children(func() {

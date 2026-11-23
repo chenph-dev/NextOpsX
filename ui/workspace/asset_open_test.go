@@ -11,6 +11,55 @@ import (
 	hoststore "nextopsx/store/hosts"
 )
 
+func TestSelectDoesNotAttachWorkbench(t *testing.T) {
+	cases := []struct {
+		protocol string
+		attached func(*State) bool
+	}{
+		{"mysql", func(a *State) bool { return a.DB.HostID != "" }},
+		{"redis", func(a *State) bool { return a.Redis.HostID != "" }},
+		{"elasticsearch", func(a *State) bool { return a.ES.HostID != "" }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.protocol, func(t *testing.T) {
+			a := &State{}
+			n := &hoststore.TreeNode{
+				ID: "h1", Name: "svc", NodeType: "host", Protocol: tc.protocol,
+				Addr: "10.0.0.9", Port: 3306, User: "root",
+			}
+			a.Select(n)
+			if tc.attached(a) {
+				t.Fatal("single click attached the workbench")
+			}
+			a.OpenAsset(n)
+			if !tc.attached(a) {
+				t.Fatal("double click did not attach the workbench")
+			}
+		})
+	}
+}
+
+func TestSelectSyncsOpenWorkbench(t *testing.T) {
+	a := &State{}
+	a.Redis = RedisState{HostID: "r1", HostName: "old", DBLabel: "old · db0"}
+	a.Select(&hoststore.TreeNode{
+		ID: "r1", Name: "new", NodeType: "host", Protocol: "redis",
+		Params: map[string]any{"db": "2"},
+	})
+	if a.Redis.DBLabel != "new · db2" || a.Redis.HostName != "new" {
+		t.Fatalf("redis label = %q host = %q", a.Redis.DBLabel, a.Redis.HostName)
+	}
+
+	a.ES = ESState{HostID: "e1", Label: "old · 10.0.0.9:9200"}
+	a.Select(&hoststore.TreeNode{
+		ID: "e1", Name: "new-es", NodeType: "host", Protocol: "elasticsearch",
+		Addr: "10.0.0.10", Port: 9200,
+	})
+	if a.ES.Label != "new-es · 10.0.0.10:9200" {
+		t.Fatalf("es label = %q", a.ES.Label)
+	}
+}
+
 func TestOpenAssetSelects(t *testing.T) {
 	a := &State{}
 	ssh := &hoststore.TreeNode{ID: "h1", NodeType: "host", Protocol: "ssh"}

@@ -248,7 +248,7 @@ func TestDBWorkbenchSQLiteFlow(t *testing.T) {
 	pumpUntil(t, u, func() bool { return !table.Running && table.Total == 151 })
 }
 
-func TestRefreshHostsAttachesDatabaseWorkbench(t *testing.T) {
+func TestOpenDatabaseWorkbenchAfterRefresh(t *testing.T) {
 	t.Setenv("NEXTOPSX_DATA_DIR", t.TempDir())
 	t.Setenv("NEXTOPSX_TEST_NO_KEYRING", "1")
 	path := filepath.Join(t.TempDir(), "refresh.db")
@@ -284,11 +284,18 @@ func TestRefreshHostsAttachesDatabaseWorkbench(t *testing.T) {
 	// set directly, without going through Select.
 	a.refreshHosts(hostID)
 	pumpUntil(t, u, func() bool {
-		return a.Selected != nil && a.Selected.ID == hostID &&
-			a.DB.HostID == hostID && !a.DB.SchemaLoading
+		return a.Selected != nil && a.Selected.ID == hostID
+	})
+	if a.DB.HostID != "" {
+		t.Fatalf("refresh attached the workbench before opening: %+v", a.DB)
+	}
+	// Double-clicking the asset attaches the workbench and loads the schema.
+	a.OpenAsset(a.Selected)
+	pumpUntil(t, u, func() bool {
+		return a.DB.HostID == hostID && !a.DB.SchemaLoading
 	})
 	if a.DB.Schema == nil || len(a.DB.Schema.Tables) != 1 {
-		t.Fatalf("workbench not attached after refresh: %+v", a.DB)
+		t.Fatalf("workbench not attached after opening: %+v", a.DB)
 	}
 	if a.DB.Schema.Tables[0].Name != "items" {
 		t.Fatalf("tables = %+v", a.DB.Schema.Tables)

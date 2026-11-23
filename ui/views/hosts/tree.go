@@ -97,6 +97,16 @@ func hostMenu(m *ui.Menu, a *workspace.State, n *hoststore.TreeNode) {
 			a.OpenAsset(n)
 		}
 	}
+	if a.IsSQLProtocol(n.Protocol) {
+		if m.Item(i18n.T("hosts.menu.connectDatabase")).Chosen() {
+			a.OpenAsset(n)
+		}
+	}
+	if a.IsRedisProtocol(n.Protocol) || a.IsESProtocol(n.Protocol) {
+		if m.Item(i18n.T("hosts.menu.connect")).Chosen() {
+			a.OpenAsset(n)
+		}
+	}
 	if n.Protocol == "winrm" {
 		if m.Item(i18n.T("shell.remoteDesktop")).Chosen() {
 			a.Select(n)

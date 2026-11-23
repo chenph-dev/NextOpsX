@@ -325,8 +325,8 @@ func (a *State) rememberAsset(id string) {
 }
 
 // OpenAsset selects n and opens its main view. SSH hosts connect (or
-// reconnect when the previous process exited); WinRM opens the remote desktop;
-// other protocols attach their workbench through Select.
+// reconnect when the previous process exited); WinRM opens the remote
+// desktop; Redis, Elasticsearch and database assets attach their workbench.
 func (a *State) OpenAsset(n *hoststore.TreeNode) {
 	a.Select(n)
 	if n == nil || n.NodeType != "host" {
@@ -345,6 +345,12 @@ func (a *State) OpenAsset(n *hoststore.TreeNode) {
 		a.ActivateSession(n.ID)
 	case n.Protocol == "winrm":
 		a.OpenRDP()
+	case a.IsRedisProtocol(n.Protocol):
+		a.AttachRedis(n)
+	case a.IsESProtocol(n.Protocol):
+		a.AttachES(n)
+	case a.IsSQLProtocol(n.Protocol):
+		a.attachDB(n)
 	}
 }
 
@@ -355,19 +361,23 @@ func (a *State) attachAsset(n *hoststore.TreeNode) {
 	if n == nil || n.NodeType != "host" {
 		return
 	}
-	if a.IsRedisProtocol(n.Protocol) {
-		a.Layout.SFTPOpen = false
-		a.AttachRedis(n)
-	} else if a.IsESProtocol(n.Protocol) {
-		a.Layout.SFTPOpen = false
-		a.AttachES(n)
-	} else if a.IsDBProtocol(n.Protocol) {
-		a.Layout.SFTPOpen = false
-		a.attachDB(n)
-	} else if !a.IsSSHProtocol(n.Protocol) {
+	// A single click only selects a non-SSH asset: workbench protocols
+	// attach on double-click (OpenAsset), like an SSH host connects.
+	if !a.IsSSHProtocol(n.Protocol) {
 		a.Layout.SFTPOpen = false
 	} else if a.Layout.SFTPOpen {
 		a.AttachSFTPFor(n)
+	}
+	// An open workbench follows renames and edited parameters; a closed
+	// one stays closed until OpenAsset attaches it.
+	if a.IsRedisProtocol(n.Protocol) && a.Redis.HostID == n.ID {
+		a.AttachRedis(n)
+	}
+	if a.IsESProtocol(n.Protocol) && a.ES.HostID == n.ID {
+		a.AttachES(n)
+	}
+	if a.IsSQLProtocol(n.Protocol) && a.DB.HostID == n.ID && a.DB.Protocol == n.Protocol {
+		a.DB.HostName = n.Name
 	}
 	if n.ID != a.AI.HostID {
 		a.attachAI(n.ID)

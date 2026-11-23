@@ -79,6 +79,41 @@ func TestHostContextMenu(t *testing.T) {
 	}
 }
 
+func TestWorkbenchHostContextMenu(t *testing.T) {
+	cases := []struct {
+		protocol string
+		item     string
+		attached func(*workspace.State) string
+	}{
+		{"mysql", "连接数据库", func(a *workspace.State) string { return a.DB.HostID }},
+		{"redis", "连接", func(a *workspace.State) string { return a.Redis.HostID }},
+		{"elasticsearch", "连接", func(a *workspace.State) string { return a.ES.HostID }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.protocol, func(t *testing.T) {
+			a := &workspace.State{}
+			a.Roots = []hoststore.TreeNode{{
+				ID: "h1", Name: "svc", NodeType: "host",
+				Addr: "10.0.0.9", Port: 3306, User: "root", Protocol: tc.protocol,
+			}}
+			tt := ui.NewTester(views.Shell(a), 1000, 700)
+			if err := tt.RightClick("svc"); err != nil {
+				t.Fatal(err)
+			}
+			want := []string{tc.item, "打开智能运维", "-", "编辑", "移动", "-", "删除"}
+			if got := tt.Menu(); !slices.Equal(got, want) {
+				t.Fatalf("menu = %q, want %q", got, want)
+			}
+			if err := tt.ChooseMenuItem(tc.item); err != nil {
+				t.Fatal(err)
+			}
+			if got := tc.attached(a); got != "h1" {
+				t.Fatalf("workbench not attached: %q", got)
+			}
+		})
+	}
+}
+
 func TestSidebarContextMenu(t *testing.T) {
 	a := &workspace.State{}
 	tt := ui.NewTester(views.Shell(a), 1000, 700)

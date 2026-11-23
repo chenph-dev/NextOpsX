@@ -632,7 +632,7 @@ func (a *State) SaveHostForm() {
 				f.Open = false
 			}
 			if editingID != "" && a.DB.HostID == editingID {
-				if a.IsDBProtocol(in.Protocol) {
+				if a.IsSQLProtocol(in.Protocol) {
 					a.DB.HostName = in.Name
 					a.DB.Protocol = in.Protocol
 					a.RefreshDBSchema()

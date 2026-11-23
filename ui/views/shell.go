@@ -292,11 +292,23 @@ func hostMain(c *ui.Context, a *workspace.State, t *ui.Theme) {
 	}
 	switch {
 	case a.IsRedisProtocol(a.Selected.Protocol):
-		redis.Panel(c, a)
+		if a.Redis.HostID == a.Selected.ID {
+			redis.Panel(c, a)
+			return
+		}
+		hosts.Welcome(c, a)
 	case a.IsESProtocol(a.Selected.Protocol):
-		es.Panel(c, a)
-	case a.IsDBProtocol(a.Selected.Protocol):
-		db.Workbench(c, a)
+		if a.ES.HostID == a.Selected.ID {
+			es.Panel(c, a)
+			return
+		}
+		hosts.Welcome(c, a)
+	case a.IsSQLProtocol(a.Selected.Protocol):
+		if a.DB.HostID == a.Selected.ID && a.DB.Protocol == a.Selected.Protocol {
+			db.Workbench(c, a)
+			return
+		}
+		hosts.Welcome(c, a)
 	case a.IsSSHProtocol(a.Selected.Protocol):
 		if s := a.SessionFor(a.Selected.ID); s != nil && a.SessionLive(s) &&
 			a.ActiveSessionID == a.Selected.ID {

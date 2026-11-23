@@ -6,8 +6,8 @@ tool github.com/egoist/mygo/cmd/mygo
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0
-	github.com/cloudwego/eino v0.10.0-alpha.13
-	github.com/cloudwego/eino-ext/components/model/claude v0.1.24
+	github.com/cloudwego/eino v0.9.23
+	github.com/cloudwego/eino-ext/components/model/claude v0.1.26
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
 	github.com/egoist/mygo v0.4.8
 	github.com/go-sql-driver/mysql v1.10.0

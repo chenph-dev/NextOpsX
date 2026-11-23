@@ -52,12 +52,76 @@ func TestDBWorkbenchRenders(t *testing.T) {
 	for _, want := range []string{
 		"智能运维", "mysql-01", "对象", "表 (1)", "视图 (1)",
 		"users", "v_users", "id : int", "执行", "+",
-		"刷新结构", "导出 CSV", "alice", "bob", "2 行 · 12ms",
+		"刷新结构", "alice", "bob", "2 行 · 12ms",
 	} {
 		if !tt.HasText(want) {
 			t.Errorf("missing %q in %q", want, tt.Texts())
 		}
 	}
+}
+
+func TestDBObjectHeaderIcons(t *testing.T) {
+	a := dbViewTestApp()
+	tt := ui.NewTester(views.Shell(a), 1200, 800)
+	title, ok := tt.Find("对象")
+	if !ok {
+		t.Fatalf("object header not found: %q", tt.Texts())
+	}
+	for _, label := range []string{"执行", "刷新结构", "展开", "收起"} {
+		r, ok := tt.Find(label)
+		if !ok {
+			t.Fatalf("%q not found: %q", label, tt.Texts())
+		}
+		if r.X < title.X || r.X+r.W > title.X+240 {
+			t.Fatalf("%q outside the object pane: x=%.1f w=%.1f pane=%.1f", label, r.X, r.W, title.X)
+		}
+		if cy := r.Y + r.H/2; cy < title.Y || cy > title.Y+title.H {
+			t.Fatalf("%q not on the object header row: y=%.1f header=%.1f..%.1f",
+				label, cy, title.Y, title.Y+title.H)
+		}
+	}
+	if tt.HasText("就绪") {
+		t.Fatal("empty status bar should be gone")
+	}
+}
+
+func TestDBTableContextMenuExports(t *testing.T) {
+	a := dbViewTestApp()
+	tt := ui.NewTester(views.Shell(a), 1200, 800)
+	if err := tt.RightClick("users"); err != nil {
+		t.Fatal(err)
+	}
+	if menu := tt.Menu(); !menuHas(menu, "导出 CSV") {
+		t.Fatalf("export item missing from table menu: %v", menu)
+	}
+	if err := tt.ChooseMenuItem("导出 CSV"); err != nil {
+		t.Fatal(err)
+	}
+	tab := a.ActiveDBTab()
+	if tab == nil || tab.Kind != workspace.DBTabTable || tab.TableName != "users" {
+		t.Fatalf("table tab not opened: %+v", tab)
+	}
+}
+
+func TestDBResultContextMenuExports(t *testing.T) {
+	a := dbViewTestApp()
+	tt := ui.NewTester(views.Shell(a), 1200, 800)
+	if err := tt.RightClick("alice"); err != nil {
+		t.Fatal(err)
+	}
+	if menu := tt.Menu(); !menuHas(menu, "导出 CSV") {
+		t.Fatalf("export item missing from result menu: %v", menu)
+	}
+	tt.CloseMenu()
+}
+
+func menuHas(menu []string, want string) bool {
+	for _, item := range menu {
+		if item == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestDBWorkbenchNewQuery(t *testing.T) {

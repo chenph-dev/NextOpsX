@@ -49,6 +49,10 @@ type DBTab struct {
 	OrderBy    string
 	ResultPage int
 
+	// exportAfterLoad asks the next successful load to export the page
+	// once it arrives, so an export from the object tree works in one step.
+	exportAfterLoad bool
+
 	seq uint64
 }
 
@@ -100,7 +104,7 @@ func (a *State) IsDBProtocol(protocol string) bool {
 
 // attachDB initializes the workbench for a database asset.
 func (a *State) attachDB(n *hoststore.TreeNode) {
-	if n == nil || n.NodeType != "host" || !a.IsDBProtocol(n.Protocol) {
+	if n == nil || n.NodeType != "host" || !a.IsSQLProtocol(n.Protocol) {
 		return
 	}
 	if a.DB.HostID == n.ID && a.DB.Protocol == n.Protocol {
@@ -416,10 +420,15 @@ func (a *State) loadDBTablePage(tab *DBTab, page int, recount bool) {
 			tab.DurationMS = elapsed
 			if err != nil {
 				tab.Err = err.Error()
+				tab.exportAfterLoad = false
 				return
 			}
 			tab.Result = res
 			tab.ResultPage = page
+			if tab.exportAfterLoad {
+				tab.exportAfterLoad = false
+				a.ExportDBResult(tab)
+			}
 		})
 		if err != nil || !needCount {
 			return
@@ -575,13 +584,30 @@ func dbResultCSV(columns []string, rows [][]any) (string, error) {
 	return buf.String(), nil
 }
 
-// ExportActiveDBResult writes the active result to a CSV file chosen by
-// the user. Table tabs export the current page only; the notice names the
-// page and total so a partial export cannot be mistaken for the whole
-// table. It blocks in a dialog and file write, so it runs off the UI
-// thread.
-func (a *State) ExportActiveDBResult() {
+// ExportDBTable opens or reuses a table or view tab, then exports its
+// current page once the data has loaded.
+func (a *State) ExportDBTable(name string) {
+	a.OpenDBTable(name)
 	tab := a.ActiveDBTab()
+	if tab == nil || tab.Kind != DBTabTable {
+		return
+	}
+	if tab.Running || tab.Result == nil || tab.Err != "" ||
+		tab.ResultPage != tab.Page {
+		tab.exportAfterLoad = true
+		if !tab.Running {
+			a.loadDBTablePage(tab, tab.Page, false)
+		}
+		return
+	}
+	a.ExportDBResult(tab)
+}
+
+// ExportDBResult writes tab's result to a CSV file chosen by the user.
+// Table tabs export the current page only; the notice names the page and
+// total so a partial export cannot be mistaken for the whole table. It
+// blocks in a dialog and file write, so it runs off the UI thread.
+func (a *State) ExportDBResult(tab *DBTab) {
 	if tab == nil || tab.Result == nil || len(tab.Result.Columns) == 0 {
 		a.DB.Err = i18n.T("db.export.empty")
 		return

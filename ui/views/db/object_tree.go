@@ -18,12 +18,7 @@ import (
 func ObjectTree(c *ui.Context, a *workspace.State, t *ui.Theme) {
 	ui.Column(c).Width(240).FillHeight().Background(t.Surface).
 		Border(1, t.Border).Children(func() {
-		ui.Row(c).Padding(6, 8).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, i18n.T("db.tree.objects")).FontSize(style.FontSize(13)).Bold()
-			ui.Spacer(c)
-			ui.Button(c, i18n.T("db.tree.expand")).FontSize(style.FontSize(11)).OnClick(func() { a.SetDBTreeAll(true) })
-			ui.Button(c, i18n.T("db.tree.collapse")).FontSize(style.FontSize(11)).OnClick(func() { a.SetDBTreeAll(false) })
-		})
+		dbObjectHeader(c, a, t)
 		ui.Divider(c)
 		ui.Row(c).Padding(4, 6).Gap(4).AlignItems(ui.Center).Children(func() {
 			c.Key("db-tree-filter")
@@ -67,6 +62,26 @@ func ObjectTree(c *ui.Context, a *workspace.State, t *ui.Theme) {
 				})
 			})
 		}
+	})
+}
+
+// dbObjectHeader is the object pane's header row: its title, the workbench
+// actions and the expand/collapse controls, all as icons.
+func dbObjectHeader(c *ui.Context, a *workspace.State, t *ui.Theme) {
+	active := a.ActiveDBTab()
+	ui.Row(c).Padding(4, 6).Gap(2).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, i18n.T("db.tree.objects")).FontSize(style.FontSize(13)).Bold()
+		ui.Spacer(c)
+
+		widgets.IconButton(c, t, "play", i18n.T("db.toolbar.run"), true,
+			active == nil || active.Kind != workspace.DBTabQuery || active.Running,
+			a.RunActiveDBTab)
+		widgets.IconButton(c, t, "refresh", i18n.T("db.toolbar.refreshSchema"), false,
+			false, a.RefreshDBSchema)
+		widgets.IconButton(c, t, "chevron-down", i18n.T("db.tree.expand"), false,
+			false, func() { a.SetDBTreeAll(true) })
+		widgets.IconButton(c, t, "chevron-up", i18n.T("db.tree.collapse"), false,
+			false, func() { a.SetDBTreeAll(false) })
 	})
 }
 
@@ -131,6 +146,9 @@ func dbTableNode(c *ui.Context, a *workspace.State, tb dbexec.Table) {
 	item.ContextMenu(func(m *ui.Menu) {
 		if m.Item(i18n.T("db.tree.menu.browse")).Chosen() {
 			a.OpenDBTable(tb.Name)
+		}
+		if m.Item(i18n.T("db.export.menu.csv")).Chosen() {
+			a.ExportDBTable(tb.Name)
 		}
 		if m.Item(i18n.T("db.tree.menu.generateQuery")).Chosen() {
 			a.NewDBQueryTab()

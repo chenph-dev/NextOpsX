@@ -15,6 +15,11 @@ import (
 // A zero-row result gets one muted placeholder row so wide headers still
 // have a horizontal scroll extent (MyGo's Table needs a row for that).
 func GridView(c *ui.Context, grid *ui.ListState, res *dbexec.Result, t *ui.Theme) {
+	GridViewMenu(c, grid, res, t, nil)
+}
+
+// GridViewMenu is GridView with a right-click menu on the grid.
+func GridViewMenu(c *ui.Context, grid *ui.ListState, res *dbexec.Result, t *ui.Theme, menu func(m *ui.Menu)) {
 	if res == nil || len(res.Columns) == 0 {
 		return
 	}
@@ -30,7 +35,7 @@ func GridView(c *ui.Context, grid *ui.ListState, res *dbexec.Result, t *ui.Theme
 	if placeholder {
 		rows = 1
 	}
-	ui.Table(c, grid, cols, rows, func(row, col int) {
+	table := ui.Table(c, grid, cols, rows, func(row, col int) {
 		if placeholder {
 			if col == 0 {
 				ui.Text(c, i18n.T("db.result.empty")).FontSize(style.FontSize(12)).TextColor(t.TextMuted).SingleLine()
@@ -48,6 +53,9 @@ func GridView(c *ui.Context, grid *ui.ListState, res *dbexec.Result, t *ui.Theme
 		}
 		ui.Text(c, text).FontSize(style.FontSize(12)).SingleLine()
 	}).Grow(1).MinWidth(0)
+	if menu != nil {
+		table = table.ContextMenu(menu)
+	}
 }
 
 func resultColumnMinWidth(name string) float32 {

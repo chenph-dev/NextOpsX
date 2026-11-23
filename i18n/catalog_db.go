@@ -12,11 +12,10 @@ var (
 		// Toolbar and tabs.
 		"db.toolbar.run":           "执行",
 		"db.toolbar.refreshSchema": "刷新结构",
-		"db.toolbar.exportCSV":     "导出 CSV",
-		"db.toolbar.exportPage":    "导出本页",
+		"db.export.menu.csv":       "导出 CSV",
+		"db.export.menu.page":      "导出本页",
 		"db.tab.close":             "关闭标签",
 		"db.tab.newQuery":          "新建查询",
-		"db.status.ready":          "就绪",
 
 		// Result summary.
 		"db.result.rows":      "%d 行 · %dms",
@@ -85,11 +84,10 @@ var (
 		// Toolbar and tabs.
 		"db.toolbar.run":           "Run",
 		"db.toolbar.refreshSchema": "Refresh schema",
-		"db.toolbar.exportCSV":     "Export CSV",
-		"db.toolbar.exportPage":    "Export page",
+		"db.export.menu.csv":       "Export CSV",
+		"db.export.menu.page":      "Export page",
 		"db.tab.close":             "Close tab",
 		"db.tab.newQuery":          "New query",
-		"db.status.ready":          "Ready",
 
 		// Result summary.
 		"db.result.rows":      "%d rows · %dms",

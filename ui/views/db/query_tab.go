@@ -40,7 +40,7 @@ func QueryTab(c *ui.Context, a *workspace.State, tab *workspace.DBTab, t *ui.The
 				return
 			}
 			dbResultMeta(c, tab, t)
-			dbResultGrid(c, tab, t)
+			dbResultGrid(c, a, tab, t)
 		})
 	}).Fill()
 }
@@ -83,13 +83,30 @@ func TableTab(c *ui.Context, a *workspace.State, tab *workspace.DBTab, t *ui.The
 		case tab.Err != "":
 			widgets.ErrorText(c, tab.Err, t)
 		case tab.Result != nil:
-			dbResultGrid(c, tab, t)
+			dbResultGrid(c, a, tab, t)
 		default:
 			widgets.Hint(c, i18n.T("db.table.loadingHint"), t)
 		}
 	})
 }
 
-func dbResultGrid(c *ui.Context, tab *workspace.DBTab, t *ui.Theme) {
-	result.GridView(c, &tab.Grid, tab.Result, t)
+func dbResultGrid(c *ui.Context, a *workspace.State, tab *workspace.DBTab, t *ui.Theme) {
+	exportLabel := i18n.T("db.export.menu.csv")
+	if tab.Kind == workspace.DBTabTable {
+		exportLabel = i18n.T("db.export.menu.page")
+	}
+	result.GridViewMenu(c, &tab.Grid, tab.Result, t, func(m *ui.Menu) {
+		item := m.Item(exportLabel)
+		item.Disabled(dbExportDisabled(tab))
+		if item.Chosen() {
+			a.ExportDBResult(tab)
+		}
+	})
+}
+
+// dbExportDisabled reports whether tab's result cannot be exported yet.
+func dbExportDisabled(tab *workspace.DBTab) bool {
+	return tab == nil || tab.Result == nil || len(tab.Result.Columns) == 0 ||
+		tab.Running ||
+		(tab.Kind == workspace.DBTabTable && tab.ResultPage != tab.Page)
 }

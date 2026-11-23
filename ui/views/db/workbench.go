@@ -9,8 +9,7 @@ import (
 	"nextopsx/ui/workspace"
 )
 
-// Workbench is the native database workbench: schema tree, query tabs and
-// a status bar.
+// Workbench is the native database workbench: schema tree and query tabs.
 func Workbench(c *ui.Context, a *workspace.State) {
 	t := c.Theme()
 	// Ctrl+Enter runs the active query when the editor does not consume
@@ -19,8 +18,6 @@ func Workbench(c *ui.Context, a *workspace.State) {
 	c.OnShortcut(ui.Super, ui.KeyEnter, a.RunActiveDBTab)
 
 	ui.Column(c).Fill().Children(func() {
-		dbToolbar(c, a, t)
-		ui.Divider(c)
 		ui.Row(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
 			ObjectTree(c, a, t)
 			ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
@@ -42,35 +39,7 @@ func Workbench(c *ui.Context, a *workspace.State) {
 				QueryTab(c, a, tab, t)
 			})
 		})
-		dbStatusBar(c, a, t)
-	})
-}
-
-func dbToolbar(c *ui.Context, a *workspace.State, t *ui.Theme) {
-	active := a.ActiveDBTab()
-	ui.Row(c).Padding(6, 10).Gap(6).AlignItems(ui.Center).Children(func() {
-		run := ui.PrimaryButton(c, i18n.T("db.toolbar.run"))
-		if active == nil || active.Kind != workspace.DBTabQuery || active.Running {
-			run = run.Disabled(true)
-		}
-		run.OnClick(a.RunActiveDBTab)
-
-		ui.Button(c, i18n.T("db.toolbar.refreshSchema")).OnClick(a.RefreshDBSchema)
-
-		exportLabel := i18n.T("db.toolbar.exportCSV")
-		if active != nil && active.Kind == workspace.DBTabTable {
-			exportLabel = i18n.T("db.toolbar.exportPage")
-		}
-		export := ui.Button(c, exportLabel)
-		if active == nil || active.Result == nil || len(active.Result.Columns) == 0 ||
-			active.Running ||
-			(active.Kind == workspace.DBTabTable && active.ResultPage != active.Page) {
-			export = export.Disabled(true)
-		}
-		export.OnClick(a.ExportActiveDBResult)
-
-		ui.Spacer(c)
-		ui.Text(c, dbConnectionLabel(a)).FontSize(style.FontSize(13)).Bold().SingleLine()
+		dbNoticeBar(c, a, t)
 	})
 }
 
@@ -127,22 +96,19 @@ func dbTabStrip(c *ui.Context, a *workspace.State, t *ui.Theme) {
 	})
 }
 
-func dbStatusBar(c *ui.Context, a *workspace.State, t *ui.Theme) {
+// dbNoticeBar reports export errors and notices, and takes no room when
+// there is nothing to say.
+func dbNoticeBar(c *ui.Context, a *workspace.State, t *ui.Theme) {
+	text, color := a.DB.Notice, t.TextMuted
+	if a.DB.Err != "" {
+		text, color = a.DB.Err, t.Danger
+	}
+	if text == "" {
+		return
+	}
 	ui.Divider(c)
-	ui.Row(c).Padding(3, 10).Gap(12).AlignItems(ui.Center).Children(func() {
-		if a.DB.HostID != "" {
-			ui.Text(c, dbConnectionLabel(a)).FontSize(style.FontSize(12)).TextColor(t.TextMuted).SingleLine()
-		}
-		ui.Spacer(c)
-		if a.DB.Err != "" {
-			ui.Text(c, a.DB.Err).FontSize(style.FontSize(12)).TextColor(t.Danger).SingleLine()
-			return
-		}
-		text := a.DB.Notice
-		if text == "" {
-			text = i18n.T("db.status.ready")
-		}
-		ui.Text(c, text).FontSize(style.FontSize(12)).TextColor(t.TextMuted).SingleLine()
+	ui.Row(c).Padding(3, 10).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, text).FontSize(style.FontSize(12)).TextColor(color).SingleLine()
 	})
 }
 
@@ -162,17 +128,6 @@ func dbResultMeta(c *ui.Context, tab *workspace.DBTab, t *ui.Theme) {
 		ui.Text(c, i18n.Tf("db.result.affected", tab.Result.RowsAffected, tab.DurationMS)).
 			FontSize(style.FontSize(12)).TextColor(t.TextMuted)
 	})
-}
-
-func dbConnectionLabel(a *workspace.State) string {
-	label := a.DB.HostName
-	if db := a.DBDatabaseLabel(); db != "" {
-		return label + " · " + db
-	}
-	if a.DB.Protocol != "" {
-		return label + " · " + a.DB.Protocol
-	}
-	return label
 }
 
 func dbPageLabel(page, size int, hasTotal bool, total int64) string {

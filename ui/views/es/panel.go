@@ -46,33 +46,53 @@ func esIndexPane(c *ui.Context, a *workspace.State, t *ui.Theme) {
 				false, false, a.ESRefreshIndices)
 		})
 		ui.Divider(c)
-		switch {
-		case a.ES.IndicesLoading:
-			ui.Row(c).Padding(16).Center().Children(func() {
-				ui.Spinner(c)
-				ui.Text(c, i18n.T("es.indices.loading")).FontSize(style.FontSize(12)).TextColor(t.TextMuted)
-			})
-		case a.ES.IndicesErr != "":
-			ui.Column(c).Padding(8).Gap(6).Children(func() {
-				widgets.ErrorText(c, a.ES.IndicesErr, t)
-				ui.Button(c, i18n.T("es.action.retry")).OnClick(a.ESRefreshIndices)
-			})
-		case len(a.ES.Indices) == 0:
-			ui.Text(c, i18n.T("es.indices.empty")).FontSize(style.FontSize(12)).TextColor(t.TextMuted).Padding(8)
-		default:
-			a.ES.IndexGrid.Selected = &a.ES.IndexRow
-			list := ui.List(c, &a.ES.IndexGrid, len(a.ES.Indices), func(row int) {
-				if row < 0 || row >= len(a.ES.Indices) {
-					return
+		ui.Column(c).Grow(1).MinHeight(0).Children(func() {
+			switch {
+			case a.ES.IndicesLoading:
+				ui.Row(c).Grow(1).Padding(16).Center().Children(func() {
+					ui.Spinner(c)
+					ui.Text(c, i18n.T("es.indices.loading")).FontSize(style.FontSize(12)).TextColor(t.TextMuted)
+				})
+			case a.ES.IndicesErr != "":
+				ui.Column(c).Padding(8).Gap(6).Children(func() {
+					widgets.ErrorText(c, a.ES.IndicesErr, t)
+					ui.Button(c, i18n.T("es.action.retry")).OnClick(a.ESRefreshIndices)
+				})
+			case len(a.ES.Indices) == 0:
+				ui.Text(c, i18n.T("es.indices.empty")).FontSize(style.FontSize(12)).TextColor(t.TextMuted).Padding(8)
+			default:
+				start, end := a.ESIndicesPageBounds()
+				page := a.ES.Indices[start:end]
+				a.ES.IndexGrid.Selected = &a.ES.IndexPageRow
+				list := ui.List(c, &a.ES.IndexGrid, len(page), func(row int) {
+					if row < 0 || row >= len(page) {
+						return
+					}
+					idx := page[row]
+					ui.Text(c, idx).FontSize(style.FontSize(13)).SingleLine().
+						Padding(5, 10).Tooltip(idx)
+				}).Grow(1).MinWidth(0)
+				if list.Changed() && a.ES.IndexPageRow >= 0 && a.ES.IndexPageRow < len(page) {
+					a.ESSelectIndex(page[a.ES.IndexPageRow])
 				}
-				idx := a.ES.Indices[row]
-				ui.Text(c, idx).FontSize(style.FontSize(13)).SingleLine().
-					Padding(5, 10).Tooltip(idx)
-			}).Grow(1).MinWidth(0)
-			if list.Changed() && a.ES.IndexRow >= 0 && a.ES.IndexRow < len(a.ES.Indices) {
-				a.ESSelectIndex(a.ES.Indices[a.ES.IndexRow])
 			}
-		}
+		})
+		ui.Divider(c)
+		esPager(c, a, t)
+	})
+}
+
+func esPager(c *ui.Context, a *workspace.State, t *ui.Theme) {
+	ui.Row(c).Padding(4, 6).Gap(4).AlignItems(ui.Center).Children(func() {
+		widgets.IconButton(c, t, "chevron-left", i18n.T("es.action.prevPage"),
+			false, a.ES.IndicesLoading || !a.ESHasPrev(), a.ESPrevPage)
+		ui.Text(c, i18n.Tf("es.pager.page", a.ES.Page+1)).
+			FontSize(style.FontSize(12)).TextColor(t.TextMuted)
+		widgets.IconButton(c, t, "chevron-right", i18n.T("es.action.nextPage"),
+			false, a.ES.IndicesLoading || !a.ESHasNext(), a.ESNextPage)
+		ui.Spacer(c)
+		ui.Text(c, i18n.Tf("es.pager.pageSize", workspace.ESIndicesPageSize)).
+			FontSize(style.FontSize(11)).TextColor(t.TextMuted)
 	})
 }
 

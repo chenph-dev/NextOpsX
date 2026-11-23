@@ -1,6 +1,7 @@
 package es_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -18,7 +19,7 @@ func esTestApp() *workspace.State {
 		Addr: "10.0.0.11", Port: 9200, User: "elastic",
 	}
 	a.ES = workspace.ESState{
-		HostID: "e1", Label: "es-01 · 10.0.0.11:9200", IndexRow: 0,
+		HostID: "e1", Label: "es-01 · 10.0.0.11:9200", IndexRow: 0, IndexPageRow: 0,
 		Indices:       []string{"logs-2024", "metrics-*"},
 		SelectedIndex: "logs-2024",
 		QueryDSL:      workspace.ESDefaultDSL,
@@ -40,7 +41,7 @@ func TestESPanelRenders(t *testing.T) {
 	a := esTestApp()
 	tt := ui.NewTester(views.Shell(a), 1300, 900)
 	for _, want := range []string{
-		"ES", "索引 (2)", "刷新索引",
+		"ES", "索引 (2)", "刷新索引", "上一页", "第 1 页", "下一页", "每页 20",
 		"logs-2024", "metrics-*", "DSL 查询", "集群信息",
 		"索引：logs-2024", "执行查询", "hello", "world",
 		"REST 命令终端", "执行", "green",
@@ -86,12 +87,53 @@ func TestESIndexListSelection(t *testing.T) {
 	a := esTestApp()
 	a.ES.SelectedIndex = ""
 	a.ES.IndexRow = -1
+	a.ES.IndexPageRow = -1
 	tt := ui.NewTester(views.Shell(a), 1300, 900)
 	if err := tt.Click("metrics-*"); err != nil {
 		t.Fatal(err)
 	}
 	if a.ES.SelectedIndex != "metrics-*" || a.ES.IndexRow != 1 {
 		t.Fatalf("selected index = %q row = %d", a.ES.SelectedIndex, a.ES.IndexRow)
+	}
+}
+
+func TestESIndexPager(t *testing.T) {
+	a := esTestApp()
+	a.ES.Indices = make([]string, 45)
+	for i := range a.ES.Indices {
+		a.ES.Indices[i] = fmt.Sprintf("idx-%02d", i)
+	}
+	a.ES.SelectedIndex = ""
+	a.ES.IndexRow = -1
+	a.ES.IndexPageRow = -1
+	a.ES.Page = 0
+	tt := ui.NewTester(views.Shell(a), 1300, 900)
+	if !tt.HasText("idx-00") || tt.HasText("idx-20") {
+		t.Fatalf("page 1 = %q", tt.Texts())
+	}
+	if !tt.HasText("第 1 页") || !tt.HasText("每页 20") {
+		t.Fatalf("pager missing: %q", tt.Texts())
+	}
+
+	a.ESNextPage()
+	tt.Frame()
+	if tt.HasText("idx-00") || !tt.HasText("idx-20") {
+		t.Fatalf("page 2 = %q", tt.Texts())
+	}
+	if !tt.HasText("第 2 页") {
+		t.Fatalf("page 2 label = %q", tt.Texts())
+	}
+
+	a.ESNextPage()
+	tt.Frame()
+	if !tt.HasText("idx-40") || tt.HasText("idx-20") || a.ESHasNext() {
+		t.Fatalf("page 3 = %q hasNext=%v", tt.Texts(), a.ESHasNext())
+	}
+
+	a.ESPrevPage()
+	tt.Frame()
+	if !tt.HasText("第 2 页") || !tt.HasText("idx-20") || tt.HasText("idx-40") {
+		t.Fatalf("back to page 2 = %q", tt.Texts())
 	}
 }
 

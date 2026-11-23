@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"nextopsx/domain/dbexec"
@@ -103,6 +104,33 @@ func TestESSelectIndexInvalidatesQuery(t *testing.T) {
 	}
 	if a.ES.IndexRow != 1 {
 		t.Fatalf("row = %d, want 1", a.ES.IndexRow)
+	}
+}
+
+func TestESIndexPagination(t *testing.T) {
+	a := &State{}
+	a.ES.Indices = make([]string, 45)
+	for i := range a.ES.Indices {
+		a.ES.Indices[i] = fmt.Sprintf("idx-%02d", i)
+	}
+	a.ES.SelectedIndex = "idx-30"
+	a.syncESIndexRow()
+	if a.ES.IndexRow != 30 || a.ES.Page != 1 || a.ES.IndexPageRow != 10 {
+		t.Fatalf("state = %+v", a.ES)
+	}
+	a.ESNextPage()
+	if a.ES.Page != 2 || a.ES.IndexPageRow != -1 || a.ESHasNext() {
+		t.Fatalf("last page = %+v", a.ES)
+	}
+	a.ESPrevPage()
+	if a.ES.Page != 1 || a.ES.IndexPageRow != 10 {
+		t.Fatalf("prev page = %+v", a.ES)
+	}
+	a.ES.Indices = a.ES.Indices[:5]
+	a.ES.Page = 4
+	a.syncESIndexRow()
+	if a.ES.Page != 0 || a.ES.IndexRow != -1 || a.ES.IndexPageRow != -1 {
+		t.Fatalf("clamped = %+v", a.ES)
 	}
 }
 

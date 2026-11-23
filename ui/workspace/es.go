@@ -12,6 +12,9 @@ import (
 	hoststore "nextopsx/store/hosts"
 )
 
+// ESIndicesPageSize is how many indices one page of the index list shows.
+const ESIndicesPageSize = 20
+
 // ESDefaultDSL is the initial query body in the ES query tab.
 const ESDefaultDSL = `{
   "query": {
@@ -44,7 +47,11 @@ type ESState struct {
 	SelectedIndex  string
 	DefaultIndex   string
 	IndexRow       int
-	IndexGrid      ui.ListState
+	// Page is the zero-based page of indices shown; IndexPageRow is the
+	// selected row within that page, or -1.
+	Page         int
+	IndexPageRow int
+	IndexGrid    ui.ListState
 
 	MainTab int
 
@@ -104,7 +111,7 @@ func (a *State) AttachES(n *hoststore.TreeNode) {
 	a.ES = ESState{
 		HostID: n.ID, Label: esLabel(n),
 		QueryDSL: ESDefaultDSL, SelectedIndex: def, DefaultIndex: def,
-		IndexRow: -1,
+		IndexRow: -1, IndexPageRow: -1,
 	}
 	a.ESRefreshIndices()
 }
@@ -216,6 +223,75 @@ func (a *State) syncESIndexRow() {
 		}
 	}
 	a.ES.IndexRow = row
+	if row >= 0 {
+		a.ES.Page = row / ESIndicesPageSize
+	}
+	pages := a.ESIndicesPageCount()
+	if a.ES.Page >= pages {
+		a.ES.Page = pages - 1
+	}
+	if a.ES.Page < 0 {
+		a.ES.Page = 0
+	}
+	a.syncESIndexPageRow()
+}
+
+// syncESIndexPageRow maps the selected index to its row on the shown page.
+func (a *State) syncESIndexPageRow() {
+	row := a.ES.IndexRow - a.ES.Page*ESIndicesPageSize
+	if row < 0 || a.ES.Page*ESIndicesPageSize+row >= len(a.ES.Indices) {
+		row = -1
+	}
+	a.ES.IndexPageRow = row
+}
+
+// ESIndicesPageCount returns the number of index pages, at least one so
+// the pager keeps its place when the list is empty.
+func (a *State) ESIndicesPageCount() int {
+	if len(a.ES.Indices) == 0 {
+		return 1
+	}
+	return (len(a.ES.Indices) + ESIndicesPageSize - 1) / ESIndicesPageSize
+}
+
+// ESIndicesPageBounds returns the slice of indices on the shown page.
+func (a *State) ESIndicesPageBounds() (int, int) {
+	start := a.ES.Page * ESIndicesPageSize
+	if start < 0 {
+		start = 0
+	}
+	if start > len(a.ES.Indices) {
+		start = len(a.ES.Indices)
+	}
+	end := start + ESIndicesPageSize
+	if end > len(a.ES.Indices) {
+		end = len(a.ES.Indices)
+	}
+	return start, end
+}
+
+// ESHasPrev reports whether a page before the current one exists.
+func (a *State) ESHasPrev() bool { return a.ES.Page > 0 }
+
+// ESHasNext reports whether a page after the current one exists.
+func (a *State) ESHasNext() bool { return a.ES.Page+1 < a.ESIndicesPageCount() }
+
+// ESPrevPage shows the page before the current one.
+func (a *State) ESPrevPage() {
+	if a.ES.IndicesLoading || a.ES.Page <= 0 {
+		return
+	}
+	a.ES.Page--
+	a.syncESIndexPageRow()
+}
+
+// ESNextPage shows the page after the current one.
+func (a *State) ESNextPage() {
+	if a.ES.IndicesLoading || !a.ESHasNext() {
+		return
+	}
+	a.ES.Page++
+	a.syncESIndexPageRow()
 }
 
 func containsString(list []string, s string) bool {

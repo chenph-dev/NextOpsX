@@ -8,6 +8,8 @@ var (
 		"es.tab.query":             "DSL 查询",
 		"es.tab.info":              "集群信息",
 		"es.action.refreshIndices": "刷新索引",
+		"es.action.prevPage":       "上一页",
+		"es.action.nextPage":       "下一页",
 		"es.action.refresh":        "刷新",
 		"es.action.retry":          "重试",
 		"es.action.runQuery":       "执行查询",
@@ -17,6 +19,8 @@ var (
 		"es.indices.title":   "索引 (%d)",
 		"es.indices.loading": "读取索引…",
 		"es.indices.empty":   "没有索引",
+		"es.pager.page":      "第 %d 页",
+		"es.pager.pageSize":  "每页 %d",
 
 		// DSL query tab.
 		"es.query.noIndex": "索引：未选择",
@@ -51,6 +55,8 @@ var (
 		"es.tab.query":             "DSL query",
 		"es.tab.info":              "Cluster info",
 		"es.action.refreshIndices": "Refresh indices",
+		"es.action.prevPage":       "Previous page",
+		"es.action.nextPage":       "Next page",
 		"es.action.refresh":        "Refresh",
 		"es.action.retry":          "Retry",
 		"es.action.runQuery":       "Run query",
@@ -60,6 +66,8 @@ var (
 		"es.indices.title":   "Indices (%d)",
 		"es.indices.loading": "Loading indices…",
 		"es.indices.empty":   "No indices",
+		"es.pager.page":      "Page %d",
+		"es.pager.pageSize":  "%d per page",
 
 		// DSL query tab.
 		"es.query.noIndex": "Index: none selected",

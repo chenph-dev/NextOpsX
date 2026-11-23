@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# 过滤提交信息中的 AI 协作标识。
+#
+# 处理对象：
+#   - Co-Authored-By: Claude Code <noreply@anthropic.com> 等 AI 工具署名
+#   - 🤖 Generated with [Claude Code](https://claude.com/claude-code) 等生成声明
+#
+# 启用（每个克隆一次）：
+#   git config core.hooksPath .githooks
+#
+# 保留原始信息（跳过本钩子）：
+#   git commit --no-verify
+set -euo pipefail
+
+msg_file=${1:?commit-msg 钩子缺少提交信息文件参数}
+
+# 单个 ERE，大小写不敏感；只匹配 AI 工具署名/生成声明，不误伤正文。
+ai_re='^[[:space:]]*co-authored-by:[[:space:]]*.*(claude|anthropic|openai|chatgpt|github[ -]?copilot|copilot|gemini|bard|cursor|codex|windsurf|devin|aider|qwen|deepseek|grok|mistral)'
+ai_re+='|^[[:space:]]*🤖'
+ai_re+='|(generated|made|created|written|authored)[[:space:]]+(with|by)[[:space:]].*(claude|anthropic|copilot|cursor|chatgpt|openai|gemini|codex|windsurf|aider|qwen|deepseek|grok|mistral)'
+ai_re+='|claude\.com/claude-code|claude\.ai/code|\[Claude Code\]\(https?://'
+
+removed=$(grep -Eic -- "$ai_re" "$msg_file" || true)
+if [ "${removed:-0}" -eq 0 ]; then
+    exit 0
+fi
+
+tmp=$(mktemp "${TMPDIR:-/tmp}/commit-msg.XXXXXX")
+trap 'rm -f "$tmp"' EXIT
+
+# 删除匹配行，并去掉因此残留的尾部空行。
+{
+    grep -Eiv -- "$ai_re" "$msg_file" || true
+} | awk 'NF { last = NR } { line[NR] = $0 } END { for (i = 1; i <= last; i++) print line[i] }' > "$tmp"
+
+# 原位写回，保留文件的权限与属主。
+cat "$tmp" > "$msg_file"
+
+printf 'commit-msg: 已过滤提交信息中的 %d 行 AI 标识\n' "$removed" >&2

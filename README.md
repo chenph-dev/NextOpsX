@@ -40,6 +40,16 @@ NEXTOPSX_SSH_TEST_KEY=$HOME/.ssh/<key> \
 go test -run TestSSHTerminal -v ./service/terminal
 ```
 
+### 提交信息钩子
+
+提交信息会自动过滤 AI 协作标识（如 `Co-Authored-By: Claude ...`、`🤖 Generated with ...`）。克隆仓库后启用一次：
+
+```bash
+git config core.hooksPath .githooks
+```
+
+钩子位于 `.githooks/commit-msg`，普通提交不受影响；需要保留原始信息时可用 `git commit --no-verify` 绕过。
+
 ## 数据目录
 
 默认使用平台配置目录下的 `nextopsx/`（Linux：`~/.config/nextopsx`，Windows：`%APPDATA%/nextopsx`），数据库为 `nextopsx.db`。

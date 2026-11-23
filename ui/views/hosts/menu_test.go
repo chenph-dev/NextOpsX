@@ -88,6 +88,7 @@ func TestWorkbenchHostContextMenu(t *testing.T) {
 		{"mysql", "连接数据库", func(a *workspace.State) string { return a.DB.HostID }},
 		{"redis", "连接", func(a *workspace.State) string { return a.Redis.HostID }},
 		{"elasticsearch", "连接", func(a *workspace.State) string { return a.ES.HostID }},
+		{"winrm", "打开 WinRM 终端", func(a *workspace.State) string { return a.WinRM.HostID }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.protocol, func(t *testing.T) {
@@ -101,6 +102,9 @@ func TestWorkbenchHostContextMenu(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := []string{tc.item, "打开智能运维", "-", "编辑", "移动", "-", "删除"}
+			if tc.protocol == "winrm" {
+				want = []string{tc.item, "远程桌面", "打开智能运维", "-", "编辑", "移动", "-", "删除"}
+			}
 			if got := tt.Menu(); !slices.Equal(got, want) {
 				t.Fatalf("menu = %q, want %q", got, want)
 			}

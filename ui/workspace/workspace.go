@@ -51,6 +51,7 @@ type State struct {
 	DB     DBState
 	Redis  RedisState
 	ES     ESState
+	WinRM  WinRMState
 	SFTP   SFTPState
 
 	// Tabs lists open asset IDs in tab order. Inactive workbench states
@@ -62,6 +63,7 @@ type State struct {
 	dbStates    map[string]DBState
 	redisStates map[string]RedisState
 	esStates    map[string]ESState
+	winrmStates map[string]WinRMState
 	Skills      SkillsState
 	Policy      PolicyState
 	Audit       AuditState
@@ -357,8 +359,8 @@ func (a *State) OpenAsset(n *hoststore.TreeNode) {
 			return // Select already focused this session.
 		}
 		a.ActivateSession(n.ID)
-	case n.Protocol == "winrm":
-		a.OpenRDP()
+	case a.IsWinRMProtocol(n.Protocol):
+		a.attachWinRM(n)
 	case a.IsRedisProtocol(n.Protocol):
 		a.AttachRedis(n)
 	case a.IsESProtocol(n.Protocol):
@@ -391,6 +393,8 @@ func (a *State) attachAsset(n *hoststore.TreeNode) {
 			a.AttachRedis(n)
 		case a.IsESProtocol(n.Protocol):
 			a.AttachES(n)
+		case a.IsWinRMProtocol(n.Protocol):
+			a.attachWinRM(n)
 		case a.IsSQLProtocol(n.Protocol):
 			a.attachDB(n)
 		}

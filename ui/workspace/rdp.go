@@ -10,7 +10,6 @@ func (a *State) OpenRDP() {
 		return
 	}
 	hostID := n.ID
-	a.openAssetTab(hostID)
 	a.ErrMsg = ""
 	b := a.Backend
 	go func() {

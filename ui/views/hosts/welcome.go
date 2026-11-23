@@ -97,6 +97,18 @@ func Welcome(c *ui.Context, a *workspace.State) {
 			return
 		}
 
+		if a.IsWinRMProtocol(n.Protocol) {
+			ui.Row(c).Grow(1).FillWidth().Center().Children(func() {
+				ui.Column(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, i18n.T("welcome.winrm.openHint")).
+						FontSize(style.FontSize(15)).TextColor(t.TextMuted)
+					ui.Text(c, a.HostProtocolName(n.Protocol)).
+						FontSize(style.FontSize(12)).TextColor(t.TextMuted)
+				})
+			})
+			return
+		}
+
 		ui.Text(c, n.Name).FontSize(style.FontSize(22)).Bold()
 		ui.Text(c, fmt.Sprintf("%s@%s:%d", n.User, n.Addr, n.Port)).
 			TextColor(t.TextMuted)

@@ -262,6 +262,7 @@ func (a *State) CloseAllSessions() {
 	a.dbStates = nil
 	a.redisStates = nil
 	a.esStates = nil
+	a.winrmStates = nil
 	a.clearActiveSession()
 	a.Layout.SFTPOpen = false
 	a.Snippets.PickerOpen = false

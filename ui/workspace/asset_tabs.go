@@ -147,6 +147,9 @@ func (a *State) saveActiveWorkbenches() {
 	if a.ES.HostID != "" {
 		a.saveESActive()
 	}
+	if a.WinRM.HostID != "" {
+		a.saveWinRMActive()
+	}
 }
 
 func (a *State) saveDBActive() {
@@ -179,10 +182,21 @@ func (a *State) saveESActive() {
 	a.esStates[a.ES.HostID] = a.ES
 }
 
+func (a *State) saveWinRMActive() {
+	if a.WinRM.HostID == "" {
+		return
+	}
+	if a.winrmStates == nil {
+		a.winrmStates = map[string]WinRMState{}
+	}
+	a.winrmStates[a.WinRM.HostID] = a.WinRM
+}
+
 func (a *State) closeWorkbenchState(id string) {
 	delete(a.dbStates, id)
 	delete(a.redisStates, id)
 	delete(a.esStates, id)
+	delete(a.winrmStates, id)
 	if a.DB.HostID == id {
 		a.DB = DBState{}
 	}
@@ -191,6 +205,9 @@ func (a *State) closeWorkbenchState(id string) {
 	}
 	if a.ES.HostID == id {
 		a.ES = ESState{}
+	}
+	if a.WinRM.HostID == id {
+		a.WinRM = WinRMState{}
 	}
 }
 

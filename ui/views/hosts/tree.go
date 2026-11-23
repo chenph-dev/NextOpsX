@@ -108,6 +108,9 @@ func hostMenu(m *ui.Menu, a *workspace.State, n *hoststore.TreeNode) {
 		}
 	}
 	if n.Protocol == "winrm" {
+		if m.Item(i18n.T("hosts.menu.openWinRM")).Chosen() {
+			a.OpenAsset(n)
+		}
 		if m.Item(i18n.T("shell.remoteDesktop")).Chosen() {
 			a.Select(n)
 			a.OpenRDP()

@@ -19,6 +19,7 @@ import (
 	"nextopsx/ui/views/settings"
 	"nextopsx/ui/views/sftp"
 	"nextopsx/ui/views/terminal"
+	"nextopsx/ui/views/winrm"
 	"nextopsx/ui/workspace"
 )
 
@@ -306,6 +307,12 @@ func hostMain(c *ui.Context, a *workspace.State, t *ui.Theme) {
 	case a.IsSQLProtocol(a.Selected.Protocol):
 		if a.DB.HostID == a.Selected.ID && a.DB.Protocol == a.Selected.Protocol {
 			db.Workbench(c, a)
+			return
+		}
+		hosts.Welcome(c, a)
+	case a.IsWinRMProtocol(a.Selected.Protocol):
+		if a.WinRM.HostID == a.Selected.ID {
+			winrm.Panel(c, a, t)
 			return
 		}
 		hosts.Welcome(c, a)

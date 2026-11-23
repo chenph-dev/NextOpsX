@@ -10,6 +10,7 @@ var (
 		"redis.action.refreshKeys":   "刷新键",
 		"redis.action.refresh":       "刷新",
 		"redis.action.search":        "搜索",
+		"redis.action.prevPage":      "上一页",
 		"redis.action.nextPage":      "下一页",
 		"redis.action.retry":         "重试",
 		"redis.action.execute":       "执行",
@@ -26,6 +27,8 @@ var (
 		"redis.keys.patternPlaceholder": "匹配模式，如 user:*",
 		"redis.keys.scanning":           "扫描中…",
 		"redis.keys.empty":              "没有匹配的键",
+		"redis.pager.page":              "第 %d 页",
+		"redis.pager.pageSize":          "每页 %d",
 
 		// Key detail.
 		"redis.detail.empty":       "选择左侧的键查看详情",
@@ -48,7 +51,6 @@ var (
 		"redis.command.hint":         "输入 Redis 命令，Enter 执行。",
 		"redis.command.historyTitle": "命令历史",
 		"redis.command.historyEmpty": "暂无历史",
-		"redis.status.ready":         "就绪",
 
 		// Dialogs.
 		"redis.dialog.editTitle":   "编辑字符串值",
@@ -80,6 +82,7 @@ var (
 		"redis.action.refreshKeys":   "Refresh keys",
 		"redis.action.refresh":       "Refresh",
 		"redis.action.search":        "Search",
+		"redis.action.prevPage":      "Previous page",
 		"redis.action.nextPage":      "Next page",
 		"redis.action.retry":         "Retry",
 		"redis.action.execute":       "Run",
@@ -96,6 +99,8 @@ var (
 		"redis.keys.patternPlaceholder": "Match pattern, e.g. user:*",
 		"redis.keys.scanning":           "Scanning…",
 		"redis.keys.empty":              "No matching keys",
+		"redis.pager.page":              "Page %d",
+		"redis.pager.pageSize":          "%d per page",
 
 		// Key detail.
 		"redis.detail.empty":       "Select a key on the left to see its details",
@@ -118,7 +123,6 @@ var (
 		"redis.command.hint":         "Enter a Redis command and press Enter to run.",
 		"redis.command.historyTitle": "Command history",
 		"redis.command.historyEmpty": "No history",
-		"redis.status.ready":         "Ready",
 
 		// Dialogs.
 		"redis.dialog.editTitle":   "Edit string value",

@@ -15,6 +15,22 @@ import (
 // redisPreviewLimit caps collection previews (list/hash/set/zset).
 const redisPreviewLimit = 200
 
+// RedisKeysPageSize is how many keys one page of the key list shows.
+const RedisKeysPageSize = 20
+
+// redisScanStepsLimit stops a page load from chasing a sparse MATCH through
+// many SCAN round trips; the page then shows what it found so far.
+const redisScanStepsLimit = 100
+
+// redisPageStart is where a page's SCAN begins: a cursor plus keys that
+// overflowed the previous page. done means the scan already reached its
+// end, so only pending is left.
+type redisPageStart struct {
+	cursor  string
+	pending []string
+	done    bool
+}
+
 // RedisDetail is the selected key's type, TTL and value.
 type RedisDetail struct {
 	Key       string
@@ -45,6 +61,10 @@ type RedisState struct {
 	ScanPattern string
 	KeysLoading bool
 	KeysErr     string
+	// Page is the zero-based key page shown; pageStarts records where
+	// each loaded page's scan starts.
+	Page       int
+	pageStarts []redisPageStart
 
 	SelectedKey string
 	Detail      RedisDetail
@@ -122,8 +142,13 @@ func (a *State) AttachRedis(n *hoststore.TreeNode) {
 	a.RedisRefreshKeys(true)
 }
 
-// RedisReloadKeys refreshes the current scan without dropping a selection.
-func (a *State) RedisReloadKeys() { a.refreshRedisKeys(true, false) }
+// RedisReloadKeys reloads the current page without dropping a selection.
+func (a *State) RedisReloadKeys() {
+	if a.Redis.KeysLoading || len(a.Redis.pageStarts) == 0 {
+		return
+	}
+	a.loadRedisKeysPage(a.Redis.Page)
+}
 
 // EnsureRedis refreshes the Redis panel when it is re-entered.
 func (a *State) EnsureRedis() {
@@ -143,56 +168,66 @@ func (a *State) EnsureRedis() {
 	}
 }
 
-// RedisRefreshKeys scans the next page, or restarts with cursor 0.
-func (a *State) RedisRefreshKeys(reset bool) { a.refreshRedisKeys(reset, reset) }
+// RedisRefreshKeys restarts at the first page, or moves to the next page.
+func (a *State) RedisRefreshKeys(reset bool) {
+	if reset {
+		a.resetRedisKeys(true)
+		return
+	}
+	a.RedisNextPage()
+}
 
-func (a *State) refreshRedisKeys(reset, clearSelection bool) {
+func (a *State) resetRedisKeys(clearSelection bool) {
 	hostID := a.Redis.HostID
 	if hostID == "" {
 		return
 	}
-	cursor := "0"
-	pattern := a.Redis.ScanPattern
-	if !reset {
-		cursor = a.Redis.Cursor
-		if cursor == "0" {
-			return
-		}
-	} else {
-		// A SCAN cursor is only valid with the MATCH argument it was
-		// created with. Keep the pattern used for this scan separately
-		// from the editable search box.
-		pattern = strings.TrimSpace(a.Redis.Pattern)
-		a.Redis.ScanPattern = pattern
+	// A SCAN cursor is only valid with the MATCH argument it was created
+	// with. Keep the pattern used for this scan separately from the
+	// editable search box.
+	a.Redis.ScanPattern = strings.TrimSpace(a.Redis.Pattern)
+	a.Redis.Page = 0
+	a.Redis.pageStarts = []redisPageStart{{cursor: "0"}}
+	a.Redis.Cursor = "0"
+	a.Redis.Keys = nil
+	a.Redis.KeysErr = ""
+	a.Redis.Err = ""
+	a.Redis.Notice = ""
+	if clearSelection {
+		a.Redis.SelectedKey = ""
+		a.Redis.Detail = RedisDetail{}
 	}
+	a.loadRedisKeysPage(0)
+}
+
+// loadRedisKeysPage collects up to RedisKeysPageSize keys from where page
+// starts, keeping any extra keys for the next page.
+func (a *State) loadRedisKeysPage(page int) {
+	if page < 0 || page >= len(a.Redis.pageStarts) {
+		return
+	}
+	hostID := a.Redis.HostID
+	if hostID == "" {
+		return
+	}
+	start := a.Redis.pageStarts[page]
+	pattern := a.Redis.ScanPattern
 	a.Redis.keySeq++
 	seq := a.Redis.keySeq
 	a.Redis.KeysLoading = true
 	a.Redis.KeysErr = ""
 	a.Redis.Err = ""
 	a.Redis.Notice = ""
-	if reset {
-		a.Redis.Cursor = "0"
-		a.Redis.Keys = nil
-		if clearSelection {
-			a.Redis.SelectedKey = ""
-			a.Redis.Detail = RedisDetail{}
-		}
-	}
-	cmd := "SCAN " + cursor
-	if pattern != "" {
-		cmd += " MATCH " + RedisQuote(pattern)
-	}
-	cmd += " COUNT 50"
-
-	if a.Backend == nil {
+	a.Redis.Page = page
+	b := a.Backend
+	if b == nil {
 		a.Redis.KeysLoading = false
 		a.Redis.KeysErr = i18n.T("redis.error.backendUninitialized")
 		return
 	}
-	b := a.Backend
 	go func() {
-		res, err := b.DB.ExecuteSQL(hostID, cmd)
+		keys, next, pending, err := scanRedisKeysPage(
+			b.DB, hostID, start, pattern, RedisKeysPageSize)
 		a.Post(func() {
 			if hostID != a.Redis.HostID || seq != a.Redis.keySeq {
 				return
@@ -202,18 +237,57 @@ func (a *State) refreshRedisKeys(reset, clearSelection bool) {
 				a.Redis.KeysErr = i18n.Tf("redis.error.scanFailed", err.Error())
 				return
 			}
-			next, keys := redisScanResult(res)
 			a.Redis.Keys = keys
 			a.Redis.Cursor = next
+			a.recordRedisPageStart(page, next, pending)
 		})
 	}()
 }
 
+// recordRedisPageStart remembers where the next page starts and drops any
+// pages recorded beyond it.
+func (a *State) recordRedisPageStart(page int, next string, pending []string) {
+	if next == "0" && len(pending) == 0 {
+		if page+1 < len(a.Redis.pageStarts) {
+			a.Redis.pageStarts = a.Redis.pageStarts[:page+1]
+		}
+		return
+	}
+	start := redisPageStart{cursor: next, pending: pending, done: next == "0"}
+	if page+1 < len(a.Redis.pageStarts) {
+		a.Redis.pageStarts[page+1] = start
+		a.Redis.pageStarts = a.Redis.pageStarts[:page+2]
+		return
+	}
+	a.Redis.pageStarts = append(a.Redis.pageStarts, start)
+}
+
+// RedisPrevPage shows the page before the current one.
+func (a *State) RedisPrevPage() {
+	if a.Redis.KeysLoading || a.Redis.Page <= 0 {
+		return
+	}
+	a.loadRedisKeysPage(a.Redis.Page - 1)
+}
+
+// RedisHasPrev reports whether a page before the current one exists.
+func (a *State) RedisHasPrev() bool { return a.Redis.Page > 0 }
+
+// RedisNextPage shows the page after the current one.
+func (a *State) RedisNextPage() {
+	if a.Redis.KeysLoading || !a.RedisHasNext() {
+		return
+	}
+	a.loadRedisKeysPage(a.Redis.Page + 1)
+}
+
+// RedisHasNext reports whether a page after the current one exists.
+func (a *State) RedisHasNext() bool {
+	return a.Redis.Page+1 < len(a.Redis.pageStarts)
+}
+
 // RedisSearch restarts the scan with the current pattern.
 func (a *State) RedisSearch() { a.RedisRefreshKeys(true) }
-
-// RedisNextPage scans the next cursor page.
-func (a *State) RedisNextPage() { a.RedisRefreshKeys(false) }
 
 // RedisSelectKey loads a key's type, TTL and value.
 func (a *State) RedisSelectKey(key string) {
@@ -333,7 +407,7 @@ func (a *State) RedisConfirmDelete() {
 				a.Redis.SelectedKey = ""
 				a.Redis.Detail = RedisDetail{}
 			}
-			a.refreshRedisKeys(true, false)
+			a.RedisReloadKeys()
 			a.Redis.Notice = i18n.Tf("redis.notice.deleted", key)
 		})
 	}()
@@ -582,6 +656,70 @@ func redisFirstCell(res *dbexec.Result) string {
 }
 
 // redisScanResult parses SCAN's [[index,cursor],[index,[keys]]] shape.
+// redisScanExecutor is what scanRedisKeysPage needs from the backend.
+type redisScanExecutor interface {
+	ExecuteSQL(hostID, sqlText string) (*dbexec.Result, error)
+}
+
+// scanRedisKeysPage collects up to limit keys from start, following SCAN
+// cursors. Keys beyond limit come back as pending, with next as the cursor
+// that follows the whole batch, so the next page starts exactly there.
+func scanRedisKeysPage(exec redisScanExecutor, hostID string, start redisPageStart, pattern string, limit int) (keys []string, next string, pending []string, err error) {
+	if limit <= 0 {
+		return nil, "0", nil, nil
+	}
+	seen := make(map[string]bool, limit)
+	take := func(items []string) {
+		for _, key := range items {
+			if key == "" || seen[key] {
+				continue
+			}
+			seen[key] = true
+			if len(keys) < limit {
+				keys = append(keys, key)
+				continue
+			}
+			pending = append(pending, key)
+		}
+	}
+	take(start.pending)
+	if len(keys) >= limit || start.done {
+		return keys, start.cursor, pending, nil
+	}
+	cursor := start.cursor
+	if cursor == "" {
+		cursor = "0"
+	}
+	// The first step may start from cursor "0"; after that, "0" means the
+	// scan has ended.
+	for step := 0; len(keys) < limit; step++ {
+		if step >= redisScanStepsLimit || (step > 0 && cursor == "0") {
+			break
+		}
+		res, serr := exec.ExecuteSQL(hostID,
+			redisScanCommand(cursor, pattern, limit-len(keys)))
+		if serr != nil {
+			return keys, cursor, pending, serr
+		}
+		var batch []string
+		cursor, batch = redisScanResult(res)
+		take(batch)
+	}
+	return keys, cursor, pending, nil
+}
+
+func redisScanCommand(cursor, pattern string, count int) string {
+	if count < 1 {
+		count = 1
+	}
+	cmd := "SCAN " + cursor
+	if pattern != "" {
+		cmd += " MATCH " + RedisQuote(pattern)
+	}
+	cmd += " COUNT " + strconv.Itoa(count)
+	return cmd
+}
+
 func redisScanResult(res *dbexec.Result) (cursor string, keys []string) {
 	cursor = "0"
 	if res == nil {

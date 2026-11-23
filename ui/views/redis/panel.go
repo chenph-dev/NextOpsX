@@ -14,8 +14,6 @@ import (
 func Panel(c *ui.Context, a *workspace.State) {
 	t := c.Theme()
 	ui.Column(c).Fill().MinWidth(0).Children(func() {
-		redisToolbar(c, a, t)
-		ui.Divider(c)
 		ui.Row(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
 			redisKeysPane(c, a, t)
 			ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
@@ -31,17 +29,9 @@ func Panel(c *ui.Context, a *workspace.State) {
 				redisCommandTerminal(c, a, t)
 			})
 		})
-		redisStatusBar(c, a, t)
+		redisNoticeBar(c, a, t)
 	})
 	redisDialogs(c, a, t)
-}
-
-func redisToolbar(c *ui.Context, a *workspace.State, t *ui.Theme) {
-	ui.Row(c).Padding(6, 10).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, "Redis · "+a.Redis.DBLabel).FontSize(style.FontSize(13)).Bold().SingleLine()
-		ui.Spacer(c)
-		ui.Button(c, i18n.T("redis.action.refreshKeys")).FontSize(style.FontSize(12)).OnClick(a.RedisReloadKeys)
-	})
 }
 
 func redisKeysPane(c *ui.Context, a *workspace.State, t *ui.Theme) {
@@ -51,6 +41,8 @@ func redisKeysPane(c *ui.Context, a *workspace.State, t *ui.Theme) {
 			ui.Text(c, i18n.Tf("redis.keys.title", len(a.Redis.Keys))).FontSize(style.FontSize(13)).Bold()
 			ui.Spacer(c)
 			ui.Text(c, i18n.Tf("redis.keys.cursor", a.Redis.Cursor)).FontSize(style.FontSize(11)).TextColor(t.TextMuted)
+			widgets.IconButton(c, t, "refresh", i18n.T("redis.action.refreshKeys"),
+				false, false, a.RedisReloadKeys)
 		})
 		ui.Row(c).Padding(0, 6).Gap(4).Children(func() {
 			c.Key("redis-pattern")
@@ -58,36 +50,47 @@ func redisKeysPane(c *ui.Context, a *workspace.State, t *ui.Theme) {
 				Placeholder(i18n.T("redis.keys.patternPlaceholder")).OnSubmit(a.RedisSearch)
 			ui.Button(c, i18n.T("redis.action.search")).FontSize(style.FontSize(12)).OnClick(a.RedisSearch)
 		})
-		ui.Row(c).Padding(0, 6, 6, 6).Children(func() {
-			next := ui.Button(c, i18n.T("redis.action.nextPage")).FontSize(style.FontSize(12))
-			if a.Redis.Cursor == "0" || a.Redis.KeysLoading {
-				next = next.Disabled(true)
+		ui.Divider(c)
+		ui.Column(c).Grow(1).MinHeight(0).Children(func() {
+			switch {
+			case a.Redis.KeysLoading:
+				ui.Row(c).Grow(1).Padding(16).Center().Children(func() {
+					ui.Spinner(c)
+					ui.Text(c, i18n.T("redis.keys.scanning")).FontSize(style.FontSize(12)).TextColor(t.TextMuted)
+				})
+			case a.Redis.KeysErr != "":
+				ui.Column(c).Padding(8).Gap(6).Children(func() {
+					widgets.ErrorText(c, a.Redis.KeysErr, t)
+					ui.Button(c, i18n.T("redis.action.retry")).OnClick(a.RedisReloadKeys)
+				})
+			case len(a.Redis.Keys) == 0:
+				ui.Text(c, i18n.T("redis.keys.empty")).FontSize(style.FontSize(12)).TextColor(t.TextMuted).Padding(8)
+			default:
+				ui.Scroll(c).Grow(1).Children(func() {
+					ui.Column(c).Gap(1).Children(func() {
+						for _, key := range a.Redis.Keys {
+							redisKeyRow(c, a, key, t)
+						}
+					})
+				})
 			}
-			next.OnClick(a.RedisNextPage)
 		})
 		ui.Divider(c)
-		switch {
-		case a.Redis.KeysLoading:
-			ui.Row(c).Padding(16).Center().Children(func() {
-				ui.Spinner(c)
-				ui.Text(c, i18n.T("redis.keys.scanning")).FontSize(style.FontSize(12)).TextColor(t.TextMuted)
-			})
-		case a.Redis.KeysErr != "":
-			ui.Column(c).Padding(8).Gap(6).Children(func() {
-				widgets.ErrorText(c, a.Redis.KeysErr, t)
-				ui.Button(c, i18n.T("redis.action.retry")).OnClick(func() { a.RedisRefreshKeys(true) })
-			})
-		case len(a.Redis.Keys) == 0:
-			ui.Text(c, i18n.T("redis.keys.empty")).FontSize(style.FontSize(12)).TextColor(t.TextMuted).Padding(8)
-		default:
-			ui.Scroll(c).Grow(1).Children(func() {
-				ui.Column(c).Gap(1).Children(func() {
-					for _, key := range a.Redis.Keys {
-						redisKeyRow(c, a, key, t)
-					}
-				})
-			})
-		}
+		redisPager(c, a, t)
+	})
+}
+
+func redisPager(c *ui.Context, a *workspace.State, t *ui.Theme) {
+	ui.Row(c).Padding(4, 6).Gap(4).AlignItems(ui.Center).Children(func() {
+		widgets.IconButton(c, t, "chevron-left", i18n.T("redis.action.prevPage"),
+			false, a.Redis.KeysLoading || !a.RedisHasPrev(), a.RedisPrevPage)
+		ui.Text(c, i18n.Tf("redis.pager.page", a.Redis.Page+1)).
+			FontSize(style.FontSize(12)).TextColor(t.TextMuted)
+		widgets.IconButton(c, t, "chevron-right", i18n.T("redis.action.nextPage"),
+			false, a.Redis.KeysLoading || !a.RedisHasNext(), a.RedisNextPage)
+		ui.Spacer(c)
+		ui.Text(c, i18n.Tf("redis.pager.pageSize", workspace.RedisKeysPageSize)).
+			FontSize(style.FontSize(11)).TextColor(t.TextMuted)
 	})
 }
 
@@ -268,20 +271,19 @@ func redisHistory(c *ui.Context, a *workspace.State, t *ui.Theme) {
 	})
 }
 
-func redisStatusBar(c *ui.Context, a *workspace.State, t *ui.Theme) {
+// redisNoticeBar reports errors and notices, and takes no room when there
+// is nothing to say.
+func redisNoticeBar(c *ui.Context, a *workspace.State, t *ui.Theme) {
+	text, color := a.Redis.Notice, t.TextMuted
+	if a.Redis.Err != "" {
+		text, color = a.Redis.Err, t.Danger
+	}
+	if text == "" {
+		return
+	}
 	ui.Divider(c)
-	ui.Row(c).Padding(3, 10).Gap(12).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, a.Redis.DBLabel).FontSize(style.FontSize(12)).TextColor(t.TextMuted).SingleLine()
-		ui.Spacer(c)
-		if a.Redis.Err != "" {
-			ui.Text(c, a.Redis.Err).FontSize(style.FontSize(12)).TextColor(t.Danger).SingleLine()
-			return
-		}
-		text := a.Redis.Notice
-		if text == "" {
-			text = i18n.T("redis.status.ready")
-		}
-		ui.Text(c, text).FontSize(style.FontSize(12)).TextColor(t.TextMuted).SingleLine()
+	ui.Row(c).Padding(3, 10).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, text).FontSize(style.FontSize(12)).TextColor(color).SingleLine()
 	})
 }
 

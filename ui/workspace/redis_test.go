@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"slices"
 	"testing"
 
 	"nextopsx/domain/dbexec"
@@ -21,6 +22,87 @@ func TestRedisScanResult(t *testing.T) {
 	cursor, keys := redisScanResult(res)
 	if cursor != "42" || len(keys) != 2 || keys[0] != "user:1" {
 		t.Fatalf("scan = %q %v", cursor, keys)
+	}
+}
+
+type fakeRedisScan struct {
+	results []*dbexec.Result
+	queries []string
+}
+
+func (f *fakeRedisScan) ExecuteSQL(_, sqlText string) (*dbexec.Result, error) {
+	f.queries = append(f.queries, sqlText)
+	if len(f.results) == 0 {
+		return nil, nil
+	}
+	res := f.results[0]
+	f.results = f.results[1:]
+	return res, nil
+}
+
+func redisScanRows(cursor string, keys ...string) *dbexec.Result {
+	items := make([]any, len(keys))
+	for i, key := range keys {
+		items[i] = key
+	}
+	return &dbexec.Result{Rows: [][]any{
+		{int64(1), cursor},
+		{int64(2), items},
+	}}
+}
+
+func TestRedisScanKeysPage(t *testing.T) {
+	exec := &fakeRedisScan{results: []*dbexec.Result{
+		redisScanRows("7", "a", "b", "c"),
+		redisScanRows("9", "d", "a", "e", "f", "g"),
+	}}
+	keys, next, pending, err := scanRedisKeysPage(exec, "h1",
+		redisPageStart{cursor: "0"}, "user:*", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(keys, []string{"a", "b", "c", "d", "e"}) {
+		t.Fatalf("keys = %v", keys)
+	}
+	if next != "9" {
+		t.Fatalf("next = %q", next)
+	}
+	if !slices.Equal(pending, []string{"f", "g"}) {
+		t.Fatalf("pending = %v", pending)
+	}
+	wantQueries := []string{
+		`SCAN 0 MATCH "user:*" COUNT 5`,
+		`SCAN 7 MATCH "user:*" COUNT 2`,
+	}
+	if !slices.Equal(exec.queries, wantQueries) {
+		t.Fatalf("queries = %q", exec.queries)
+	}
+
+	exec = &fakeRedisScan{results: []*dbexec.Result{redisScanRows("0", "h")}}
+	keys, next, pending, err = scanRedisKeysPage(exec, "h1",
+		redisPageStart{cursor: "9", pending: []string{"f", "g"}}, "", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(keys, []string{"f", "g", "h"}) || next != "0" || len(pending) != 0 {
+		t.Fatalf("page 2: keys=%v next=%q pending=%v", keys, next, pending)
+	}
+	if !slices.Equal(exec.queries, []string{"SCAN 9 COUNT 3"}) {
+		t.Fatalf("page 2 queries = %q", exec.queries)
+	}
+}
+
+func TestRecordRedisPageStart(t *testing.T) {
+	a := &State{}
+	a.Redis.pageStarts = []redisPageStart{{cursor: "0"}}
+	a.recordRedisPageStart(0, "9", []string{"x"})
+	if len(a.Redis.pageStarts) != 2 || a.Redis.pageStarts[1].cursor != "9" ||
+		len(a.Redis.pageStarts[1].pending) != 1 {
+		t.Fatalf("page starts = %+v", a.Redis.pageStarts)
+	}
+	a.recordRedisPageStart(0, "0", nil)
+	if len(a.Redis.pageStarts) != 1 {
+		t.Fatalf("stale page kept: %+v", a.Redis.pageStarts)
 	}
 }
 

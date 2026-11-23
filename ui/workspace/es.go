@@ -66,9 +66,6 @@ type ESState struct {
 	HistoryOpen    bool
 	CommandGrid    ui.ListState
 
-	Notice string
-	Err    string
-
 	indexSeq uint64
 	querySeq uint64
 	infoSeq  uint64
@@ -140,8 +137,6 @@ func (a *State) ESRefreshIndices() {
 	seq := a.ES.indexSeq
 	a.ES.IndicesLoading = true
 	a.ES.IndicesErr = ""
-	a.ES.Err = ""
-	a.ES.Notice = ""
 	if a.Backend == nil {
 		a.ES.IndicesLoading = false
 		a.ES.IndicesErr = i18n.T("es.error.backendUninitialized")
@@ -166,7 +161,6 @@ func (a *State) ESRefreshIndices() {
 				a.ESSelectedIndexChanged("")
 			}
 			a.syncESIndexRow()
-			a.ES.Notice = i18n.Tf("es.notice.refreshed", len(indices))
 		})
 	}()
 }
@@ -210,7 +204,6 @@ func (a *State) ESSelectedIndexChanged(index string) {
 	a.ES.QueryRunning = false
 	a.ES.QueryResult = nil
 	a.ES.QueryErr = ""
-	a.ES.Err = ""
 	a.syncESIndexRow()
 }
 
@@ -239,11 +232,11 @@ func (a *State) ESRunQuery() {
 	index := strings.TrimSpace(a.ES.SelectedIndex)
 	body := strings.TrimSpace(a.ES.QueryDSL)
 	if index == "" {
-		a.ES.Err = i18n.T("es.error.selectIndex")
+		a.ES.QueryErr = i18n.T("es.error.selectIndex")
 		return
 	}
 	if body == "" {
-		a.ES.Err = i18n.T("es.error.enterDSL")
+		a.ES.QueryErr = i18n.T("es.error.enterDSL")
 		return
 	}
 	hostID := a.ES.HostID
@@ -252,7 +245,6 @@ func (a *State) ESRunQuery() {
 	a.ES.QueryRunning = true
 	a.ES.QueryErr = ""
 	a.ES.QueryResult = nil
-	a.ES.Err = ""
 	if a.Backend == nil {
 		a.ES.QueryRunning = false
 		a.ES.QueryErr = i18n.T("es.error.backendUninitialized")
@@ -271,9 +263,6 @@ func (a *State) ESRunQuery() {
 				return
 			}
 			a.ES.QueryResult = res
-			if res != nil {
-				a.ES.Notice = i18n.Tf("es.notice.queryDone", len(res.Rows))
-			}
 		})
 	}()
 }
@@ -342,7 +331,6 @@ func (a *State) ESRunCommand() {
 	a.ES.CommandRunning = true
 	a.ES.CommandErr = ""
 	a.ES.CommandResult = nil
-	a.ES.Err = ""
 	if a.Backend == nil {
 		a.ES.CommandRunning = false
 		a.ES.CommandErr = i18n.T("es.error.backendUninitialized")
@@ -360,7 +348,6 @@ func (a *State) ESRunCommand() {
 				a.ES.CommandErr = err.Error()
 			} else {
 				a.ES.CommandResult = res
-				a.ES.Notice = i18n.T("es.notice.commandDone")
 			}
 			a.ES.CommandHistory = append([]string{cmd},
 				firstNStrings(a.ES.CommandHistory, 49)...)

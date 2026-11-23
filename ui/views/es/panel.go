@@ -33,7 +33,6 @@ func Panel(c *ui.Context, a *workspace.State) {
 				esCommandTerminal(c, a, t)
 			})
 		})
-		esNoticeBar(c, a, t)
 	})
 }
 
@@ -210,21 +209,5 @@ func esHistory(c *ui.Context, a *workspace.State, t *ui.Theme) {
 				}
 			})
 		})
-	})
-}
-
-// esNoticeBar reports errors and notices, and takes no room when there is
-// nothing to say.
-func esNoticeBar(c *ui.Context, a *workspace.State, t *ui.Theme) {
-	text, color := a.ES.Notice, t.TextMuted
-	if a.ES.Err != "" {
-		text, color = a.ES.Err, t.Danger
-	}
-	if text == "" {
-		return
-	}
-	ui.Divider(c)
-	ui.Row(c).Padding(3, 10).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, text).FontSize(style.FontSize(12)).TextColor(color).SingleLine()
 	})
 }

@@ -63,8 +63,8 @@ func TestAttachESWithoutBackend(t *testing.T) {
 
 	a.ES.SelectedIndex = ""
 	a.ESRunQuery()
-	if a.ES.Err != "请先选择索引" {
-		t.Fatalf("query without index = %q", a.ES.Err)
+	if a.ES.QueryErr != "请先选择索引" {
+		t.Fatalf("query without index = %q", a.ES.QueryErr)
 	}
 	a.ES.SelectedIndex = "logs-*"
 	a.ESRunQuery()

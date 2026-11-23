@@ -44,9 +44,6 @@ var (
 		"es.error.selectIndex":          "请先选择索引",
 		"es.error.enterDSL":             "请输入 Query DSL",
 		"es.error.infoFailed":           "读取集群信息失败：%s",
-		"es.notice.refreshed":           "索引已刷新（%d）",
-		"es.notice.queryDone":           "查询完成（%d 行）",
-		"es.notice.commandDone":         "命令执行完成",
 	}
 
 	esEn = map[string]string{
@@ -90,9 +87,6 @@ var (
 		"es.error.selectIndex":          "Select an index first",
 		"es.error.enterDSL":             "Enter a Query DSL",
 		"es.error.infoFailed":           "Failed to read cluster info: %s",
-		"es.notice.refreshed":           "Indices refreshed (%d)",
-		"es.notice.queryDone":           "Query complete (%d rows)",
-		"es.notice.commandDone":         "Command completed",
 	}
 )
 

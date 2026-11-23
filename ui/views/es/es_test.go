@@ -95,6 +95,16 @@ func TestESIndexListSelection(t *testing.T) {
 	}
 }
 
+func TestESQueryValidationInline(t *testing.T) {
+	a := esTestApp()
+	a.ES.SelectedIndex = ""
+	a.ESRunQuery()
+	tt := ui.NewTester(views.Shell(a), 1300, 900)
+	if !tt.HasText("请先选择索引") {
+		t.Fatalf("validation error missing: %q", tt.Texts())
+	}
+}
+
 func TestESInfoAndEmptySelection(t *testing.T) {
 	a := esTestApp()
 	a.ES.MainTab = 1

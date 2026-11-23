@@ -15,12 +15,6 @@ import (
 func Panel(c *ui.Context, a *workspace.State) {
 	t := c.Theme()
 	ui.Column(c).Fill().MinWidth(0).Children(func() {
-		ui.Row(c).Padding(6, 10).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "Elasticsearch · "+a.ES.Label).FontSize(style.FontSize(13)).Bold().SingleLine()
-			ui.Spacer(c)
-			ui.Button(c, i18n.T("es.action.refreshIndices")).FontSize(style.FontSize(12)).OnClick(a.ESRefreshIndices)
-		})
-		ui.Divider(c)
 		ui.Row(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
 			esIndexPane(c, a, t)
 			ui.Column(c).Grow(1).FillHeight().MinWidth(0).Children(func() {
@@ -39,7 +33,7 @@ func Panel(c *ui.Context, a *workspace.State) {
 				esCommandTerminal(c, a, t)
 			})
 		})
-		esStatusBar(c, a, t)
+		esNoticeBar(c, a, t)
 	})
 }
 
@@ -48,6 +42,9 @@ func esIndexPane(c *ui.Context, a *workspace.State, t *ui.Theme) {
 		Border(1, t.Border).Children(func() {
 		ui.Row(c).Padding(6, 8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, i18n.Tf("es.indices.title", len(a.ES.Indices))).FontSize(style.FontSize(13)).Bold()
+			ui.Spacer(c)
+			widgets.IconButton(c, t, "refresh", i18n.T("es.action.refreshIndices"),
+				false, false, a.ESRefreshIndices)
 		})
 		ui.Divider(c)
 		switch {
@@ -65,16 +62,15 @@ func esIndexPane(c *ui.Context, a *workspace.State, t *ui.Theme) {
 			ui.Text(c, i18n.T("es.indices.empty")).FontSize(style.FontSize(12)).TextColor(t.TextMuted).Padding(8)
 		default:
 			a.ES.IndexGrid.Selected = &a.ES.IndexRow
-			cols := []ui.TableColumn{{Title: i18n.T("es.indices.column"), MinWidth: 220}}
-			table := ui.Table(c, &a.ES.IndexGrid, cols, len(a.ES.Indices),
-				func(row, col int) {
-					if row < 0 || row >= len(a.ES.Indices) {
-						return
-					}
-					idx := a.ES.Indices[row]
-					ui.Text(c, idx).FontSize(style.FontSize(13)).SingleLine().Tooltip(idx)
-				}).Grow(1).MinWidth(0)
-			if table.Changed() && a.ES.IndexRow >= 0 && a.ES.IndexRow < len(a.ES.Indices) {
+			list := ui.List(c, &a.ES.IndexGrid, len(a.ES.Indices), func(row int) {
+				if row < 0 || row >= len(a.ES.Indices) {
+					return
+				}
+				idx := a.ES.Indices[row]
+				ui.Text(c, idx).FontSize(style.FontSize(13)).SingleLine().
+					Padding(5, 10).Tooltip(idx)
+			}).Grow(1).MinWidth(0)
+			if list.Changed() && a.ES.IndexRow >= 0 && a.ES.IndexRow < len(a.ES.Indices) {
 				a.ESSelectIndex(a.ES.Indices[a.ES.IndexRow])
 			}
 		}
@@ -217,19 +213,18 @@ func esHistory(c *ui.Context, a *workspace.State, t *ui.Theme) {
 	})
 }
 
-func esStatusBar(c *ui.Context, a *workspace.State, t *ui.Theme) {
+// esNoticeBar reports errors and notices, and takes no room when there is
+// nothing to say.
+func esNoticeBar(c *ui.Context, a *workspace.State, t *ui.Theme) {
+	text, color := a.ES.Notice, t.TextMuted
+	if a.ES.Err != "" {
+		text, color = a.ES.Err, t.Danger
+	}
+	if text == "" {
+		return
+	}
 	ui.Divider(c)
-	ui.Row(c).Padding(3, 10).Gap(12).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, a.ES.Label).FontSize(style.FontSize(12)).TextColor(t.TextMuted).SingleLine()
-		ui.Spacer(c)
-		if a.ES.Err != "" {
-			ui.Text(c, a.ES.Err).FontSize(style.FontSize(12)).TextColor(t.Danger).SingleLine()
-			return
-		}
-		text := a.ES.Notice
-		if text == "" {
-			text = i18n.T("es.status.ready")
-		}
-		ui.Text(c, text).FontSize(style.FontSize(12)).TextColor(t.TextMuted).SingleLine()
+	ui.Row(c).Padding(3, 10).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, text).FontSize(style.FontSize(12)).TextColor(color).SingleLine()
 	})
 }

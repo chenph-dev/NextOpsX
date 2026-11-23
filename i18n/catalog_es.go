@@ -17,7 +17,6 @@ var (
 		"es.indices.title":   "索引 (%d)",
 		"es.indices.loading": "读取索引…",
 		"es.indices.empty":   "没有索引",
-		"es.indices.column":  "索引",
 
 		// DSL query tab.
 		"es.query.noIndex": "索引：未选择",
@@ -38,7 +37,6 @@ var (
 		"es.command.placeholder":  "_cat/indices?format=json\n或 logs-*/_search\n{\"query\":{\"match_all\":{}}}",
 		"es.command.historyTitle": "命令历史",
 		"es.command.historyEmpty": "暂无历史",
-		"es.status.ready":         "就绪",
 
 		// App-layer errors and notices.
 		"es.error.backendUninitialized": "后端未初始化",
@@ -65,7 +63,6 @@ var (
 		"es.indices.title":   "Indices (%d)",
 		"es.indices.loading": "Loading indices…",
 		"es.indices.empty":   "No indices",
-		"es.indices.column":  "Index",
 
 		// DSL query tab.
 		"es.query.noIndex": "Index: none selected",
@@ -86,7 +83,6 @@ var (
 		"es.command.placeholder":  "_cat/indices?format=json\nor logs-*/_search\n{\"query\":{\"match_all\":{}}}",
 		"es.command.historyTitle": "Command history",
 		"es.command.historyEmpty": "No history",
-		"es.status.ready":         "Ready",
 
 		// App-layer errors and notices.
 		"es.error.backendUninitialized": "Backend not initialized",

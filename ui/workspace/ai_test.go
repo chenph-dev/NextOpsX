@@ -112,6 +112,49 @@ func TestAIEventsUpdateState(t *testing.T) {
 	}
 }
 
+func TestAIRunningPlanEvent(t *testing.T) {
+	a := &State{}
+	a.AI.SessionID = "s1"
+
+	a.HandleAIEvent("s1", "run:auto", map[string]any{
+		"command": "systemctl restart nginx", "plan": true,
+	})
+	if !a.AI.RunningPlan {
+		t.Fatal("run:auto{plan:true} 应设置计划执行标记")
+	}
+	a.HandleAIEvent("s1", "run:start", map[string]any{"command": "systemctl restart nginx"})
+	if !a.AI.RunningPlan {
+		t.Fatal("run:start 不应清除计划执行标记")
+	}
+	a.HandleAIEvent("s1", "run:result", map[string]any{})
+	if a.AI.RunningPlan {
+		t.Fatal("run:result 应清除计划执行标记")
+	}
+
+	// 只读自动放行不带 plan，不应误标为计划执行。
+	a.HandleAIEvent("s1", "run:auto", map[string]any{"command": "ls"})
+	if a.AI.RunningPlan {
+		t.Fatal("普通自动放行不应设置计划执行标记")
+	}
+}
+
+func TestAISnapshotKeepsRunningPlan(t *testing.T) {
+	a := &State{}
+	a.AI.SessionID = "s1"
+	a.AI.RunningCommand = "systemctl restart nginx"
+	a.AI.RunningPlan = true
+	a.saveAISnapshot()
+
+	a.AI.RunningCommand = ""
+	a.AI.RunningPlan = false
+	a.restoreAISnapshot("s1")
+
+	if a.AI.RunningCommand != "systemctl restart nginx" || !a.AI.RunningPlan {
+		t.Fatalf("snapshot 未保留计划执行状态: cmds=%q plan=%v",
+			a.AI.RunningCommand, a.AI.RunningPlan)
+	}
+}
+
 func TestAIApprovalActions(t *testing.T) {
 	a := &State{}
 	a.AI.SessionID = "s1"

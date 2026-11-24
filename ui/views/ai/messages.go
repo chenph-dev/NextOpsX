@@ -159,6 +159,8 @@ func aiToolStatus(msgs []convstore.Message, i int, callID string) string {
 		return workspace.AIStatusRejected
 	case workspace.AIStatusAuto:
 		return workspace.AIStatusAuto
+	case workspace.AIStatusPlan:
+		return workspace.AIStatusPlan
 	default:
 		return workspace.AIStatusApproved
 	}

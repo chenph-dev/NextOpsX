@@ -58,6 +58,7 @@ func (m *SessionManager) run(s *agentSession, ctx context.Context, input []*sche
 		// 整轮对话结束：清空 tool call 队列，防止取消/中断遗留混入下一轮导致配对错位。
 		// （AwaitingApproval 分支不清——当前待审批 tool_call 仍需 Take。）
 		s.toolCalls.Reset()
+		s.planGrant.Revoke()
 		if errors.Is(err, context.Canceled) {
 			m.emitError(s.id, "本次执行已取消", true)
 		} else {
@@ -70,6 +71,7 @@ func (m *SessionManager) run(s *agentSession, ctx context.Context, input []*sche
 	s.interruptID = ""
 	_ = s.checkpoints.Delete(ctx, s.id)
 	s.toolCalls.Reset()
+	s.planGrant.Revoke()
 	m.emitState(s.id, StateIdle)
 }
 
@@ -128,6 +130,7 @@ func (m *SessionManager) ensureGraph(s *agentSession) error {
 			auto, _ := policyFor(s.hostID)
 			sqlTool.SetApprovalPolicy(auto)
 		}
+		sqlTool.SetPlanGrant(s.planGrant)
 		commandTool = sqlTool
 	} else {
 		sshTool := agenttools.NewSSHTool(s.id, s.holder, m.emit, m.convs, s.toolCalls)
@@ -142,6 +145,7 @@ func (m *SessionManager) ensureGraph(s *agentSession) error {
 			auto, wl := policyFor(s.hostID)
 			sshTool.SetApprovalPolicy(auto, wl)
 		}
+		sshTool.SetPlanGrant(s.planGrant)
 		commandTool = sshTool
 	}
 	planTool := agenttools.NewPlanTool(s.id, m.emit, m.convs, s.toolCalls)

@@ -108,6 +108,9 @@ type agentSession struct {
 
 	holder    *executorHolder
 	toolCalls *agenttools.ToolCallHolder
+	// planGrant 是已批准计划的执行授权：ApprovePlan 激活，
+	// 本轮终态 / 新消息 / 清空或删除会话时撤销。
+	planGrant *agenttools.PlanGrant
 }
 
 // SessionManager 管理所有 Agent 会话。

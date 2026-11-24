@@ -33,6 +33,9 @@ type SQLTool struct {
 
 	// 审批分级：enableAuto=true 且 SQL 命中只读关键字时自动放行（不 Interrupt）。
 	enableAuto bool
+
+	// planGrant 是已批准计划的执行授权；激活时只读查询跳过逐条审批。
+	planGrant *PlanGrant
 }
 
 // NewSQLTool 构造 SQL 工具。runner 为 nil 时执行返回"未配置"提示；
@@ -59,11 +62,16 @@ func (t *SQLTool) SetApprovalPolicy(enableAuto bool) {
 	t.enableAuto = enableAuto
 }
 
+// SetPlanGrant 注入计划执行授权。nil 表示不启用计划自动执行。
+// 计划模式下只自动放行只读查询；写操作与高危 DDL 仍需人工审批。
+func (t *SQLTool) SetPlanGrant(g *PlanGrant) { t.planGrant = g }
+
 // Info 返回工具元信息，供 ChatModel 生成 tool call。
 func (t *SQLTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "execute_sql",
-		Desc: "在目标数据库上执行一条 SQL 语句，先展示给用户审批，批准后才执行。" +
+		Desc: "在目标数据库上执行一条 SQL 语句。普通模式下会先展示给用户审批；" +
+			"已批准计划内的只读查询自动执行，写操作仍需确认。" +
 			"优先使用只读查询（SELECT），写操作（INSERT/UPDATE/DELETE/DDL）必须说明影响范围与风险。",
 		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 			"sql": {Type: schema.String, Desc: "要执行的 SQL 语句", Required: true},
@@ -114,6 +122,17 @@ func (t *SQLTool) InvokableRun(ctx context.Context, argsJSON string, _ ...einoto
 			return content, nil
 		}
 		return t.execute(ctx, data, "approved")
+	}
+
+	// 计划模式：已批准计划下只读查询直接执行；写操作仍逐条审批。
+	// 恢复路径已在上方 return，用户批准/编辑/拒绝的结果不会被这里覆盖。
+	if t.planGrant.Active() && action == guardrail.ActionAuto {
+		if t.emit != nil {
+			t.emit(t.sessionID, "run:auto", map[string]any{
+				"command": args.SQL, "plan": true,
+			})
+		}
+		return t.execute(ctx, args.SQL, "plan")
 	}
 
 	// 自动放行：仅首次调用路径生效（恢复路径已 return）。命中只读 → 直连执行。

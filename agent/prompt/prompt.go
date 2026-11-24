@@ -20,7 +20,7 @@ const SshPrompt = `目标资产为 Linux 系统。你拥有 execute_command 工�
 4. 危险操作（删除、重启、关机、格式化、覆盖磁盘/分区等）必须先明确说明风险。
 5. 用户拒绝某条命令时，不要重复提议同一条命令；换其他方案或向用户询问更多信息。
 6. 当你已有足够信息回答时，直接用文本给出结论，不要再提议命令。
-7. 计划模式：面对复杂/多步运维任务（需要多条命令诊断/修复），先调用 create_plan 提交执行计划（目标 + 步骤列表）供用户审批，批准后再按计划逐步执行（每步仍通过 execute_command 提议命令等待审批）。简单单条命令任务直接使用 execute_command，不要使用 create_plan。`
+7. 计划模式：面对复杂/多步运维任务（需要多条命令诊断/修复），先调用 create_plan 提交执行计划（目标 + 步骤列表）供用户审批，批准后再按计划逐步执行（普通命令会自动执行，只有高危命令和敏感文件读取需要再次确认）。简单单条命令任务直接使用 execute_command，不要使用 create_plan。`
 
 // WinrmPrompt WinRM（Windows 语义）协议的提示词片段。
 const WinrmPrompt = `目标资产为 Windows 系统。你拥有 execute_command 工具，用于在目标资产执行一条 PowerShell 命令。严格遵循以下规则：
@@ -30,7 +30,7 @@ const WinrmPrompt = `目标资产为 Windows 系统。你拥有 execute_command 
 4. 危险操作（删除、重启、关机、格式化、覆盖磁盘/分区等）必须先明确说明风险。Windows 下还包括 format、del /s、rd /s、diskpart clean、shutdown /s 等危险操作。
 5. 用户拒绝某条命令时，不要重复提议同一条命令；换其他方案或向用户询问更多信息。
 6. 当你已有足够信息回答时，直接用文本给出结论，不要再提议命令。
-7. 计划模式：面对复杂/多步运维任务（需要多条命令诊断/修复），先调用 create_plan 提交执行计划（目标 + 步骤列表）供用户审批，批准后再按计划逐步执行（每步仍通过 execute_command 提议命令等待审批）。简单单条命令任务直接使用 execute_command，不要使用 create_plan。`
+7. 计划模式：面对复杂/多步运维任务（需要多条命令诊断/修复），先调用 create_plan 提交执行计划（目标 + 步骤列表）供用户审批，批准后再按计划逐步执行（普通命令会自动执行，只有高危命令和敏感文件读取需要再次确认）。简单单条命令任务直接使用 execute_command，不要使用 create_plan。`
 
 // RedisPrompt Redis 协议的提示词片段。
 const RedisPrompt = `目标资产为 Redis 数据库。你拥有 execute_sql 工具，用于在目标 Redis 执行一条命令。严格遵循以下规则：

@@ -303,3 +303,70 @@ func TestDefaultReadOnlyCommands_NoEnv(t *testing.T) {
 		}
 	}
 }
+
+// 计划模式依赖 IsSensitiveCommand 阻止自动执行敏感读取。
+func TestIsSensitiveCommand(t *testing.T) {
+	cases := []struct {
+		cmd  string
+		want bool
+	}{
+		{"cat /etc/shadow", true},
+		{"cat /etc/sh\\adow", true},
+		{"cat /etc/./shadow", true},
+		{"cat /etc//shadow", true},
+		{"cat /etc/sudoers", true},
+		{"cat ~/.ssh/id_rsa", true},
+		{"cat /root/.kube/config", true},
+		{"cat /app/.env", true},
+		{"printenv", true},
+		{"cat /proc/1/environ", true},
+		{"cat /proc/cpuinfo", false},
+		{"cat /etc/hosts", false},
+		{"ls -la /var/log", false},
+		{"systemctl restart nginx", false},
+	}
+	for _, c := range cases {
+		if got := IsSensitiveCommand(c.cmd); got != c.want {
+			t.Errorf("IsSensitiveCommand(%q) = %v, want %v", c.cmd, got, c.want)
+		}
+	}
+}
+
+// 计划模式额外拦截的高危命令（不误伤 /tmp 下的普通删除）。
+func TestAssessRiskForProtocol_PlanModePatterns(t *testing.T) {
+	high := []string{
+		"rm -rf /var/lib/data",
+		"rm -rf /etc/nginx",
+		"git clean -fdx",
+		"truncate -s 0 /var/log/syslog",
+		"iptables -F",
+		"docker system prune -af",
+		"crontab -r",
+		"userdel bob",
+		"chmod -R 777 /",
+	}
+	for _, cmd := range high {
+		if got := AssessRiskForProtocol(cmd, "ssh"); got != "high" {
+			t.Errorf("AssessRiskForProtocol(%q) = %q, want high", cmd, got)
+		}
+	}
+	if got := AssessRiskForProtocol("rm -rf /tmp/build-cache", "ssh"); got == "high" {
+		t.Error("普通 /tmp 清理不应判为高危")
+	}
+}
+
+// Redis 只读命令必须命中 auto（曾因大小写查表 bug 全部降级为 write）。
+func TestClassifyForProtocol_RedisReadOnly(t *testing.T) {
+	for _, cmd := range []string{"GET k", "HGETALL h", "INFO"} {
+		risk, action := ClassifyForProtocol(cmd, nil, "redis")
+		if risk != "read" || action != ActionAuto {
+			t.Errorf("ClassifyForProtocol(%q, redis) = (%q,%q), want (read,auto)", cmd, risk, action)
+		}
+	}
+	for _, cmd := range []string{"SET k v", "DEL k", "FLUSHALL"} {
+		_, action := ClassifyForProtocol(cmd, nil, "redis")
+		if action != ActionApprove {
+			t.Errorf("ClassifyForProtocol(%q, redis) action = %q, want approve", cmd, action)
+		}
+	}
+}

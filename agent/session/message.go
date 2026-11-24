@@ -21,6 +21,8 @@ func (m *SessionManager) SendMessage(sid, text string) error {
 		return fmt.Errorf("会话进行中（%s），请等待本轮结束", s.state)
 	}
 	s.state = stThinking
+	// 新轮次重新按正常策略审批；上一轮计划的自动执行授权到此为止。
+	s.planGrant.Revoke()
 	s.mu.Unlock()
 
 	// 执行器检查（提前失败，避免进入图执行才报错）。
@@ -120,6 +122,7 @@ func (m *SessionManager) ClearMessages(sid string) error {
 		s.mu.Unlock()
 		return fmt.Errorf("会话进行中（%s），请等待本轮结束", s.state)
 	}
+	s.planGrant.Revoke()
 	s.mu.Unlock()
 	_ = s.checkpoints.Delete(context.Background(), sid)
 	s.toolCalls.Reset()
@@ -136,6 +139,7 @@ func (m *SessionManager) DeleteSession(sid string) error {
 	m.mu.Unlock()
 	if ok {
 		s.mu.Lock()
+		s.planGrant.Revoke()
 		if s.cancel != nil {
 			s.cancel()
 		}

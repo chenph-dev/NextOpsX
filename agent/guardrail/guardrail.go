@@ -19,6 +19,15 @@ var dangerPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`\b(shutdown|poweroff|halt|reboot)\b`),
 	regexp.MustCompile(`>\s*/dev/(sd|nvme|hd|vd)`),    // 重定向到块设备
 	regexp.MustCompile(`:\(\)\s*\{\s*:\|:&\s*\}\s*;`), // fork bomb
+	// 递归强制删除系统目录（/tmp 等临时目录不在此列，避免噪音）。
+	regexp.MustCompile(`\brm\s+-[a-zA-Z]*r[a-zA-Z]*f?\s+/(etc|var|usr|home|root|boot|lib|lib64|bin|sbin|opt|srv|sys|proc|dev|run)\b`),
+	regexp.MustCompile(`\bgit\s+clean\s+-[a-zA-Z]*[fdx]`),
+	regexp.MustCompile(`\btruncate\s+-s\s*0\b`),
+	regexp.MustCompile(`\biptables\s+-F\b`),
+	regexp.MustCompile(`\bdocker\s+(system\s+)?prune\b`),
+	regexp.MustCompile(`\bcrontab\s+-r\b`),
+	regexp.MustCompile(`\buserdel\b`),
+	regexp.MustCompile(`\bchmod\s+-R\s+777\s+/\s*$`),
 }
 
 // windowsDangerPatterns WinRM 额外匹配的危险 PowerShell/cmd 模式。
@@ -43,15 +52,21 @@ var (
 // 聚焦凭据/密钥/认证信息文件，避免自动放行把敏感内容读出来回灌模型。
 var sensitiveReadPatterns = []string{
 	"/etc/shadow", "/etc/passwd", "/etc/security",
+	"/etc/sudoers", "/etc/sudoers.d", "/etc/gshadow",
 	"/var/run/secrets", "/run/secrets",
-	".ssh", "id_rsa", "id_ed25519", "authorized_keys", "known_hosts",
-	"kubeconfig", ".kube", ".aws", "credentials", ".env", ".netrc",
+	".ssh", "id_rsa", "id_ed25519", "id_dsa", "id_ecdsa", "authorized_keys", "known_hosts",
+	"kubeconfig", ".kube", ".aws", ".azure", ".gnupg",
+	"credentials", ".git-credentials", ".docker/config.json", ".env", ".netrc",
 	".pgpass", ".npmrc", ".pypirc", ".gitconfig",
+	".pem", ".p12", ".pfx", "gcloud", "service-account", "printenv",
 	"bash_history", "zsh_history",
 }
 
 // shellDequoteReplacer 剥离单/双引号与反斜杠，防 cat /etc/sh\adow、cat /etc/sh”adow 绕过。
 var shellDequoteReplacer = strings.NewReplacer("'", "", `"`, "", `\`, "")
+
+// sensitiveProcRe 精确匹配进程环境变量文件；不拦 /proc/cpuinfo 等普通诊断读取。
+var sensitiveProcRe = regexp.MustCompile(`/proc/[^\s]*environ`)
 
 // AssessRiskForProtocol 按协议返回命令风险等级："" 无风险，"high" 危险。
 // protocol 为 "winrm" 时额外套用 Windows 危险模式；"sql" 走 SQL 语义。
@@ -145,16 +160,29 @@ func IsReadOnlyCommand(command string, whitelist []string) bool {
 	}
 	for _, w := range whitelist {
 		if first == strings.TrimSpace(w) {
-			return !containsSensitiveReadArg(c)
+			return !IsSensitiveCommand(c)
 		}
 	}
 	return false
+}
+
+// IsSensitiveCommand 判断命令是否引用凭据/密钥等敏感内容。
+// 计划模式据此阻止自动执行可能把敏感内容读回模型的命令。
+// 只做去引号后的小写子串匹配，不解析命令语义。
+func IsSensitiveCommand(command string) bool {
+	return containsSensitiveReadArg(command)
 }
 
 // containsSensitiveReadArg 判断只读命令参数是否触及敏感文件/目录。
 // 先剥离引号与反斜杠转义，防 cat /etc/sh\adow、cat /etc/sh”adow 绕过。
 func containsSensitiveReadArg(command string) bool {
 	dequoted := shellDequoteReplacer.Replace(strings.ToLower(command))
+	// 归一化重复斜杠与 "/./"，防 /etc//shadow、/etc/./shadow 绕过。
+	dequoted = strings.ReplaceAll(dequoted, "//", "/")
+	dequoted = strings.ReplaceAll(dequoted, "/./", "/")
+	if sensitiveProcRe.MatchString(dequoted) {
+		return true
+	}
 	for _, p := range sensitiveReadPatterns {
 		if strings.Contains(dequoted, p) {
 			return true
@@ -244,7 +272,8 @@ func classifyRedis(command string) (string, Action) {
 			return "high", ActionApprove
 		}
 	}
-	if redisReadOnly[redisKeyword(c)] {
+	// redisReadOnly 的 key 为小写，c 已归一为大写，查表前转回小写。
+	if redisReadOnly[strings.ToLower(redisKeyword(c))] {
 		return "read", ActionAuto
 	}
 	return "write", ActionApprove

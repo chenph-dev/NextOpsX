@@ -112,7 +112,8 @@ func (t *PlanTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "create_plan",
 		Desc: "面对复杂/多步运维任务时，先提交一份执行计划（目标 + 步骤列表）供用户审批，" +
-			"批准后按步骤逐步执行。简单单条命令任务不要使用本工具，直接用 execute_command。",
+			"批准后按步骤逐步执行（普通命令自动执行，高危命令和敏感文件读取仍需确认）。" +
+			"简单单条命令任务不要使用本工具，直接用 execute_command。",
 		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 			"goal": {Type: schema.String, Desc: "任务目标", Required: true},
 			"steps": {Type: schema.Array, Desc: "执行步骤列表", Required: true,
@@ -147,8 +148,8 @@ func (t *PlanTool) InvokableRun(ctx context.Context, argsJSON string, _ ...einot
 		t.savePlanMessage("用户拒绝了该计划，未开始执行。请不要重复同一计划，重新规划（调整目标/步骤）或询问用户更多信息。", "rejected")
 		return "计划被拒绝，请重新规划或询问用户", nil
 	}
-	t.savePlanMessage("计划已批准，请按步骤逐步执行（每步先文本说明，再通过 execute_command 提议命令等待审批）。", "approved")
-	return "计划已批准，开始执行。请严格按步骤逐步进行，每步通过 execute_command 提议命令。", nil
+	t.savePlanMessage("计划已批准，请按步骤逐步执行（普通命令会自动执行；高危命令和敏感文件读取会暂停等待确认）。", "approved")
+	return "计划已批准，开始执行。请严格按步骤逐步进行，直接通过 execute_command 执行命令；只有高危命令和敏感文件读取需要再次确认。", nil
 }
 
 // savePlanMessage 落库 create_plan 的 tool 消息（配对 tool_call_id，避免历史孤立 tool_calls）。
@@ -186,6 +187,9 @@ type SSHTool struct {
 	enableAuto        bool
 	readOnlyWhitelist []string
 
+	// planGrant 是已批准计划的执行授权；激活时普通命令跳过逐条审批。
+	planGrant *PlanGrant
+
 	// protocol 目标资产协议："ssh"（默认）/ "winrm"，影响工具描述与风险判定语义。
 	protocol string
 }
@@ -210,6 +214,9 @@ func (t *SSHTool) SetApprovalPolicy(enableAuto bool, readOnlyWhitelist []string)
 	t.readOnlyWhitelist = readOnlyWhitelist
 }
 
+// SetPlanGrant 注入计划执行授权。nil 表示不启用计划自动执行。
+func (t *SSHTool) SetPlanGrant(g *PlanGrant) { t.planGrant = g }
+
 // SetProtocol 设置协议（"ssh"/"winrm"），影响工具描述与风险判定语义。
 func (t *SSHTool) SetProtocol(protocol string) {
 	t.protocol = protocol
@@ -217,10 +224,10 @@ func (t *SSHTool) SetProtocol(protocol string) {
 
 // Info 返回工具元信息，供 ChatModel 生成 tool call。
 func (t *SSHTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
-	desc := "在目标 Linux 资产上执行一条 Shell 命令。命令会先展示给用户审批，批准后才执行。"
+	desc := "在目标 Linux 资产上执行一条 Shell 命令。普通模式下命令会先展示给用户审批；已批准计划内的普通命令自动执行，高危命令和敏感文件读取仍需确认。"
 	cmdDesc := "要执行的 Shell 命令"
 	if strings.EqualFold(t.protocol, "winrm") {
-		desc = "在目标 Windows 资产上执行一条 PowerShell 命令。命令会先展示给用户审批，批准后才执行。"
+		desc = "在目标 Windows 资产上执行一条 PowerShell 命令。普通模式下命令会先展示给用户审批；已批准计划内的普通命令自动执行，高危命令和敏感文件读取仍需确认。"
 		cmdDesc = "要执行的 PowerShell 命令"
 	}
 	return &schema.ToolInfo{
@@ -245,10 +252,15 @@ func (t *SSHTool) InvokableRun(ctx context.Context, argsJSON string, opts ...ein
 	}
 
 	risk := guardrail.AssessRiskForProtocol(args.Command, t.protocol)
+	sensitive := guardrail.IsSensitiveCommand(args.Command)
 	// AssessedRisk 是守卫的原始判定（"" = 干净）；Risk 是展示标签（"" 归一为 "low"）。
+	// 敏感文件读取不改变守卫判定，但必须按高风险展示，强制二次确认。
 	riskLabel := risk
 	if riskLabel == "" {
 		riskLabel = "low"
+	}
+	if sensitive {
+		riskLabel = "high"
 	}
 	info := commandInfo{
 		Command: args.Command, Why: args.Why,
@@ -284,6 +296,17 @@ func (t *SSHTool) InvokableRun(ctx context.Context, argsJSON string, opts ...ein
 		}
 		// data = 批准后的最终命令（用户可能编辑过）
 		return t.execute(ctx, data, "approved")
+	}
+
+	// 计划模式：已批准计划下，非高危且非敏感的命令直接执行，不逐条中断。
+	// 恢复路径已在上方 return，用户批准/编辑/拒绝的结果不会被这里覆盖。
+	if t.planGrant.Active() && risk != "high" && !sensitive {
+		if t.emit != nil {
+			t.emit(t.sessionID, "run:auto", map[string]any{
+				"command": args.Command, "plan": true,
+			})
+		}
+		return t.execute(ctx, args.Command, "plan")
 	}
 
 	// 首次调用，或中断上下文存在但 resume 数据不匹配当前命令（多 tool_call 的后续命令）：

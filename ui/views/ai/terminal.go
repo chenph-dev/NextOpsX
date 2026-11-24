@@ -41,6 +41,9 @@ func aiTerminalBubble(c *ui.Context, a *workspace.State, msg convstore.Message, 
 	case meta.Command != "" && msg.ToolResult != "":
 		head += fmt.Sprintf(" · exit %d", meta.ExitCode)
 	}
+	if status == workspace.AIStatusPlan {
+		head += i18n.T("ai.tool.plan")
+	}
 	if lines := countOutputLines(msg.Content); lines > 0 {
 		head += i18n.Tf("ai.tool.lines", lines)
 	}

@@ -57,6 +57,7 @@ var (
 		"ai.tool.output":    "工具输出",
 		"ai.tool.rejected":  " · 已拒绝",
 		"ai.tool.cancelled": " · 已取消",
+		"ai.tool.plan":      " · 计划自动执行",
 		"ai.tool.lines":     " · %d 行",
 		"ai.tool.noOutput":  "(无输出)",
 
@@ -64,6 +65,7 @@ var (
 		"ai.status.approved":      "已批准",
 		"ai.status.rejected":      "已拒绝",
 		"ai.status.auto":          "自动放行",
+		"ai.status.plan":          "计划自动执行",
 		"ai.status.pending":       "待审批",
 		"ai.command.why":          "原因：%s",
 		"ai.command.highRisk":     "高风险",
@@ -75,6 +77,8 @@ var (
 		"ai.command.approveAgain": "再次确认批准",
 		"ai.plan.title":           "执行计划",
 		"ai.plan.goal":            "目标：%s",
+		"ai.plan.approve":         "批准并执行",
+		"ai.plan.autoHint":        "批准后普通命令自动执行；高风险命令、敏感文件读取和数据库写操作仍需确认。",
 
 		// App-layer errors and notifications.
 		"ai.conversation.defaultTitle":      "智能运维",
@@ -153,6 +157,7 @@ var (
 		"ai.tool.output":    "Tool output",
 		"ai.tool.rejected":  " · Rejected",
 		"ai.tool.cancelled": " · Cancelled",
+		"ai.tool.plan":      " · Plan auto",
 		"ai.tool.lines":     " · %d lines",
 		"ai.tool.noOutput":  "(no output)",
 
@@ -160,6 +165,7 @@ var (
 		"ai.status.approved":      "Approved",
 		"ai.status.rejected":      "Rejected",
 		"ai.status.auto":          "Auto-approved",
+		"ai.status.plan":          "Plan auto-run",
 		"ai.status.pending":       "Pending approval",
 		"ai.command.why":          "Why: %s",
 		"ai.command.highRisk":     "High risk",
@@ -171,6 +177,8 @@ var (
 		"ai.command.approveAgain": "Confirm approval",
 		"ai.plan.title":           "Execution plan",
 		"ai.plan.goal":            "Goal: %s",
+		"ai.plan.approve":         "Approve and run",
+		"ai.plan.autoHint":        "Ordinary commands run automatically after approval; high-risk commands, sensitive-file reads, and database writes still require confirmation.",
 
 		// App-layer errors and notifications.
 		"ai.conversation.defaultTitle":      "Ops Assistant",

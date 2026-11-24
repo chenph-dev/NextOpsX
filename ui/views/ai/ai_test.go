@@ -107,7 +107,8 @@ func TestAIPanelPlanAndToolOutput(t *testing.T) {
 		ApprovalStatus: "approved",
 	}}
 	tt := ui.NewTester(views.Shell(a), 1000, 900)
-	for _, want := range []string{"执行计划", "清理磁盘", "查看用量", "删除缓存", "▸ $ ls · exit 0 · 2 行"} {
+	for _, want := range []string{"执行计划", "清理磁盘", "查看用量", "删除缓存",
+		"批准后普通命令自动执行", "▸ $ ls · exit 0 · 2 行"} {
 		if !tt.HasText(want) {
 			t.Errorf("missing %q in %q", want, tt.Texts())
 		}
@@ -118,7 +119,7 @@ func TestAIPanelPlanAndToolOutput(t *testing.T) {
 	if !tt.HasText("line-one") {
 		t.Fatalf("tool output did not expand: %q", tt.Texts())
 	}
-	if err := tt.Click("批准"); err != nil {
+	if err := tt.Click("批准并执行"); err != nil {
 		t.Fatal(err)
 	}
 	if a.AI.PlanStatus != workspace.AIStatusApproved {
@@ -223,6 +224,28 @@ func TestAIHistoryPairsToolCalls(t *testing.T) {
 	}
 	if tt.HasText("批准") {
 		t.Errorf("history card must not offer approval: %q", tt.Texts())
+	}
+}
+
+func TestAIHistoryShowsPlanAutoRun(t *testing.T) {
+	a := aiTestApp()
+	a.AI.Configured = true
+	a.AI.Messages = []convstore.Message{
+		{
+			ID: "m1", Role: "assistant", Content: "开始执行",
+			ToolCalls: `[{"id":"c1","name":"execute_command","arguments":"{\"command\":\"systemctl restart nginx\",\"why\":\"restart\"}"}]`,
+		},
+		{
+			ID: "m2", Role: "tool", ToolCallID: "c1", ToolName: "execute_command",
+			Content: "ok", ApprovalStatus: "plan",
+			ToolResult: `{"command":"systemctl restart nginx","exitCode":0,"status":"plan"}`,
+		},
+	}
+	tt := ui.NewTester(views.Shell(a), 1000, 800)
+	for _, want := range []string{"开始执行", "$ systemctl restart nginx", "计划自动执行", "exit 0"} {
+		if !tt.HasText(want) {
+			t.Errorf("missing %q in %q", want, tt.Texts())
+		}
 	}
 }
 

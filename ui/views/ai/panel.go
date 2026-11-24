@@ -251,6 +251,10 @@ func aiRunningBlock(c *ui.Context, a *workspace.State) {
 			ui.Text(c, "$ "+ansi.Truncate(a.AI.RunningCommand, 72)).
 				Font("monospace").FontSize(style.FontSize(12)).TextColor(ansi.Fg).
 				SingleLine().Grow(1).MinWidth(0).Tooltip(a.AI.RunningCommand)
+			if a.AI.RunningPlan {
+				ui.Text(c, i18n.T("ai.status.plan")).FontSize(style.FontSize(12)).
+					TextColor(ansi.Fg)
+			}
 			if !a.AI.RunStartedAt.IsZero() {
 				elapsed := time.Since(a.AI.RunStartedAt).Seconds()
 				ui.Text(c, fmt.Sprintf("%.0fs", elapsed)).FontSize(style.FontSize(12)).

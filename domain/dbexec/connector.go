@@ -47,7 +47,7 @@ const dbSkillPrompt = `目标数据库。你拥有 execute_sql 工具，用于�
 4. 优先使用只读查询（SELECT/SHOW/DESC/EXPLAIN）；写操作（INSERT/UPDATE/DELETE/CREATE 等）必须先明确说明影响范围，高危操作（DROP/TRUNCATE/ALTER）必须强调不可恢复。
 5. 用户拒绝某条 SQL 时，不要重复提议同一条；换其他方案或向用户询问更多信息。
 6. 当你已有足够信息回答时，直接用文本给出结论，不要再提议 SQL。
-7. 计划模式：面对复杂/多步任务（需要多条 SQL 诊断/修复），先调用 create_plan 提交执行计划（目标 + 步骤列表）供用户审批，批准后再按计划逐步执行（每步仍通过 execute_sql 提议等待审批）。简单单条任务直接使用 execute_sql，不要使用 create_plan。`
+7. 计划模式：面对复杂/多步任务（需要多条 SQL 诊断/修复），先调用 create_plan 提交执行计划（目标 + 步骤列表）供用户审批，批准后再按计划逐步执行（只读查询会自动执行，写操作仍需逐条审批）。简单单条任务直接使用 execute_sql，不要使用 create_plan。`
 
 // registerDBDriver 注册一个"需要 host 的数据库驱动"（mysql/postgres）。
 func registerDBDriver(protocol, name, driver string) {

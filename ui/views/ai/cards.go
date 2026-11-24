@@ -18,6 +18,8 @@ func aiApprovalLabel(status string, t *ui.Theme) (string, ui.Color) {
 		return i18n.T("ai.status.rejected"), t.Danger
 	case workspace.AIStatusAuto:
 		return i18n.T("ai.status.auto"), t.Accent
+	case workspace.AIStatusPlan:
+		return i18n.T("ai.status.plan"), t.Accent
 	default:
 		return i18n.T("ai.status.pending"), t.Warning
 	}
@@ -111,12 +113,16 @@ func planCard(c *ui.Context, a *workspace.State, plan *workspace.PlanSuggestion,
 		for i, step := range plan.Steps {
 			ui.Text(c, fmt.Sprintf("%d. %s", i+1, step)).FontSize(style.FontSize(13)).Wrap()
 		}
+		if !history && status == workspace.AIStatusPending {
+			ui.Text(c, i18n.T("ai.plan.autoHint")).FontSize(style.FontSize(12)).
+				TextColor(t.TextMuted).Wrap()
+		}
 		if history || status != workspace.AIStatusPending {
 			return
 		}
 		ui.Row(c).Justify(ui.End).Gap(6).Children(func() {
 			ui.Button(c, i18n.T("ai.command.reject")).FontSize(style.FontSize(12)).OnClick(a.RejectAIPlan)
-			ui.PrimaryButton(c, i18n.T("ai.command.approve")).FontSize(style.FontSize(12)).OnClick(a.ApproveAIPlan)
+			ui.PrimaryButton(c, i18n.T("ai.plan.approve")).FontSize(style.FontSize(12)).OnClick(a.ApproveAIPlan)
 		})
 	})
 }

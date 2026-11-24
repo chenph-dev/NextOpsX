@@ -20,6 +20,7 @@ const (
 	AIStatusApproved = "approved"
 	AIStatusRejected = "rejected"
 	AIStatusAuto     = "auto"
+	AIStatusPlan     = "plan"
 )
 
 // CommandSuggestion 是模型提议执行的一条命令（审批卡数据）。
@@ -51,6 +52,7 @@ type aiTurnSnapshot struct {
 	Err            string
 	ErrCancelled   bool
 	RunningCommand string
+	RunningPlan    bool
 	RunStartedAt   time.Time
 	RunOutput      string
 }
@@ -77,6 +79,7 @@ type AIState struct {
 	ErrCancelled bool
 
 	RunningCommand string
+	RunningPlan    bool
 	RunStartedAt   time.Time
 	RunOutput      string
 
@@ -200,6 +203,7 @@ func (a *State) resetAIForHost(hostID string) {
 	a.AI.Err = ""
 	a.AI.ErrCancelled = false
 	a.AI.RunningCommand = ""
+	a.AI.RunningPlan = false
 	a.AI.RunStartedAt = time.Time{}
 	a.AI.RunOutput = ""
 	a.AI.Input = ""
@@ -267,7 +271,19 @@ func (a *State) applyAIEvent(sessionID, event string, data any) {
 			a.AI.PlanStatus = AIStatusPending
 			a.AI.Streaming = ""
 		}
-	case "run:auto", "run:start":
+	case "run:auto":
+		var p struct {
+			Command string `json:"command"`
+			Plan    bool   `json:"plan"`
+		}
+		if decodeAIEvent(data, &p) {
+			a.AI.RunningCommand = p.Command
+			a.AI.RunningPlan = p.Plan
+			a.AI.RunStartedAt = time.Now()
+			a.AI.RunOutput = ""
+		}
+	case "run:start":
+		// run:auto 之后紧跟 run:start；这里不能清除 RunningPlan。
 		var p struct {
 			Command string `json:"command"`
 		}
@@ -285,6 +301,7 @@ func (a *State) applyAIEvent(sessionID, event string, data any) {
 		}
 	case "run:result":
 		a.AI.RunningCommand = ""
+		a.AI.RunningPlan = false
 		a.AI.RunStartedAt = time.Time{}
 		a.AI.RunOutput = ""
 		a.resyncAI(sessionID)
@@ -363,6 +380,7 @@ func (a *State) saveAISnapshot() {
 		Err:            a.AI.Err,
 		ErrCancelled:   a.AI.ErrCancelled,
 		RunningCommand: a.AI.RunningCommand,
+		RunningPlan:    a.AI.RunningPlan,
 		RunStartedAt:   a.AI.RunStartedAt,
 		RunOutput:      a.AI.RunOutput,
 	}
@@ -394,6 +412,7 @@ func (a *State) restoreAISnapshot(sid string) {
 		a.AI.Err = ""
 		a.AI.ErrCancelled = false
 		a.AI.RunningCommand = ""
+		a.AI.RunningPlan = false
 		a.AI.RunStartedAt = time.Time{}
 		a.AI.RunOutput = ""
 		return
@@ -408,6 +427,7 @@ func (a *State) restoreAISnapshot(sid string) {
 	a.AI.Err = s.Err
 	a.AI.ErrCancelled = s.ErrCancelled
 	a.AI.RunningCommand = s.RunningCommand
+	a.AI.RunningPlan = s.RunningPlan
 	a.AI.RunStartedAt = s.RunStartedAt
 	a.AI.RunOutput = s.RunOutput
 	a.AI.PendingCommand = nil
@@ -458,7 +478,18 @@ func (a *State) applyAIEventSnapshot(sessionID, event string, data any) {
 			s.PlanStatus = AIStatusPending
 			s.Streaming = ""
 		}
-	case "run:auto", "run:start":
+	case "run:auto":
+		var p struct {
+			Command string `json:"command"`
+			Plan    bool   `json:"plan"`
+		}
+		if decodeAIEvent(data, &p) {
+			s.RunningCommand = p.Command
+			s.RunningPlan = p.Plan
+			s.RunStartedAt = time.Now()
+			s.RunOutput = ""
+		}
+	case "run:start":
 		var p struct {
 			Command string `json:"command"`
 		}
@@ -476,6 +507,7 @@ func (a *State) applyAIEventSnapshot(sessionID, event string, data any) {
 		}
 	case "run:result":
 		s.RunningCommand = ""
+		s.RunningPlan = false
 		s.RunStartedAt = time.Time{}
 		s.RunOutput = ""
 	case "ai:error":
@@ -536,6 +568,7 @@ func (a *State) resyncAI(sessionID string) {
 			a.AI.Messages = msgs
 			a.AI.Streaming = ""
 			a.AI.RunningCommand = ""
+			a.AI.RunningPlan = false
 			a.AI.RunStartedAt = time.Time{}
 			a.AI.RunOutput = ""
 			// Keep approval cards while the backend still waits for a
@@ -784,6 +817,7 @@ func (a *State) ClearAIConversation() {
 			a.AI.PlanStatus = ""
 			a.AI.Err = ""
 			a.AI.RunningCommand = ""
+			a.AI.RunningPlan = false
 			a.AI.RunOutput = ""
 			a.saveAISnapshot()
 		})
@@ -827,6 +861,7 @@ func (a *State) NewAIConversation() {
 			a.AI.State = ""
 			a.AI.Err = ""
 			a.AI.RunningCommand = ""
+			a.AI.RunningPlan = false
 			a.AI.RunOutput = ""
 			if convs != nil {
 				a.AI.Conversations = convs

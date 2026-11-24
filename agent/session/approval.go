@@ -65,6 +65,8 @@ func (m *SessionManager) ApprovePlan(sid string) error {
 		return fmt.Errorf("当前无待审批计划（state=%s type=%s）", s.state, s.approvalType)
 	}
 	s.state = stRunning
+	// 计划批准即授予本轮自动执行权限；普通命令不再逐条中断。
+	s.planGrant.Activate()
 	input := s.lastInput
 	s.mu.Unlock()
 
@@ -89,6 +91,7 @@ func (m *SessionManager) RejectPlan(sid string) error {
 		return fmt.Errorf("当前无待审批计划（state=%s type=%s）", s.state, s.approvalType)
 	}
 	s.state = stThinking
+	s.planGrant.Revoke()
 	input := s.lastInput
 	s.mu.Unlock()
 

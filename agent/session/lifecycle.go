@@ -80,6 +80,7 @@ func (m *SessionManager) sessionFor(sid string) (*agentSession, error) {
 		checkpoints: checkpoint.NewMemCheckpointStore(),
 		holder:      &executorHolder{},
 		toolCalls:   agenttools.NewToolCallHolder(),
+		planGrant:   agenttools.NewPlanGrant(),
 	}
 	m.mu.Lock()
 	if existing, ok := m.sessions[sid]; ok {

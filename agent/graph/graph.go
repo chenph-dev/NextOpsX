@@ -23,7 +23,7 @@ type agentState struct {
 
 func init() {
 	// checkpoint 序列化要求 state 类型注册（否则 Interrupt 时 marshal 报 unknown type）。
-	schema.RegisterName[*agentState]("ops_mate_agent_state")
+	schema.RegisterName[*agentState]("nextopsx_agent_state")
 }
 
 // BuildAgentGraph 构建 NextOpsX Agent 的 eino Graph。
@@ -66,13 +66,15 @@ func BuildAgentGraph(
 		return output, nil
 	}
 
+	// 节点 key 只用于图内寻址，不是审计展示名；显示名必须显式传 WithNodeName。
 	if err := g.AddChatModelNode("llm", chatModel,
+		compose.WithNodeName("llm"),
 		compose.WithStatePreHandler(modelPreHandle),
 		compose.WithStatePostHandler(modelPostHandle),
 	); err != nil {
 		return nil, fmt.Errorf("add llm node: %w", err)
 	}
-	if err := g.AddToolsNode("tools", toolsNode); err != nil {
+	if err := g.AddToolsNode("tools", toolsNode, compose.WithNodeName("tools")); err != nil {
 		return nil, fmt.Errorf("add tools node: %w", err)
 	}
 	if err := g.AddEdge(compose.START, "llm"); err != nil {
@@ -90,7 +92,7 @@ func BuildAgentGraph(
 		}
 		return msgs, nil
 	})
-	if err := g.AddLambdaNode("finish", finish); err != nil {
+	if err := g.AddLambdaNode("finish", finish, compose.WithNodeName("finish")); err != nil {
 		return nil, fmt.Errorf("add finish node: %w", err)
 	}
 
@@ -115,7 +117,7 @@ func BuildAgentGraph(
 	}
 
 	return g.Compile(ctx,
-		compose.WithGraphName("ops_mate_agent"),
+		compose.WithGraphName("nextopsx_agent"),
 		compose.WithMaxRunSteps(50),
 		compose.WithCheckPointStore(ckptStore),
 	)

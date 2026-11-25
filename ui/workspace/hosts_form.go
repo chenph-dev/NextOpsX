@@ -46,6 +46,7 @@ type HostForm struct {
 	AuthType         string
 	AuthLabel        string
 	Secret           string
+	SecretVisible    bool
 	AutoApprove      string
 	AutoApproveLabel string
 	RdpPort          string
@@ -356,6 +357,7 @@ func (a *State) SelectHostProtocol(protocol string) {
 	f.Err = ""
 	f.TestMsg = ""
 	f.TestOK = false
+	f.SecretVisible = false
 	// A connection test may be in flight; its result belongs to the old
 	// protocol, so invalidate it.
 	f.seq = a.nextHostFormSeq()
@@ -372,6 +374,7 @@ func (a *State) ClearHostProtocol() {
 	f.Err = ""
 	f.TestMsg = ""
 	f.TestOK = false
+	f.SecretVisible = false
 	f.seq = a.nextHostFormSeq()
 	f.Busy = false
 }
@@ -418,6 +421,11 @@ func rdpPortOrDefault(v int) int {
 // SyncHostAuth maps the Chinese auth picker label to its canonical value.
 func (a *State) SyncHostAuth() {
 	a.Hosts.Form.AuthType = canonicalAuth(a.Hosts.Form.AuthLabel)
+	// A private key is shown in a text area, which has no eye toggle, so
+	// the credential starts hidden again when switching back.
+	if a.Hosts.Form.AuthType == "privatekey" {
+		a.Hosts.Form.SecretVisible = false
+	}
 }
 
 // SyncHostAutoApprove maps the auto-approve picker label to its canonical

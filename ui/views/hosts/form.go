@@ -231,10 +231,9 @@ func hostFormFields(c *ui.Context, a *workspace.State, t *ui.Theme, f *workspace
 			if a.HostFormIsSSH() && f.AuthType == "privatekey" {
 				ui.TextArea(c, &f.Secret).Grow(1).Lines(2, 6).Font("monospace").
 					Label(secretLabel).Placeholder(secretPlaceholder)
-			} else {
-				ui.TextInput(c, &f.Secret).Grow(1).Password().Label(secretLabel).
-					Placeholder(secretPlaceholder)
+				return
 			}
+			secretField(c, t, f, secretLabel, secretPlaceholder)
 		})
 		if f.EditingID != "" {
 			ui.Text(c, i18n.T("hosts.form.editKeepHint")).
@@ -295,6 +294,45 @@ func hostFormFields(c *ui.Context, a *workspace.State, t *ui.Theme, f *workspace
 	if f.Err != "" {
 		ui.Text(c, f.Err).FontSize(style.FontSize(13)).TextColor(t.Danger).Wrap()
 	}
+}
+
+// secretField renders a password input with an eye toggle inside its right
+// edge. Mygo hides a password per frame, so the toggle changes only how the
+// value is drawn, never the value itself.
+func secretField(c *ui.Context, t *ui.Theme, f *workspace.HostForm,
+	label, placeholder string) {
+	ui.Box(c).Grow(1).Children(func() {
+		pad := t.Space(1.5)
+		// Leave room for the eye on the right: top, right, bottom, left.
+		input := ui.TextInput(c, &f.Secret).Grow(1).Label(label).
+			Placeholder(placeholder).
+			Padding(pad, t.Space(2.5)+24, pad, t.Space(2.5))
+		if !f.SecretVisible {
+			input.Password()
+		}
+		icon, action := "eye", i18n.T("hosts.form.showSecret")
+		if f.SecretVisible {
+			icon, action = "eye-off", i18n.T("hosts.form.hideSecret")
+		}
+		s := assets.SVG(icon)
+		if s == nil {
+			return
+		}
+		// KeepFocus lets the user keep typing in the field: pressing the eye
+		// does not move the keyboard focus out of the input.
+		toggle := ui.ButtonBase(c).Size(24, 24).Radius(4).KeepFocus().
+			Tooltip(action).Label(action).Cursor(ui.CursorPointer).
+			OnClick(func() { f.SecretVisible = !f.SecretVisible })
+		color := t.TextMuted
+		if toggle.Hovered() {
+			toggle = toggle.Background(t.SurfaceHover)
+			color = t.Text
+		}
+		toggle.Children(func() {
+			ui.Icon(c, s).Size(16, 16).TextColor(color)
+		})
+		toggle.Absolute().Right(t.Space(0.5)).Top(0).Bottom(0).MarginY(ui.Auto)
+	})
 }
 
 func formRow(c *ui.Context, t *ui.Theme, label string, build func()) {

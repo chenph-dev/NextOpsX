@@ -92,6 +92,94 @@ func TestHostFormTypingBindsFields(t *testing.T) {
 	}
 }
 
+func TestHostFormSecretIsMasked(t *testing.T) {
+	a := &workspace.State{}
+	a.OpenNewHostForm()
+	a.SelectHostProtocol("ssh")
+	a.Hosts.Form.Secret = "s3cret!"
+	tt := ui.NewTester(views.Shell(a), 1000, 800)
+	tt.Frame()
+
+	label, ok := tt.Find("凭据")
+	if !ok {
+		t.Fatalf("credential field missing: %q", tt.Texts())
+	}
+	// The field's ink, from the end of its label across the text: the eye
+	// sits at the far right, outside this window.
+	ink := func() uint64 {
+		img := tt.Image()
+		b := img.Bounds()
+		x0 := min(max(int(label.X+label.W)+2, b.Min.X), b.Max.X)
+		y0 := min(max(int(label.Y)-6, b.Min.Y), b.Max.Y)
+		x1 := min(x0+140, b.Max.X)
+		y1 := min(y0+32, b.Max.Y)
+		var sum uint64
+		for y := y0; y < y1; y++ {
+			for x := x0; x < x1; x++ {
+				r, g, bl, _ := img.At(x, y).RGBA()
+				sum += uint64(r) + uint64(g) + uint64(bl)
+			}
+		}
+		return sum
+	}
+
+	hidden := ink()
+	a.Hosts.Form.SecretVisible = true
+	tt.Frame()
+	if ink() == hidden {
+		t.Fatal("the credential is drawn the same hidden and shown")
+	}
+}
+
+func TestHostFormSecretVisibilityToggle(t *testing.T) {
+	a := &workspace.State{}
+	a.OpenNewHostForm()
+	a.SelectHostProtocol("ssh")
+	tt := ui.NewTester(views.Shell(a), 1000, 800)
+	tt.Frame()
+
+	r, ok := tt.Find("凭据")
+	if !ok {
+		t.Fatalf("credential field missing: %q", tt.Texts())
+	}
+	tt.ClickAt(r.X+r.W+80, r.Y+r.H/2)
+	tt.Type("s3cret")
+
+	if err := tt.Click("显示密码"); err != nil {
+		t.Fatalf("eye button missing: %v (%q)", err, tt.Texts())
+	}
+	if !a.Hosts.Form.SecretVisible {
+		t.Fatal("clicking the eye did not reveal the secret")
+	}
+	if a.Hosts.Form.Secret != "s3cret" {
+		t.Fatalf("secret changed while revealing: %q", a.Hosts.Form.Secret)
+	}
+
+	// The eye must not take the focus: typing carries on in the field.
+	tt.Type("!")
+	if a.Hosts.Form.Secret != "s3cret!" {
+		t.Fatalf("typing after revealing = %q", a.Hosts.Form.Secret)
+	}
+
+	tt.Frame()
+	if err := tt.Click("隐藏密码"); err != nil {
+		t.Fatalf("eye button missing after revealing: %v (%q)", err, tt.Texts())
+	}
+	if a.Hosts.Form.SecretVisible {
+		t.Fatal("clicking the eye again did not hide the secret")
+	}
+	if a.Hosts.Form.Secret != "s3cret!" {
+		t.Fatalf("secret changed while hiding: %q", a.Hosts.Form.Secret)
+	}
+
+	// A private key is a text area, which cannot hide its text.
+	a.Hosts.Form.AuthType = "privatekey"
+	tt.Frame()
+	if tt.HasText("显示密码") || tt.HasText("隐藏密码") {
+		t.Errorf("private key text area should not offer the eye: %q", tt.Texts())
+	}
+}
+
 func TestCreateHostThroughFormUI(t *testing.T) {
 	t.Setenv("NEXTOPSX_DATA_DIR", t.TempDir())
 	t.Setenv("NEXTOPSX_TEST_NO_KEYRING", "1")

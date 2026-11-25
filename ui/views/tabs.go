@@ -89,12 +89,18 @@ func assetTab(c *ui.Context, a *workspace.State, t *ui.Theme, id string) {
 			}
 		})
 
-		closeButton := ui.ButtonBase(c).Padding(3).Radius(4).
-			Tooltip(i18n.T("terminal.tabs.close")).
-			OnClick(func() { a.CloseAssetTab(id) })
+		closeLabel := i18n.T("terminal.tabs.close")
+		closeButton := ui.ButtonBase(c).Size(20, 20).Radius(4).
+			Tooltip(closeLabel).Label(closeLabel).
+			Cursor(ui.CursorPointer).OnClick(func() { a.CloseAssetTab(id) })
+		closeColor := t.TextMuted
+		if closeButton.Hovered() {
+			closeButton = closeButton.Background(t.SurfacePressed)
+			closeColor = t.Text
+		}
 		closeButton.Children(func() {
 			if svg := assets.SVG("close"); svg != nil {
-				ui.Icon(c, svg).Size(10, 10).TextColor(t.TextMuted)
+				ui.Icon(c, svg).Size(13, 13).TextColor(closeColor)
 			}
 		})
 	})

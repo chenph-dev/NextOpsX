@@ -1,37 +1,161 @@
-# NextOpsX（下一代运维平台）
+# NextOpsX
 
-NextOpsX 是基于 MyGo 原生 UI 的桌面运维客户端：不依赖 WebView，保持单一 Go 代码库。
+**English** | [简体中文](README_CN.md)
 
-## 功能
+NextOpsX is a desktop operations workbench for individual operators and SREs, covering SSH, SFTP, databases, Redis, and Elasticsearch. It is built on the MyGo native UI: a single Go codebase with no WebView dependency.
 
-- 资产树与资产管理：协议选择面板、按协议默认值、目录/主机 CRUD、移动、重命名、连接测试
-- SSH 多终端会话页签（连接随页签保留，切换资产不断开）、SFTP 右侧抽屉与传输任务
-- 智能运维全协议底部抽屉；布局与上次选中资产在重启后恢复
-- 数据库工作台：对象树、多标签 SQL、结果网格、分页、CSV 导出（MySQL / PostgreSQL / SQLite / ClickHouse / SQL Server）
-- Redis：键空间、键详情、TTL、命令终端、INFO
-- Elasticsearch：索引、Query DSL、REST 终端、集群信息
-- 智能运维：多供应商、流式回复、命令/计划审批、历史会话、调用审计
-- 运维技能：ZIP 安装、启停、删除、SKILL.md 预览
-- 命令历史与收藏：记录智能运维执行和应用内触发的命令，终端输入时弹出合并去重后的历史/收藏建议（↑↓ 选择、Tab 填入）；支持搜索、查看输出、重新执行与收藏，收藏模板支持 `{{host}}`、`{{user}}` 等变量
-- 审批策略、桌面通知、原生菜单、托盘、主题与界面缩放、中英文界面
+## Highlights
 
-## 环境要求
+- **One workbench instead of scattered tabs** — assets, terminals, database consoles, and AI assistance share the same window.
+- **Local-first** — assets, command history, and credentials are stored on the machine by default; secrets are encrypted with AES-256-GCM.
+- **Controlled execution** — AI-suggested commands follow approval policies, and model, tool, and command activity is audited.
+- **Native desktop integration** — native menu, tray, notifications, themes, UI scaling, and a Chinese/English interface.
 
-- Go 1.27.3+
-- Linux 桌面需要 GTK 运行库；系统托盘需要 `libayatana-appindicator3`（缺失时仅托盘不可用）
-- 打包 Windows 安装包需要 NSIS（在 Windows 上由 `mygo build` 自动获取）；macOS 签名与 dmg 需要 macOS
+## Features
 
-## 开发
+### Assets and connections
+
+- Asset tree with folders and hosts; create, edit, move, rename, and test connections
+- Protocol picker with per-protocol defaults and field schemas
+- Windows assets can launch the system Remote Desktop client (only from the Windows app)
+- Restores the previous layout and selected asset after restart
+
+### Terminal and files
+
+- Multiple SSH terminal tabs; sessions stay alive while switching assets
+- SFTP drawer for browsing and transfer tasks
+- Command history and favorites recorded from both the AI assistant and in-app execution, with merged, de-duplicated suggestions while typing (↑/↓ to select, Tab to insert), search, output inspection, re-run, and templates such as `{{host}}` and `{{user}}`
+
+### Databases, caches, and search
+
+- SQL workbench for MySQL, PostgreSQL, SQLite, ClickHouse, and SQL Server: object tree, multiple SQL tabs, result grid, paging, and CSV export
+- Redis: key space, key details, TTL, command console, and INFO
+- Elasticsearch: indices, Query DSL, REST console, and cluster information
+
+### AI operations
+
+- Multiple model providers with streaming replies
+- Command and plan approval; an approved plan can continue by executing ordinary commands
+- Conversation history and AI call audit
+- Skills: install from ZIP, enable/disable, delete, and preview `SKILL.md`
+
+Conversation context is sent to the configured model provider when you use the assistant.
+
+### Desktop
+
+- Approval policies, desktop notifications, native menu, and tray
+- System/light/dark themes, UI scaling, and Chinese/English UI
+- In-app updates from GitHub Releases
+
+## Supported connections
+
+| Protocol | Capabilities |
+| --- | --- |
+| SSH | Interactive terminal (multi-tab), SFTP, command execution, AI operations |
+| WinRM | Command console, AI operations |
+| MySQL / PostgreSQL / ClickHouse / SQL Server | SQL workbench, object tree, CSV export |
+| SQLite | Local database workbench |
+| Redis | Key browser, key details, TTL, command console, INFO |
+| Elasticsearch | Index browser, Query DSL, REST console, cluster information |
+
+## Requirements
+
+- Go 1.27.3 or newer
+- Linux desktop: GTK runtime; the tray also needs `libayatana-appindicator3` (without it, only the tray is unavailable)
+- Packaging: Windows installers need NSIS (fetched automatically by `mygo build` on Windows); macOS signing and DMG packaging require macOS
+
+## Getting started
+
+Run from source:
 
 ```bash
-go run .                 # 启动应用
-go tool mygo dev         # 热重载开发
-go build ./...           # 编译所有包
-go test ./...            # 运行测试
-go tool mygo vet .       # MyGo UI 生命周期检查
+go run .
 ```
 
-真实 SSH 终端测试是可选的：
+For hot reload during development:
+
+```bash
+go tool mygo dev
+```
+
+Build and verify:
+
+```bash
+go build ./...
+go test ./...
+go tool mygo vet .
+```
+
+## Build installers
+
+```bash
+go tool mygo build                    # current platform
+go tool mygo build -platform linux/amd64,linux/arm64,windows/amd64,windows/arm64,darwin/arm64,darwin/amd64
+```
+
+Artifacts are written to `build/`:
+
+- Linux: executable, `.deb`, `.tar.gz`, and a standalone `install.sh`
+- Windows: executable and NSIS installer
+- macOS: `.app` and `.dmg` (signing and notarization require macOS)
+- With `updates` configured: signed update archives and one `update-<platform>.json` per build target
+
+## Data and credentials
+
+By default, data is stored in a `nextopsx/` directory under the platform configuration directory:
+
+| Platform | Path |
+| --- | --- |
+| Linux | `~/.config/nextopsx` |
+| Windows | `%APPDATA%\nextopsx` |
+| macOS | `~/Library/Application Support/nextopsx` |
+
+The SQLite database is `nextopsx.db`.
+
+- `NEXTOPSX_DATA_DIR` overrides the directory, for testing or portable deployments.
+- Passwords and private keys are encrypted with AES-256-GCM. The master key is stored in the OS keyring when available, with a `master.key` file (mode `0600`) as fallback.
+
+## Auto-update
+
+### Installing updates
+
+Builds produced by `go tool mygo build` with `updates` configured can update themselves: open **Settings → About**, check for a new version, download it, and restart. The manifest is fetched from the latest GitHub release, the download is verified against the public key embedded in the build, and the app is replaced in place.
+
+In-app updates need a writable installation directory. Versions installed by a system package manager (for example a `.deb` under `/opt`) are updated by that package manager instead, and the app reports that self-update is unavailable.
+
+### Publishing a release
+
+The signing key pair is created by `mygo keygen`:
+
+```
+<config-dir>/mygo/update-keys/mygo-update.key   # secret key; back it up offline, never commit it
+<config-dir>/mygo/update-keys/mygo-update.pub   # public key; already configured in mygo.json
+```
+
+`<config-dir>` is the platform configuration directory used by MyGo; on Linux it is `~/.config`.
+
+To publish from a local machine (`gh` logged in, or `GH_TOKEN`/`GITHUB_TOKEN` set):
+
+```bash
+MYGO_UPDATER_PRIVATE_KEY="$(cat ~/.config/mygo/update-keys/mygo-update.key)" \
+  go tool mygo build -platform linux/amd64,linux/arm64,windows/amd64,windows/arm64,darwin/arm64,darwin/amd64 -upload
+```
+
+Losing the secret key prevents installed users from receiving further updates; leaking it lets anyone publish updates they will accept.
+
+CI release flow:
+
+1. Add the secret key to the repository: `gh secret set MYGO_UPDATER_PRIVATE_KEY < ~/.config/mygo/update-keys/mygo-update.key`
+2. Update `version` in `mygo.json` and the matching section in `CHANGELOG.md`, then commit.
+3. Tag and push: `git tag v0.2.0 && git push origin v0.2.0`
+4. `.github/workflows/release.yml` checks that the tag matches `mygo.json`, builds the Linux and Windows targets on Ubuntu and the macOS targets on macOS, then uploads the artifacts to a draft release. Review it, then **publish it and mark it as the latest release**.
+5. `.github/workflows/ci.yml` runs build, tests, and vet on pushes and pull requests.
+
+Each update manifest is tied to one build target (for example `update-linux-amd64.json`), and its URL is compiled into the binary. Published architectures must match the manifests: a `darwin/universal` build needs `update-darwin-universal.json`, or it cannot check for updates. This repository publishes `darwin/arm64` and `darwin/amd64` separately.
+
+## Development
+
+### Optional SSH terminal test
 
 ```bash
 NEXTOPSX_SSH_TEST_HOST=<host> \
@@ -40,101 +164,54 @@ NEXTOPSX_SSH_TEST_KEY=$HOME/.ssh/<key> \
 go test -run TestSSHTerminal -v ./service/terminal
 ```
 
-### 提交信息钩子
+### Commit message hook
 
-提交信息会自动过滤 AI 协作标识（如 `Co-Authored-By: Claude ...`、`🤖 Generated with ...`）。克隆仓库后启用一次：
+The repository filters automated co-author trailers and generation notices from commit messages. Enable the hook once after cloning:
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-钩子位于 `.githooks/commit-msg`，普通提交不受影响；需要保留原始信息时可用 `git commit --no-verify` 绕过。
+The hook lives in `.githooks/commit-msg`; ordinary commits are unaffected. Use `git commit --no-verify` when the original message must be kept.
 
-## 数据目录
-
-默认使用平台配置目录下的 `nextopsx/`（Linux：`~/.config/nextopsx`，Windows：`%APPDATA%/nextopsx`），数据库为 `nextopsx.db`。
-
-- `NEXTOPSX_DATA_DIR` 可覆盖数据目录，便于测试或便携部署。
-- 密码/私钥使用 AES-256-GCM 加密，优先存入系统 keyring，失败时回退到 `master.key`。
-
-## 打包
-
-```bash
-go tool mygo build                                   # 当前平台
-go tool mygo build -platform linux/amd64,windows/amd64,darwin/universal
-```
-
-产物写到 `build/`：
-
-- Linux：可执行文件、`.deb`、`.tar.gz`（含 `install.sh`）
-- Windows：可执行文件、NSIS 安装包
-- macOS：`.app` 与 `.dmg`（需在 macOS 上签名/公证）
-- 配置 `updates` 后还会生成签名更新包与 `update-<platform>.json`
-
-## 自动更新
-
-`mygo.json` 已配置 GitHub Releases 更新源（`chenph-dev/NextOpsX`）和公钥；安装版可在「设置 → 关于」检查、下载并重启应用更新。
-
-签名私钥由 `mygo keygen` 生成在本机：
-
-```
-~/.config/mygo/update-keys/mygo-update.key   # 私钥，务必离线备份，绝不提交
-~/.config/mygo/update-keys/mygo-update.pub   # 公钥，已写入 mygo.json
-```
-
-发布新版本（需要 `gh` 已登录，或设置 `GH_TOKEN`/`GITHUB_TOKEN`）：
-
-```bash
-MYGO_UPDATER_PRIVATE_KEY="$(cat ~/.config/mygo/update-keys/mygo-update.key)" \
-  go tool mygo build -platform linux/amd64,windows/amd64,darwin/arm64 -upload
-```
-
-私钥丢失会导致已安装用户无法再收到更新；泄露则任何人都能发布被接受的更新。
-
-CI 发布流程：
-
-1. 把私钥内容加入仓库 secret：`gh secret set MYGO_UPDATER_PRIVATE_KEY < ~/.config/mygo/update-keys/mygo-update.key`
-2. 更新 `mygo.json` 的 `version` 和 `CHANGELOG.md` 对应小节，提交。
-3. 打 tag 并推送：`git tag v0.2.0 && git push origin v0.2.0`
-4. `release.yml` 会在 Linux / Windows / macOS runner 上构建并上传到 draft release；检查后发布。
-5. `ci.yml` 在 push/PR 时运行 build、test 与 vet。
-
-## 项目结构
+## Project layout
 
 ```text
-cmd/nextopsx      # 组合根：窗口、菜单、托盘、tray 图标
-ui/workspace      # 单窗口 UI 状态与动作（ViewModel），不渲染、不直接做 I/O
-ui/views          # 窗口布局（Shell），功能面板在子包中
-ui/views/ai       # 智能运维面板
-ui/views/db       # 数据库工作台
-ui/views/redis    # Redis 面板
-ui/views/es       # Elasticsearch 面板
-ui/views/sftp     # SFTP 抽屉
-ui/views/hosts    # 资产树、表单与欢迎页
-ui/views/terminal # 终端补全与命令历史面板
-ui/views/settings # 设置页各分区
-ui/views/result   # 通用结果网格
-ui/markdown       # 原生 Markdown 渲染
-ui/ansi           # ANSI SGR 解析与终端配色
-ui/style          # 界面缩放
-ui/widgets        # 共享状态文本与终端输出
-ui/assets         # 内嵌图标资源
-i18n              # zh-CN / en-US 字符串目录
-service/backend   # 组合根：装配并暴露各功能服务
-service/hosts     # 资产、目录与连接测试
-service/ai        # AI 会话与供应商
-service/db        # 数据库查询与结构
-service/sftp      # SFTP 浏览与传输任务
-service/skills    # 运维技能
-service/snippets  # 命令收藏
-service/settings  # UI 设置
-service/audit     # AI 调用审计
-service/policy    # 审批策略
-service/history   # 命令历史
-service/rdp       # RDP 拉起
-service/terminal  # 交互终端适配
-service/executor  # 连接执行器解析
-domain            # 连接器、执行器、SFTP、技能
-agent             # AI 会话、模型、工具与提示词
-store             # SQLite、加密、迁移与各领域存储
+cmd/nextopsx       Composition root: window, menu, tray, icons
+ui/workspace       UI state and actions (view model); no rendering or direct I/O
+ui/views           Window shell and feature panels
+ui/views/ai        AI operations panel
+ui/views/db        Database workbench
+ui/views/redis     Redis panel
+ui/views/es        Elasticsearch panel
+ui/views/sftp      SFTP drawer
+ui/views/hosts     Asset tree, forms, welcome page
+ui/views/terminal  Terminal completion and command history panel
+ui/views/winrm     WinRM console
+ui/views/settings  Settings sections
+ui/views/result    Shared result grid
+ui/markdown        Native Markdown rendering
+ui/ansi            ANSI SGR parsing and terminal colors
+ui/style           UI scaling
+ui/widgets         Shared status text and terminal output
+ui/assets          Embedded icons
+i18n               zh-CN / en-US string catalogs
+service/backend    Composition root for feature services
+service/hosts      Assets, folders, connection tests
+service/ai         AI sessions and providers
+service/db         Database queries and schema
+service/sftp       SFTP browsing and transfer tasks
+service/skills     Operations skills
+service/snippets   Command favorites
+service/settings   UI settings
+service/audit      AI call audit
+service/policy     Approval policies
+service/history    Command history
+service/rdp        External RDP launcher
+service/terminal   Interactive terminal adapter
+service/executor   Connector executor resolution
+domain             Connectors, executors, SFTP, skills
+agent              AI sessions, models, tools, prompts
+store              SQLite, encryption, migrations, domain stores
+resources          Application icon sources
 ```
